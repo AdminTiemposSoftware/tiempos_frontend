@@ -30,6 +30,7 @@
 	"dependencies": {
 		"@lucide/svelte": "^0.576.0",
 		"flowbite-svelte-icons": "^3.1.0",
+		"svelte-adapter-azure-swa": "^0.22.1",
 		"svelte-qrcode": "^1.0.1"
 	}
 }
