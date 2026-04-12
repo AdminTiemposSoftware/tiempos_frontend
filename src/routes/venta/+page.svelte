@@ -1,0 +1,73 @@
+<script lang="ts">
+    import Matrix from "$lib/components/venta/Matrix.svelte";
+    import Sell from "$lib/components/venta/Sell.svelte";
+    import SellHeader from "$lib/components/venta/SellHeader.svelte";
+    import { prohibitedNumbers } from "../../lib/stores/UpdateSellMatrix";
+    import { sellingMatrix } from "../../lib/stores/UpdateSellMatrix";
+    import { total } from "../../lib/stores/UpdateSellMatrix";
+
+    // TODO This is all testing data, replace with actual data from the database
+    prohibitedNumbers.set([3, 7, 13, 17, 23, 27]); 
+    let selectedDate = new Date().toISOString().split('T')[0];
+    let closeTime = 'N/A';
+    let message = '';
+    let availableBets = [{"name": "Nica Tarde", "closeTime": "18:00"}, {"name": "Nica Noche", "closeTime": "22:00"}]; // TODO
+    let tickets = [
+            { id: 1, total: 150, details: "Ticket 1 details", status: true },
+            { id: 2, total: 50, details: "Ticket 2 details", status: true },
+            { id: 3, total: 75, details: "Ticket 3 details", status: false }
+        ]; // TODO
+    let soldNumbersForTicket = [{number: 1, price: 100}, {number: 2, price: 50}]; 
+    sellingMatrix.set({
+        0: 100,
+        1: 50,
+        2: 75
+    });
+    // TODO Implement functionality to calculate total sales
+    total.set(225);
+
+    function getTickets() {
+        // TODO Implement functionality to fetch tickets for the selected date and bet
+        return tickets;
+    }
+
+    function getSoldNumbersForTicket(ticketId: number) {
+        // TODO Implement functionality to get sold numbers for a ticket
+        return soldNumbersForTicket;
+    }
+
+
+</script>
+
+<section class="sell-container">
+    <SellHeader
+        bind:selectedDate={selectedDate}
+        bind:closeTime={closeTime}
+        bind:message={message}
+        bind:availableBets={availableBets}
+    />
+    <section class="set-section">
+        <Sell 
+            getTickets={getTickets}
+            getSoldNumbersForTicket={getSoldNumbersForTicket}
+        />
+        <Matrix 
+            rows={20}
+            columns={5}
+        />
+    </section>
+</section>
+
+<style>
+    .sell-container {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+        flex: 1;
+    }
+    
+    .set-section {
+        gap: 1rem;
+        width: 100%;
+    }
+</style>
