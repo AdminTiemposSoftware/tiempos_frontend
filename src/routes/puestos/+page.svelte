@@ -96,6 +96,7 @@
 
 <section class="puestos-container">
 	<h1>Puestos</h1>
+<div class="table-wrap">
 	<table>
 		<thead>
 			<tr>
@@ -131,6 +132,7 @@
 			{/each}
 		</tbody>
 	</table>
+</div>
 	<button onclick={() => ((selectedPuesto = null), (showModal = true))}>
 		Agregar nuevo puesto
 	</button>
@@ -140,9 +142,13 @@
 	.puestos-container {
 		flex-direction: column;
 		justify-content: start;
-		align-items: start;
+		align-items: stretch;
 		gap: 1rem;
 		width: 100%;
+	}
+
+	h1 {
+		text-align: left;
 	}
 </style>
 

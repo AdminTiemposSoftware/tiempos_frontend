@@ -1,6 +1,6 @@
 <script lang="ts">
     let isExpanded = $state(true);
-    let currentPath = '';
+    let currentPath = $state('/');
 
     // Get current path on component mount
     import { onMount } from 'svelte';

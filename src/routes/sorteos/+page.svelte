@@ -159,23 +159,6 @@
 		return expandedSchedule[sorteoId]?.includes(scheduleKey);
 	}
 
-	function getTimeClass(time: string) {
-		const hour = Number(time.split(':')[0]);
-		if (Number.isNaN(hour)) {
-			return 'night';
-		}
-		if (hour >= 0 && hour < 12) {
-			return 'morning';
-		}
-        if (hour >= 12 && hour < 18) {
-            return 'afternoon';
-		}
-		if (hour >= 18 && hour < 24) {
-			return 'night';
-		}
-		return 'night';
-	}
-
 </script>
 
 <PuestoModal
@@ -195,27 +178,44 @@
 />
 
 <section class="sorteos-container">
-	<h1>Sorteos</h1>
+	<div class="sorteos-header">
+		<div>
+			<h1>Sorteos</h1>
+			<p>Gestiona horarios y puestos por sorteo.</p>
+		</div>
+		<button onclick={() => handleAddSchedule(0)}>
+			Nuevo sorteo
+		</button>
+	</div>
 	{#each sorteos as sorteo}
 		<div class="sorteo">
 			<button class="sorteo-toggle" onclick={() => toggleSorteo(sorteo.id)}>
-				<span>{sorteo.name}</span>
-				<span>{sorteo.type}</span>
-				<span>{sorteo.days}</span>
+				<div class="sorteo-main">
+					<span class="sorteo-name">{sorteo.name}</span>
+					<div class="chips">
+						<span class="chip">{sorteo.type}</span>
+						<span class="chip muted">{sorteo.days}</span>
+					</div>
+				</div>
+				<span class="count">{sorteo.schedule.length} horarios</span>
 			</button>
 			{#if expandedSorteo.includes(sorteo.id)}
 				<div class="sorteo-content">
 					{#each sorteo.schedule as slot}
 						<div class="schedule">
 							<button
-								class={`schedule-toggle ${getTimeClass(slot.time)}`}
+								class="schedule-toggle"
 								onclick={() => toggleSchedule(sorteo.id, slot.id)}
 							>
-								<span>{slot.name}</span>
-								<span>{slot.time}</span>
+								<div class="schedule-main">
+									<span class="schedule-name">{slot.name}</span>
+									<span class="schedule-time">{slot.time}</span>
+								</div>
+								<span class="count">{slot.puestos.length} puestos</span>
 							</button>
 							{#if isScheduleExpanded(sorteo.id, slot.id)}
-								<table class="schedule-table">
+							<div class="table-wrap">
+								<table>
 									<thead>
 										<tr>
 											{#each puestosHeaders as header}
@@ -256,12 +256,15 @@
 										{/if}
 									</tbody>
 								</table>
+							</div>
 							{/if}
 						</div>
 					{/each}
-					<button class="add-schedule" onclick={() => handleAddSchedule(sorteo.id)}>
-						Agregar horario
-					</button>
+					<div class="actions">
+						<button class="add-schedule" onclick={() => handleAddSchedule(sorteo.id)}>
+							Agregar horario
+						</button>
+					</div>
 				</div>
 			{/if}
 		</div>
@@ -276,22 +279,68 @@
 		gap: 1rem;
 		width: 100%;
 	}
+	.sorteos-header {
+		width: 100%;
+		display: flex;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+	.sorteos-header h1 {
+		margin: 0;
+		text-align: left;
+	}
+	.sorteos-header p {
+		color: rgba(0, 0, 0, 0.6);
+		font-size: 0.95rem;
+	}
 	.sorteo {
 		width: 100%;
 		border: 1px solid var(--color-border);
-		border-radius: 0.75rem;
+		border-radius: 0.9rem;
 		overflow: hidden;
+		background: #fafafa;
 	}
 	.sorteo-toggle {
 		width: 100%;
 		display: flex;
-		align-items: center;
 		justify-content: space-between;
 		padding: 0.75rem 1rem;
 		border: none;
 		cursor: pointer;
-		text-align: left;
+		background: #fafafa;
+	}
+	.sorteo-main {
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+	}
+	.sorteo-name {
+		font-size: 1.25rem;
+		color: rgba(0, 0, 0, 0.85);
+	}
+	.chips {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+	.chip {
+		padding: 0.15rem 0.5rem;
+		border-radius: 999px;
+		background: var(--color-bg-2);
+		font-size: 0.9rem;
+		color: rgba(0, 0, 0, 0.7);
 		font-weight: 600;
+	}
+	.chip.muted {
+		background: #eaeaea;
+		color: rgba(0, 0, 0, 0.55);
+		font-weight: 500;
+	}
+	.count {
+		color: rgba(0, 0, 0, 0.55);
+		font-weight: 500;
+		margin: 0;
 	}
 	.sorteo-content {
 		padding: 1rem;
@@ -303,35 +352,45 @@
 		display: flex;
 		border-radius: 0.75rem;
 		flex-direction: column;
+		gap: 0.4rem;
+		background: #fff;
+		border: 1px solid var(--color-border);
 	}
 	.schedule-toggle {
+		padding: 1rem;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 0.5rem 0.75rem;
 		border-radius: 0.5rem;
-		border: 1px solid var(--color-border);
 		cursor: pointer;
 		text-align: left;
+		color: rgba(0, 0, 0, 0.85);
+		background: transparent;
 	}
-	.schedule-table {
-		width: 100%;
-		border-collapse: collapse;
+	.schedule-main {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
 	}
-	.schedule-table th,
-	.schedule-table td {
-		padding: 0.5rem;
-		border-bottom: 1px solid var(--color-border);
-		text-align: left;
+	.schedule-name {
+		font-size: 1.1rem;
+		font-weight: 600;
+	}
+	.schedule-time {
+		font-size: 0.8rem;
+		color: rgba(0, 0, 0, 0.6);
 	}
 	.empty-row {
 		text-align: center;
 	}
-	.add-puestos {
+	.add-schedule {
 		align-self: flex-start;
 		padding: 0.5rem 0.75rem;
 		border-radius: 0.5rem;
 		cursor: pointer;
+	}
+	.table-wrap {
+		margin: 0 1rem 1rem;
 	}
 </style>
 
