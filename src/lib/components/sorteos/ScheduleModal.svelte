@@ -1,0 +1,74 @@
+<script lang="ts">
+	let {
+		showModal = $bindable(),
+		schedule = $bindable({
+			name: '',
+			time: ''
+		}),
+		sorteoId = $bindable(0),
+        addSchedule = $bindable()
+	} = $props();
+
+	function onClose() {
+		showModal = false;
+	}
+
+	function handleSubmit() {
+		const payload = {
+			...schedule,
+			name: schedule.name?.trim(),
+			time: schedule.time?.trim()
+		};
+
+		if (!payload.name || !payload.time || !sorteoId) {
+			return;
+		}
+
+		addSchedule(payload);
+		onClose();
+	}
+</script>
+
+{#if showModal}
+	<div
+		class="modal-backdrop"
+		role="button"
+		onclick={onClose}
+		onkeydown={(e) => e.key === 'Escape' && onClose()}
+		tabindex="0"
+	>
+		<div class="modal" onclick={(e) => e.stopPropagation()} role="presentation">
+			<h2>{schedule?.id ? 'Editar Horario' : 'Agregar Horario'}</h2>
+			<form
+				onsubmit={(e) => {
+					e.preventDefault();
+					handleSubmit();
+				}}
+			>
+				<label for="schedule-name">Nombre</label>
+				<input id="schedule-name" type="text" bind:value={schedule.name} required />
+
+				<label for="schedule-time">Hora</label>
+				<input
+					id="schedule-time"
+					type="time"
+					bind:value={schedule.time}
+					required
+				/>
+
+				<div class="modal-actions">
+					<button type="button" onclick={onClose}>Cancelar</button>
+					<button type="submit">Guardar</button>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}
+
+<style>
+	form {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+</style>

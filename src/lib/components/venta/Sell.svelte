@@ -2,6 +2,7 @@
     let sold= $state<Record<string, { price: number }>>({});
     let soldAmount = $state(0);
     let priceInput: HTMLInputElement;
+    let priceValue = $state('');
     let showQrModal = $state(false);
     let showTicketsModal = $state(false);
     let tickets = $state([]);
@@ -18,8 +19,21 @@
     function handleNumberKeydown(event: KeyboardEvent) {
         if (event.key === "Enter") {
             event.preventDefault();
-            priceInput?.focus();
+            numberInput?.focus();
         }
+    }
+
+    function formatThousands(value: string) {
+        const digitsOnly = value.replace(/\D/g, '');
+        if (!digitsOnly) {
+            return '';
+        }
+        return digitsOnly.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+
+    function handlePriceInput(event: Event) {
+        const target = event.target as HTMLInputElement;
+        priceValue = formatThousands(target.value);
     }
 
     function updateSalesData(numbers: string[], price: number) {
@@ -45,7 +59,7 @@
         event.preventDefault();
         const formData = new FormData(event.target as HTMLFormElement);
         const numberInput = formData.get("number") as string;
-        const price = formData.get("price") as string;
+        const price = (formData.get("price") as string).replace(/\./g, '');
         
         if (!numberInput || !price) {
             return;
@@ -75,6 +89,7 @@
         updateSalesData(validNumbers, parseInt(price));
 
         (event.target as HTMLFormElement).reset();
+        priceValue = '';
     }
 
     function confirmSale() {
@@ -157,10 +172,15 @@
         <div class="question monto">
             <label for="price">Monto:</label>
             <input
-                type="number"
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9.]*"
                 id="price"
                 name="price"
                 bind:this={priceInput}
+                bind:value={priceValue}
+                oninput={handlePriceInput}
+                onkeydown={handleNumberKeydown}
             />
         </div>
         <div class="question numero">
@@ -171,7 +191,6 @@
                 min="0"
                 max="99"
                 bind:this={numberInput}
-                onkeydown={handleNumberKeydown}
             />
         </div>
         <button type="submit">Agregar</button>

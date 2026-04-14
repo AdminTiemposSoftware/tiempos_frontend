@@ -1,13 +1,19 @@
 <script lang="ts">
-	let {showModal = $bindable(), puesto = $bindable(
-		{
+	let {
+		showModal = $bindable(),
+		sorteo = $bindable({
 			name: '',
-			phone: '',
-			commission: false,
-			status: 'Activo',
-			user: ''
-		}
-	) } = $props();
+			type: 'Tiempos',
+			days: ''
+		}),
+		addSorteo = $bindable(),
+		updateSorteo = $bindable()
+	} = $props();
+
+	const dayOptions = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
+	let selectedDays = $derived(
+		sorteo.days ? sorteo.days.split(',').map((day) => day.trim()).filter(Boolean) : []
+	);
 
 
 	function onClose() {
@@ -15,60 +21,63 @@
 	}
 
 	function handleSubmit() {
-		console.log('Puesto data:', puesto);
-		if (puesto?.id) {
-		// TODO: Update existing puesto
+		const payload = {
+			...sorteo,
+			name: sorteo.name?.trim(),
+			type: sorteo.type?.trim(),
+			days: selectedDays.join(', ')
+		};
+
+		if (!payload.name || !payload.type || !payload.days) {
+			return;
+		}
+
+		if (payload.id) {
+			updateSorteo(payload);
 		} else {
-			// TODO: Add new puesto
+			addSorteo(payload);
 		}
 		onClose();
 	}
-
-	console.log('Puesto to edit:', puesto);
 </script>
 
 {#if showModal}
-	<div 
-		class="modal-backdrop" 
-		role="button" 
-		onclick={onClose} 
-		onkeydown={(e) => e.key === "Escape" && onClose()} 
+	<div
+		class="modal-backdrop"
+		role="button"
+		onclick={onClose}
+		onkeydown={(e) => e.key === 'Escape' && onClose()}
 		tabindex="0"
 	>
-		<div
-			class="modal"
-			onclick={(e) => e.stopPropagation()}
-			role="presentation"
-		>
-			<h2>{puesto?.id ? 'Editar Puesto' : 'Agregar Nuevo Puesto'}</h2>
-			<form 
+		<div class="modal" onclick={(e) => e.stopPropagation()} role="presentation">
+			<h2>{sorteo?.id ? 'Editar Sorteo' : 'Agregar Nuevo Sorteo'}</h2>
+			<form
 				onsubmit={(e) => {
 					e.preventDefault();
 					handleSubmit();
 				}}
 			>
-				<label for="name">Nombre</label>
-				<input id="name" type="text" value={puesto?.name} required />
+				<label for="sorteo-name">Nombre</label>
+				<input id="sorteo-name" type="text" bind:value={sorteo.name} required />
 
-				<label for="phone">Teléfono</label>
-				<input id="phone" type="text" value={puesto?.phone} />
-
-				<label for="user">Usuario</label>
-				<input id="user" type="text" value={puesto?.user} />
-
-				<label for="status">Estado</label>
-				<select id="status" value={puesto?.status}>
-					<option value="Activo">Activo</option>
-					<option value="Inactivo">Inactivo</option>
+				<label for="sorteo-type">Tipo</label>
+				<select id="sorteo-type" bind:value={sorteo.type}>
+					<option value="Tiempos">Tiempos</option>
+					<option value="Reventado">Reventado</option>
 				</select>
 
-				<div class="checkbox-container">
-					<input id="commission" type="checkbox" checked={puesto?.commission} />
-					<label for="commission">Ve comisión</label>
+				<label>Dias</label>
+				<div class="days-grid">
+					{#each dayOptions as day}
+						<label class="day-option">
+							<input type="checkbox" value={day} bind:group={selectedDays} />
+							<span>{day}</span>
+						</label>
+					{/each}
 				</div>
 
 				<div class="modal-actions">
-					<button type="button" onclick={onClose} >Cancelar</button>
+					<button type="button" onclick={onClose}>Cancelar</button>
 					<button type="submit">Guardar</button>
 				</div>
 			</form>
@@ -82,9 +91,17 @@
 		flex-direction: column;
 		gap: 1rem;
 	}
-	.checkbox-container {
-		display: flex;
+	.days-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+		gap: 0.5rem 1rem;
+	}
+	.day-option {
+		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
+		padding: 0.25rem 0.5rem;
+		border-radius: 6px;
+		background: #f5f5f5;
 	}
 </style>

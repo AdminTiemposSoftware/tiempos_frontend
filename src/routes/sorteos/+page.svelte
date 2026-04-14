@@ -1,12 +1,13 @@
 <script lang="ts">
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
-	import PuestoModal from '$lib/components/puestos/PuestoModal.svelte';
+	import SchedulePuestoModal from '$lib/components/puestos/SchedulePuestoModal.svelte';
+	import ScheduleModal from '$lib/components/sorteos/ScheduleModal.svelte';
+	import SorteoModal from '$lib/components/sorteos/SorteoModal.svelte';
 	import { PenSolid, TrashBinSolid, EyeSolid } from 'flowbite-svelte-icons';
 
 	let puestosHeaders = [
-		{ key: 'time', label: 'Hora' },
-		{ key: 'commission', label: 'Comision' },
 		{ key: 'merchantName', label: 'Nombre Comercio' },
+		{ key: 'commission', label: 'Comision' },
 		{ key: 'normalPayment', label: 'Pago normal' },
 		{ key: 'extraPayment', label: 'Pago extra' },
 		{ key: 'options', label: 'Opciones' }
@@ -84,18 +85,26 @@
 		}
 	];
 
-	let showModal = $state(false);
+	let showSchedulePuestoModal = $state(false);
+	let showScheduleModal = $state(false);
+	let showSorteoModal = $state(false);
+	let selectedSorteo = $state(null);
 	let showDeleteModal = $state(false);
-	let selectedPuesto = $state(null);
+	let selectedSchedule = $state(null);
+	let selectedSorteoId = $state(0);
+	let selectedScheduleId = $state(0);
+	let selectedSchedulePuesto = $state(null);
 	let puestoToDelete = $state(null);
 	let expandedSorteo = $state<number[]>([]);
 	let expandedSchedule = $state<Record<number, number[]>>({});
 
-	function handleEdit(puesto) {
-		console.log('Editar puesto:', puesto);
-		selectedPuesto = puesto;
-		showModal = true;
-	}
+	const puestoOptions = [
+		'Comercio Central',
+		'Punto Norte',
+		'Sucursal Sur',
+		'Puesto Norte',
+		'Tienda Centro'
+	];
 
 	function handleDelete(puesto) {
 		puestoToDelete = puesto;
@@ -116,23 +125,51 @@
 		puestoToDelete = null;
 	}
 
-	function handleAddPuestos(event: CustomEvent) {
+	function handleAddSorteo(event: CustomEvent) {
+		const newSorteo = event.detail;
+		const nextId = Math.max(0, ...sorteos.map((item) => item.id)) + 1;
+		sorteos = [...sorteos, { ...newSorteo, id: nextId }];
 	}
 
-	function handleUpdatePuestos(event: CustomEvent) {
+	function handleAddScheduleSubmit(event: CustomEvent) {
+		const { sorteoId, schedule } = event.detail;
+		sorteos = sorteos.map((sorteo) => {
+			if (sorteo.id !== sorteoId) {
+				return sorteo;
+			}
+			const nextId = Math.max(0, ...sorteo.schedule.map((item) => item.id)) + 1;
+			return {
+				...sorteo,
+				schedule: [...sorteo.schedule, { ...schedule, id: nextId, puestos: [] }]
+			};
+		});
+	}
+
+	function handleAddSchedulePuesto(event: CustomEvent) {
+		const { sorteoId, scheduleId, puesto } = event.detail;
+		sorteos = sorteos.map((sorteo) => {
+			if (sorteo.id !== sorteoId) {
+				return sorteo;
+			}
+			return {
+				...sorteo,
+				schedule: sorteo.schedule.map((slot) => {
+					if (slot.id !== scheduleId) {
+						return slot;
+					}
+					const nextId = Math.max(0, ...slot.puestos.map((item) => item.id)) + 1;
+					return {
+						...slot,
+						puestos: [...slot.puestos, { ...puesto, id: nextId }]
+					};
+				})
+			};
+		});
+	}
+
+	function handleUpdateSorteo(event: CustomEvent) {
 		const updated = event.detail;
-		sorteos = sorteos.map((sorteo) => ({
-			...sorteo,
-			schedule: sorteo.schedule.map((slot) => ({
-				...slot,
-				puestos: slot.puestos.map((puesto) => (puesto.id === updated.id ? updated : puesto))
-			}))
-		}));
-	}
-
-	function handleView(puestos: (typeof sorteos)[number]['schedule'][number]['puestos'][number]) {
-		selectedPuesto = puestos;
-		showModal = true;
+		sorteos = sorteos.map((sorteo) => (sorteo.id === updated.id ? { ...sorteo, ...updated } : sorteo));
 	}
 
 	function toggleSorteo(sorteoId: number) {
@@ -151,8 +188,21 @@
 	}
 
 	function handleAddSchedule(sorteoId: number) {
-		showModal = true;
-		selectedPuesto = null;
+		selectedSchedule = { name: '', time: '' };
+		selectedSorteoId = sorteoId;
+		showScheduleModal = true;
+	}
+
+	function handleAddPuestoToSchedule(sorteoId: number, scheduleId: number) {
+		selectedSorteoId = sorteoId;
+		selectedScheduleId = scheduleId;
+		selectedSchedulePuesto = {
+			merchantName: '',
+			commission: 0,
+			normalPayment: 0,
+			extraPayment: 0
+		};
+		showSchedulePuestoModal = true;
 	}
 
 	function isScheduleExpanded(sorteoId: number, scheduleKey: number) {
@@ -161,11 +211,27 @@
 
 </script>
 
-<PuestoModal
-	bind:showModal={showModal}
-	bind:puesto={selectedPuesto}
-	on:addPuesto={handleAddPuestos}
-	on:updatePuesto={handleUpdatePuestos}
+<SchedulePuestoModal
+	bind:showModal={showSchedulePuestoModal}
+	bind:puesto={selectedSchedulePuesto}
+	bind:sorteoId={selectedSorteoId}
+	bind:scheduleId={selectedScheduleId}
+	options={puestoOptions}
+	on:addSchedulePuesto={handleAddSchedulePuesto}
+/>
+
+<ScheduleModal
+	bind:showModal={showScheduleModal}
+	bind:schedule={selectedSchedule}
+	bind:sorteoId={selectedSorteoId}
+	on:addSchedule={handleAddScheduleSubmit}
+/>
+
+<SorteoModal
+	bind:showModal={showSorteoModal}
+	bind:sorteo={selectedSorteo}
+	on:addSorteo={handleAddSorteo}
+	on:updateSorteo={handleUpdateSorteo}
 />
 
 <ConfirmModal
@@ -183,7 +249,12 @@
 			<h1>Sorteos</h1>
 			<p>Gestiona horarios y puestos por sorteo.</p>
 		</div>
-		<button onclick={() => handleAddSchedule(0)}>
+		<button
+			onclick={() => {
+				selectedSorteo = { name: '', type: 'Tiempos', days: '' };
+				showSorteoModal = true;
+			}}
+		>
 			Nuevo sorteo
 		</button>
 	</div>
@@ -233,7 +304,6 @@
 										{:else}
 											{#each slot.puestos as puesto}
 												<tr>
-													<td>{slot.time}</td>
 													<td>{puesto.commission}%</td>
 													<td>{puesto.merchantName}</td>
 													<td>{puesto.normalPayment}</td>
@@ -257,6 +327,12 @@
 									</tbody>
 								</table>
 							</div>
+							<button
+								class="add-puesto"
+								onclick={() => handleAddPuestoToSchedule(sorteo.id, slot.id)}
+							>
+								Agregar puesto
+							</button>
 							{/if}
 						</div>
 					{/each}
@@ -386,6 +462,13 @@
 	.add-schedule {
 		align-self: flex-start;
 		padding: 0.5rem 0.75rem;
+		border-radius: 0.5rem;
+		cursor: pointer;
+	}
+	.add-puesto {
+		align-self: flex-start;
+		margin: 1rem;
+		margin-top: 0;
 		border-radius: 0.5rem;
 		cursor: pointer;
 	}
