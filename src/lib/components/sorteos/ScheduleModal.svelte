@@ -6,7 +6,7 @@
 			time: ''
 		}),
 		sorteoId = $bindable(0),
-        addSchedule = $bindable()
+        addSchedule
 	} = $props();
 
 	function onClose() {
@@ -15,7 +15,7 @@
 
 	function handleSubmit() {
 		const payload = {
-			...schedule,
+			sorteoId,
 			name: schedule.name?.trim(),
 			time: schedule.time?.trim()
 		};
@@ -23,6 +23,9 @@
 		if (!payload.name || !payload.time || !sorteoId) {
 			return;
 		}
+
+		// TODO Send data to backend
+		console.log('Submitting schedule:', payload);
 
 		addSchedule(payload);
 		onClose();

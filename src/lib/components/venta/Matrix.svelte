@@ -6,14 +6,6 @@
     import { sellingMatrix } from '../../stores/UpdateSellMatrix';
     import { prohibitedNumbers } from '../../stores/UpdateSellMatrix';
 
-    function updateCell(index: number, value: string) {
-        if (isNaN(Number(value))) {
-            sellingMatrix.update(prev => ({ ...prev, [index]: 0 }));
-        } else {
-            sellingMatrix.update(prev => ({ ...prev, [index]: Number(value) }));
-        }
-    }
-
     if (data.length > 0) {
         for (let i = 0; i < rows; i++) {
             for (let j = 0; j < columns; j++) {

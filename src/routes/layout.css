@@ -148,7 +148,7 @@ input[type="number"]::-webkit-inner-spin-button {
 	margin: 0;
 }
 
-input{
+input, select{
 	background: #ffffff;
 	padding:0.3rem;
 	border: 1px solid #ccc;
@@ -159,12 +159,6 @@ input:focus {
 	border-color: var(--color-theme-1);
 	box-shadow: 0 0 8px rgba(0, 123, 255, 0.5);
 	outline: none;
-}
-
-@media (min-width: 720px) {
-	h1 {
-		font-size: 2.4rem;
-	}
 }
 
 .visually-hidden {

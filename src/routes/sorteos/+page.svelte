@@ -3,7 +3,7 @@
 	import SchedulePuestoModal from '$lib/components/puestos/SchedulePuestoModal.svelte';
 	import ScheduleModal from '$lib/components/sorteos/ScheduleModal.svelte';
 	import SorteoModal from '$lib/components/sorteos/SorteoModal.svelte';
-	import { PenSolid, TrashBinSolid, EyeSolid } from 'flowbite-svelte-icons';
+	import { PenSolid, TrashBinSolid } from 'flowbite-svelte-icons';
 
 	let puestosHeaders = [
 		{ key: 'merchantName', label: 'Nombre Comercio' },
@@ -13,7 +13,7 @@
 		{ key: 'options', label: 'Opciones' }
 	];
 
-	let sorteos = [
+	let sorteos = $state([
 		{
 			id: 1,
 			name: 'Loteria Nacional',
@@ -27,7 +27,7 @@
 					puestos: [
 						{
 							id: 101,
-							merchantName: 'Comercio Central',
+							name: 'Comercio Central',
 							commission: 10,
 							commission2: 5,
 							normalPayment: 60,
@@ -42,7 +42,7 @@
 					puestos: [
 						{
 							id: 102,
-							merchantName: 'Punto Norte',
+							name: 'Punto Norte',
 							commission: 12,
 							commission2: 6,
 							normalPayment: 70,
@@ -65,7 +65,7 @@
                     puestos: [
                         {
                             id: 201,
-                            merchantName: 'Sucursal Sur',
+                            name: 'Sucursal Sur',
                             commission: 15,
                             commission2: 7,
                             normalPayment: 80,
@@ -73,7 +73,7 @@
                         },
                         {
                             id: 201,
-                            merchantName: 'Sucursal Sur',
+                            name: 'Sucursal Sur',
                             commission: 15,
                             commission2: 7,
                             normalPayment: 80,
@@ -83,20 +83,7 @@
                 }            
             ]
 		}
-	];
-
-	let showSchedulePuestoModal = $state(false);
-	let showScheduleModal = $state(false);
-	let showSorteoModal = $state(false);
-	let selectedSorteo = $state(null);
-	let showDeleteModal = $state(false);
-	let selectedSchedule = $state(null);
-	let selectedSorteoId = $state(0);
-	let selectedScheduleId = $state(0);
-	let selectedSchedulePuesto = $state(null);
-	let puestoToDelete = $state(null);
-	let expandedSorteo = $state<number[]>([]);
-	let expandedSchedule = $state<Record<number, number[]>>({});
+	]);
 
 	const puestoOptions = [
 		'Comercio Central',
@@ -106,33 +93,110 @@
 		'Tienda Centro'
 	];
 
-	function handleDelete(puesto) {
+	let showSchedulePuestoModal = $state(false);
+	let showScheduleModal = $state(false);
+	let showSorteoModal = $state(false);
+	let showDeleteScheduleModal = $state(false);
+	let showDeletePuestoModal = $state(false);
+	let showDeleteSorteoModal = $state(false);
+	let selectedSorteo = $state(null);
+	let selectedSchedule = $state(null);
+	let selectedSorteoId = $state(0);
+	let selectedScheduleId = $state(0);
+	let selectedSchedulePuesto = $state(null);
+	let puestoToDelete = $state(null);
+	let scheduleToDelete = $state(null);
+	let sorteoToDelete = $state(null);
+	let expandedSorteo = $state<number[]>([]);
+	let expandedSchedule = $state<Record<number, number[]>>({});
+
+	// UI state toggles
+	function toggleSorteo(sorteoId: number) {
+		expandedSorteo = expandedSorteo.includes(sorteoId)
+			? expandedSorteo.filter((id) => id !== sorteoId)
+			: [...expandedSorteo, sorteoId];
+	}
+
+	function toggleSchedule(sorteoId: number, scheduleKey: number) {
+		expandedSchedule = {
+			...expandedSchedule,
+			[sorteoId]: expandedSchedule[sorteoId]?.includes(scheduleKey)
+				? expandedSchedule[sorteoId].filter((item) => item !== scheduleKey)
+				: [...(expandedSchedule[sorteoId] || []), scheduleKey]
+		};
+	}
+
+	function isScheduleExpanded(sorteoId: number, scheduleKey: number) {
+		return expandedSchedule[sorteoId]?.includes(scheduleKey);
+	}
+
+	// Open modals for create actions
+	function handleAddSorteo() {
+		selectedSorteo = { name: '', type: 'Tiempos', days: '' };
+		showSorteoModal = true;
+	}
+
+	function showAddSchedule(sorteoId: number) {
+		selectedSchedule = { name: '', time: '' };
+		selectedSorteoId = sorteoId;
+		showScheduleModal = true;
+	}
+
+	function showAddPuestoToSchedule(sorteoId: number, scheduleId: number) {
+		selectedSorteoId = sorteoId;
+		selectedScheduleId = scheduleId;
+		selectedSchedulePuesto = {
+			merchantName: '',
+			commission: 0,
+			normalPayment: 0,
+			extraPayment: 0
+		};
+		showSchedulePuestoModal = true;
+	}
+
+	// Open modals for edit/view actions
+	function showEditSorteo(sorteoId: number) {
+		selectedSorteo = { ...sorteos.find((s) => s.id === sorteoId) };
+		showSorteoModal = true;
+	}
+
+	function showEditSchedule(sorteoId: number, scheduleId: number) {
+		selectedSchedule = {
+			...sorteos.find((s) => s.id === sorteoId)?.schedule.find((s) => s.id === scheduleId)
+		};
+		showScheduleModal = true;
+	}
+
+	function showEditPuestoFromSchedule(puesto) {
+		selectedSchedulePuesto = { ...puesto };
+		showSchedulePuestoModal = true;
+	}
+
+	// Open modals for delete actions
+	function showDeletePuestoFromSchedule(puesto) {
 		puestoToDelete = puesto;
-		showDeleteModal = true;
+		showDeletePuestoModal = true;
 	}
 
-	function handleConfirmDelete() {
-		if (!puestoToDelete) {
-			return;
-		}
-		sorteos = sorteos.map((sorteo) => ({
-			...sorteo,
-			schedule: sorteo.schedule.map((slot) => ({
-				...slot,
-				puestos: slot.puestos.filter((puesto) => puesto.id !== puestoToDelete?.id)
-			}))
-		}));
-		puestoToDelete = null;
+	function showDeleteSchedule(sorteoId: number, scheduleId: number) {
+		scheduleToDelete = sorteos.find((s) => s.id === sorteoId)?.schedule.find((s) => s.id === scheduleId);
+		showDeleteScheduleModal = true;
 	}
 
-	function handleAddSorteo(event: CustomEvent) {
+	function showDeleteSorteo(sorteoId: number) {
+		sorteoToDelete = sorteos.find((s) => s.id === sorteoId);
+		showDeleteSorteoModal = true;
+	}
+
+	// Create handlers
+	function handleAddSorteoSubmit(event: CustomEvent) {
 		const newSorteo = event.detail;
 		const nextId = Math.max(0, ...sorteos.map((item) => item.id)) + 1;
 		sorteos = [...sorteos, { ...newSorteo, id: nextId }];
 	}
 
-	function handleAddScheduleSubmit(event: CustomEvent) {
-		const { sorteoId, schedule } = event.detail;
+	function handleAddScheduleSubmit(payload) {
+		const { sorteoId, name, time } = payload;
 		sorteos = sorteos.map((sorteo) => {
 			if (sorteo.id !== sorteoId) {
 				return sorteo;
@@ -140,12 +204,12 @@
 			const nextId = Math.max(0, ...sorteo.schedule.map((item) => item.id)) + 1;
 			return {
 				...sorteo,
-				schedule: [...sorteo.schedule, { ...schedule, id: nextId, puestos: [] }]
+				schedule: [...sorteo.schedule, { name, time, id: nextId, puestos: [] }]
 			};
 		});
 	}
 
-	function handleAddSchedulePuesto(event: CustomEvent) {
+	function handleAddSchedulePuestoSubmit(event: CustomEvent) {
 		const { sorteoId, scheduleId, puesto } = event.detail;
 		sorteos = sorteos.map((sorteo) => {
 			if (sorteo.id !== sorteoId) {
@@ -167,46 +231,65 @@
 		});
 	}
 
-	function handleUpdateSorteo(event: CustomEvent) {
-		const updated = event.detail;
-		sorteos = sorteos.map((sorteo) => (sorteo.id === updated.id ? { ...sorteo, ...updated } : sorteo));
+	// Update handlers
+	function updateSorteo(updatedSorteo) {
+		sorteos = sorteos.map((sorteo) =>
+			sorteo.id === updatedSorteo.id ? { ...sorteo, ...updatedSorteo } : sorteo
+		);
 	}
 
-	function toggleSorteo(sorteoId: number) {
-		expandedSorteo = expandedSorteo.includes(sorteoId)
-			? expandedSorteo.filter((id) => id !== sorteoId)
-			: [...expandedSorteo, sorteoId];
+	function updateSchedule(updatedSchedule) {
+		// TODO Send update request to backend
+		sorteos = sorteos.map((sorteo) => ({
+			...sorteo,
+			schedule: sorteo.schedule.map((slot) =>
+				slot.id === updatedSchedule.id ? { ...slot, ...updatedSchedule } : slot
+			)
+		}));
 	}
 
-	function toggleSchedule(sorteoId: number, scheduleKey: number) {
-		expandedSchedule = {
-            ...expandedSchedule,
-            [sorteoId]: expandedSchedule[sorteoId]?.includes(scheduleKey)
-				? expandedSchedule[sorteoId].filter((item) => item !== scheduleKey)
-				: [...(expandedSchedule[sorteoId] || []), scheduleKey]
-        };
+	function updateSchedulePuesto(updatedPuesto) {
+		// TODO Send update request to backend
+		sorteos = sorteos.map((sorteo) => ({
+			...sorteo,
+			schedule: sorteo.schedule.map((slot) => ({
+				...slot,
+				puestos: slot.puestos.map((puesto) =>
+					puesto.id === updatedPuesto.id ? { ...puesto, ...updatedPuesto } : puesto
+				)
+			}))
+		}));
 	}
 
-	function handleAddSchedule(sorteoId: number) {
-		selectedSchedule = { name: '', time: '' };
-		selectedSorteoId = sorteoId;
-		showScheduleModal = true;
+	// Delete handlers
+	function handleConfirmDeletePuesto() {
+		// TODO Send delete request to backend
+		if (!puestoToDelete) {
+			return;
+		}
+		sorteos = sorteos.map((sorteo) => ({
+			...sorteo,
+			schedule: sorteo.schedule.map((slot) => ({
+				...slot,
+				puestos: slot.puestos.filter((puesto) => puesto.id !== puestoToDelete?.id) //Asume puesto ids are unique across sorteos and horarios for simplicidad, otherwise also check sorteoId and scheduleId
+			}))
+		}));
+		puestoToDelete = null;
 	}
 
-	function handleAddPuestoToSchedule(sorteoId: number, scheduleId: number) {
-		selectedSorteoId = sorteoId;
-		selectedScheduleId = scheduleId;
-		selectedSchedulePuesto = {
-			merchantName: '',
-			commission: 0,
-			normalPayment: 0,
-			extraPayment: 0
-		};
-		showSchedulePuestoModal = true;
+	function handleConfirmDeleteSchedule() {
+		// TODO Send delete request to backend
+		sorteos = sorteos.map((sorteo) => ({
+			...sorteo,
+			schedule: sorteo.schedule.filter((slot) => slot.id !== scheduleToDelete?.id) //Asume schedule ids are unique across sorteos for simplicity, otherwise also check sorteoId
+		}));
+		scheduleToDelete = null;
 	}
 
-	function isScheduleExpanded(sorteoId: number, scheduleKey: number) {
-		return expandedSchedule[sorteoId]?.includes(scheduleKey);
+	function handleConfirmDeleteSorteo() {
+		// TODO Send delete request to backend
+		sorteos = sorteos.filter((sorteo) => sorteo.id !== sorteoToDelete?.id);
+		sorteoToDelete = null;
 	}
 
 </script>
@@ -217,30 +300,50 @@
 	bind:sorteoId={selectedSorteoId}
 	bind:scheduleId={selectedScheduleId}
 	options={puestoOptions}
-	on:addSchedulePuesto={handleAddSchedulePuesto}
+	addSchedulePuesto={handleAddSchedulePuestoSubmit}
+	updateSchedulePuesto={updateSchedulePuesto}
 />
 
 <ScheduleModal
 	bind:showModal={showScheduleModal}
 	bind:schedule={selectedSchedule}
 	bind:sorteoId={selectedSorteoId}
-	on:addSchedule={handleAddScheduleSubmit}
+	addSchedule={handleAddScheduleSubmit}
+	updateSchedule={updateSchedule}
 />
 
 <SorteoModal
 	bind:showModal={showSorteoModal}
 	bind:sorteo={selectedSorteo}
-	on:addSorteo={handleAddSorteo}
-	on:updateSorteo={handleUpdateSorteo}
+	addSorteo={handleAddSorteoSubmit}
+	updateSorteo={updateSorteo}
 />
 
 <ConfirmModal
-	bind:showModal={showDeleteModal}
-	title="Eliminar sorteo"
-	message={`Estas seguro de eliminar ${puestoToDelete?.name ?? 'este sorteo'}?`}
+	bind:showModal={showDeletePuestoModal}
+	title="Eliminar puesto"
+	message={`Estas seguro de eliminar ${puestoToDelete?.name ?? 'este puesto'} del horario?`}
 	confirmText="Eliminar"
 	cancelText="Cancelar"
-	confirm={handleConfirmDelete}
+	confirm={handleConfirmDeletePuesto}
+/>
+
+<ConfirmModal
+	bind:showModal={showDeleteScheduleModal}
+	title="Eliminar horario"
+	message={`Estas seguro de eliminar ${scheduleToDelete?.name ?? 'este horario'} del sorteo?`}
+	confirmText="Eliminar"
+	cancelText="Cancelar"
+	confirm={handleConfirmDeleteSchedule}
+/>
+
+<ConfirmModal
+	bind:showModal={showDeleteSorteoModal}
+	title="Eliminar sorteo"
+	message={`Estas seguro de eliminar ${sorteoToDelete?.name ?? 'este sorteo'}?`}
+	confirmText="Eliminar"
+	cancelText="Cancelar"
+	confirm={handleConfirmDeleteSorteo}
 />
 
 <section class="sorteos-container">
@@ -249,12 +352,7 @@
 			<h1>Sorteos</h1>
 			<p>Gestiona horarios y puestos por sorteo.</p>
 		</div>
-		<button
-			onclick={() => {
-				selectedSorteo = { name: '', type: 'Tiempos', days: '' };
-				showSorteoModal = true;
-			}}
-		>
+		<button onclick={handleAddSorteo}>
 			Nuevo sorteo
 		</button>
 	</div>
@@ -298,26 +396,23 @@
 										{#if slot.puestos.length === 0}
 											<tr>
 												<td colspan={puestosHeaders.length} class="empty-row">
-													Sin sorteos
+													Sin puestos en este horario
 												</td>
 											</tr>
 										{:else}
 											{#each slot.puestos as puesto}
 												<tr>
 													<td>{puesto.commission}%</td>
-													<td>{puesto.merchantName}</td>
+													<td>{puesto.name}</td>
 													<td>{puesto.normalPayment}</td>
 													<td>{puesto.extraPayment}</td>
 													<td>
 														<div class="options-buttons">
-															<button class="neutral" onclick={() => handleEdit(puesto)}>
+															<button class="neutral" onclick={() => showEditPuestoFromSchedule(puesto)}>
 																<PenSolid class="shrink-0 h-4 w-4" />
 															</button>
-															<button class="negative" onclick={() => handleDelete(puesto)}>
+															<button class="negative" onclick={() => showDeletePuestoFromSchedule(puesto)}>
 																<TrashBinSolid class="shrink-0 h-4 w-4" />
-															</button>
-															<button onclick={() => handleView(puesto)}>
-																<EyeSolid class="shrink-0 h-4 w-4" />
 															</button>
 														</div>
 													</td>
@@ -327,18 +422,29 @@
 									</tbody>
 								</table>
 							</div>
-							<button
-								class="add-puesto"
-								onclick={() => handleAddPuestoToSchedule(sorteo.id, slot.id)}
-							>
-								Agregar puesto
-							</button>
+							<div class="actions">
+								<button onclick={() => showAddPuestoToSchedule(sorteo.id, slot.id)}>
+									Agregar puesto
+								</button>
+								<button onclick={() => showEditSchedule(sorteo.id, slot.id)}>
+									Editar horario
+								</button>
+								<button onclick={() => showDeleteSchedule(sorteo.id, slot.id)}>
+									Eliminar horario
+								</button>
+							</div>
 							{/if}
 						</div>
 					{/each}
 					<div class="actions">
-						<button class="add-schedule" onclick={() => handleAddSchedule(sorteo.id)}>
+						<button onclick={() => showAddSchedule(sorteo.id)}>
 							Agregar horario
+						</button>
+						<button onclick={() => showEditSorteo(sorteo.id)}>
+							Editar sorteo
+						</button>
+						<button onclick={() => showDeleteSorteo(sorteo.id)}>
+							Eliminar sorteo
 						</button>
 					</div>
 				</div>
@@ -373,7 +479,7 @@
 	.sorteo {
 		width: 100%;
 		border: 1px solid var(--color-border);
-		border-radius: 0.9rem;
+		border-radius: 10px;
 		overflow: hidden;
 		background: #fafafa;
 	}
@@ -422,22 +528,22 @@
 		padding: 1rem;
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
+		gap: 1rem;
 	}
 	.schedule {
 		display: flex;
-		border-radius: 0.75rem;
+		border-radius: 10px;
 		flex-direction: column;
-		gap: 0.4rem;
 		background: #fff;
 		border: 1px solid var(--color-border);
+		padding: 1rem;
 	}
 	.schedule-toggle {
-		padding: 1rem;
+		padding: 0;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		border-radius: 0.5rem;
+		border-radius: 10px;
 		cursor: pointer;
 		text-align: left;
 		color: rgba(0, 0, 0, 0.85);
@@ -459,21 +565,12 @@
 	.empty-row {
 		text-align: center;
 	}
-	.add-schedule {
-		align-self: flex-start;
-		padding: 0.5rem 0.75rem;
-		border-radius: 0.5rem;
-		cursor: pointer;
-	}
-	.add-puesto {
-		align-self: flex-start;
-		margin: 1rem;
-		margin-top: 0;
-		border-radius: 0.5rem;
-		cursor: pointer;
-	}
 	.table-wrap {
-		margin: 0 1rem 1rem;
+		margin: 1rem 0rem;
+	}
+	.actions {
+		display: flex;
+		gap: 0.5rem;
 	}
 </style>
 

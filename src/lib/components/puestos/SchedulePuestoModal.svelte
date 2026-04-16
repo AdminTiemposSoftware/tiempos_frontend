@@ -48,22 +48,29 @@
 					handleSubmit();
 				}}
 			>
-				<label for="puesto-name">Puesto</label>
-				<select id="puesto-name" bind:value={puesto.merchantName} required>
-					<option value="" disabled>Selecciona un puesto</option>
-					{#each options as option}
-						<option value={option}>{option}</option>
-					{/each}
-				</select>
 
-				<label for="puesto-commission">Comision</label>
-				<input id="puesto-commission" type="number" min="0" bind:value={puesto.commission} />
+				<div class="question">
+					<label for="puesto-name">Puesto</label>
+					<select id="puesto-name" bind:value={puesto.merchantName} required>
+						<option value="" disabled>Selecciona un puesto</option>
+						{#each options as option}
+							<option value={option}>{option}</option>
+						{/each}
+					</select>
+				</div>
 
-				<label for="puesto-normal">Pago normal</label>
-				<input id="puesto-normal" type="number" min="0" bind:value={puesto.normalPayment} />
-
-				<label for="puesto-extra">Pago extra</label>
-				<input id="puesto-extra" type="number" min="0" bind:value={puesto.extraPayment} />
+				<div class="question">
+					<label for="puesto-commission">Comision</label>
+					<input id="puesto-commission" type="number" min="0" bind:value={puesto.commission} />
+				</div>
+				<div class="question">
+					<label for="puesto-normal">Pago normal</label>
+					<input id="puesto-normal" type="number" min="0" bind:value={puesto.normalPayment} />
+				</div>
+				<div class="question">
+					<label for="puesto-extra">Pago extra</label>
+					<input id="puesto-extra" type="number" min="0" bind:value={puesto.extraPayment} />
+				</div>
 
 				<div class="modal-actions">
 					<button type="button" onclick={onClose}>Cancelar</button>
@@ -79,5 +86,16 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
+	}
+
+	.question {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+	}
+
+	.question *{
+		display: flex;
+		flex:1;
 	}
 </style>
