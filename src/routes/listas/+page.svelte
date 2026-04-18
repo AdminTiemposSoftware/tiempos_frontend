@@ -34,13 +34,13 @@
     <header>
         <div class="filters">
             <div class="date">
-                <label>Desde</label>
-                <input type="date" bind:value={dateFrom} placeholder="DD/MM/YYYY" />
+                <label for="desde">Desde</label>
+                <input type="date" id="desde" bind:value={dateFrom} placeholder="DD/MM/YYYY" />
             </div>
 
             <div class="date">
-                <label>Hasta</label>
-                <input type="date" bind:value={dateTo} placeholder="DD/MM/YYYY" />
+                <label for="hasta">Hasta</label>
+                <input type="date" id="hasta" bind:value={dateTo} placeholder="DD/MM/YYYY" />
             </div>
 
             <SelectModal title="Bancos" items={bancos} bind:selected={selectedBancos} />

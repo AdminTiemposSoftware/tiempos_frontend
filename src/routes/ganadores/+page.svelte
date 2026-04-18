@@ -1,6 +1,7 @@
 <script lang="ts">
     const rows = [
         {
+            id: 1,
             date: '16/02/2026',
             group: 'NICA 3',
             winner: '68',
@@ -10,6 +11,7 @@
             net: 0
         },
         {
+            id: 2,
             date: '16/02/2026',
             group: 'NICA 9',
             winner: '*',
@@ -19,6 +21,11 @@
             net: 0
         }
     ];
+
+    let editingWinner: Record<number, string> = rows.reduce(
+        (acc, row) => ({ ...acc, [row.id]: row.winner }),
+        {}
+    );
 
     const totals = rows.reduce(
         (acc, row) => ({
@@ -36,35 +43,25 @@
 </svelte:head>
 
 <section class="ganadores">
-    <header class="ganadores-header">
-        <h1>Vendedor</h1>
+    <div class="header-contained">
+        <div class="header-title">
+            <div>
+                <h1>Ganadores</h1>
+                <p>Asigna el numero ganador por sorteo.</p>
+            </div>
+        </div>
         <div class="filters">
             <div class="field">
-                <label for="desde">Desde</label>
+                <label for="desde">Fecha</label>
                 <input id="desde" type="date" value="2026-02-16" />
             </div>
             <div class="field">
-                <label for="hasta">Hasta</label>
-                <input id="hasta" type="date" value="2026-02-16" />
-            </div>
-            <div class="field">
-                <label>&nbsp;</label>
-                <button class="wide">Aplicar</button>
-            </div>
-            <div class="field">
-                <label>Filtrar</label>
+                <label for="filtrar">Filtrar</label>
                 <button class="wide neutral">Sorteos</button>
             </div>
-            <div class="field">
-                <label>Tipo</label>
-                <button class="wide">Vendedor</button>
-            </div>
-            <div class="field">
-                <label>&nbsp;</label>
-                <button class="wide success">Ver</button>
-            </div>
         </div>
-    </header>
+        <button>Guardar cambios</button>
+    </div>
 
     <div class="table-wrap">
         <table>
@@ -72,7 +69,7 @@
                 <tr>
                     <th>Fecha</th>
                     <th>Grupo</th>
-                    <th># Ganador</th>
+                    <th>Ganador</th>
                     <th>Venta</th>
                     <th>Comision</th>
                     <th>Premios</th>
@@ -85,7 +82,17 @@
                     <tr>
                         <td>{row.date}</td>
                         <td>{row.group}</td>
-                        <td>{row.winner}</td>
+                        <td>
+                            <div class="winner-input">
+                                <input
+                                    type="text"
+                                    inputmode="numeric"
+                                    placeholder="Ej: 68"
+                                    bind:value={editingWinner[row.id]}
+                                />
+                                <button class="neutral">Asignar</button>
+                            </div>
+                        </td>
                         <td>{row.sale.toFixed(2)}</td>
                         <td>{row.commission.toFixed(2)}</td>
                         <td>{row.prize.toFixed(2)}</td>
@@ -122,15 +129,17 @@
         box-sizing: border-box;
     }
 
-    .ganadores-header {
+    .header-title {
         display: flex;
-        flex-direction: column;
         gap: 1rem;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
     }
 
-    .ganadores-header h1 {
-        text-align: left;
-        margin: 0;
+    .header-title p {
+        margin: 0.25rem 0 0;
+        color: rgba(0, 0, 0, 0.6);
     }
 
     .filters {
@@ -151,15 +160,14 @@
         color: var(--color-text);
     }
 
-    .wide {
+    .winner-input {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .winner-input input {
         width: 100%;
-    }
-
-    .success {
-        background-color: #51b84a;
-    }
-
-    .success:hover {
-        background-color: #3f9a3a;
+        min-width: 50px;
     }
 </style>

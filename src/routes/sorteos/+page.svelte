@@ -347,7 +347,7 @@
 />
 
 <section class="sorteos-container">
-	<div class="sorteos-header">
+	<div class="header-contained">
 		<div>
 			<h1>Sorteos</h1>
 			<p>Gestiona horarios y puestos por sorteo.</p>
@@ -460,21 +460,6 @@
 		align-items: start;
 		gap: 1rem;
 		width: 100%;
-	}
-	.sorteos-header {
-		width: 100%;
-		display: flex;
-		align-items: flex-end;
-		justify-content: space-between;
-		gap: 1rem;
-	}
-	.sorteos-header h1 {
-		margin: 0;
-		text-align: left;
-	}
-	.sorteos-header p {
-		color: rgba(0, 0, 0, 0.6);
-		font-size: 0.95rem;
 	}
 	.sorteo {
 		width: 100%;

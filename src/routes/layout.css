@@ -265,10 +265,23 @@ th {
 	background: linear-gradient(to bottom, #00008b, #000);
 	color: #fff;
 }
-
-
 .table-wrap {
 	border: 1px solid var(--color-border);
 	background: #fff;
 	overflow-x: auto;
+}
+.header-contained {
+	width: 100%;
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: 1rem;
+}
+.header-contained h1 {
+	margin: 0;
+	text-align: left;
+}
+.header-contained p {
+	color: rgba(0, 0, 0, 0.6);
+	font-size: 0.95rem;
 }

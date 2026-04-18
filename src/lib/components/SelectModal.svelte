@@ -40,12 +40,6 @@
     :global(.dropdown-container .flex.items-center.gap-2:hover) {
         background-color: var(--color-box-background, #f0f0f0);
     }
-
-    .empty-state {
-        color: #9ca3af;
-        text-align: center;
-        font-style: italic;
-    }
 </style>
 
 <div class="dropdown-container">

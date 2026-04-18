@@ -12,7 +12,7 @@
 		{ key: 'options', label: 'Opciones' }
 	];
 
-	let data = [
+	let data = $state([
 		{
 			id: 1,
 			name: 'Puesto 1',
@@ -37,7 +37,7 @@
 			status: 'Activo',
 			user: null
 		}
-	];
+	]);
 
 	let showModal = $state(false);
 	let showDeleteModal = $state(false);
@@ -95,47 +95,52 @@
 />
 
 <section class="puestos-container">
-	<h1>Puestos</h1>
-<div class="table-wrap">
-	<table>
-		<thead>
-			<tr>
-				{#each headers as header}
-					<th>{header.label}</th>
-				{/each}
-			</tr>
-		</thead>
-		<tbody>
-			{#each data as row}
+	<div class="header-contained">
+		<div>
+			<h1>Puestos</h1>
+			<p>Gestiona puestos.</p>
+		</div>
+		<button onclick={() => ((selectedPuesto = null), (showModal = true))}>
+			Agregar nuevo puesto
+		</button>
+	</div>
+	<div class="table-wrap">
+		<table>
+			<thead>
 				<tr>
-					<td>{row.name}</td>
-					<td>{row.phone}</td>
-					<td>{row.commission ? 'Sí' : 'No'}</td>
-					<td>{row.status}</td>
-					<td>{row.user || 'N/A'}</td>
-					<td>
-						<div class="options-buttons">
-							<button class="neutral" onclick={() => handleEdit(row)}>
-								<PenSolid class="shrink-0 h-4 w-4" />
-							</button>
-							<button class="negative" onclick={() => handleDelete(row)}>
-								<TrashBinSolid class="shrink-0 h-4 w-4" />
-							</button>
-							<button
-								onclick={() => handleView(row)}
-							>
-								<EyeSolid class="shrink-0 h-4 w-4" />
-							</button>
-						</div>
-					</td>
+					{#each headers as header}
+						<th>{header.label}</th>
+					{/each}
 				</tr>
-			{/each}
-		</tbody>
-	</table>
-</div>
-	<button onclick={() => ((selectedPuesto = null), (showModal = true))}>
-		Agregar nuevo puesto
-	</button>
+			</thead>
+			<tbody>
+				{#each data as row}
+					<tr>
+						<td>{row.name}</td>
+						<td>{row.phone}</td>
+						<td>{row.commission ? 'Sí' : 'No'}</td>
+						<td>{row.status}</td>
+						<td>{row.user || 'N/A'}</td>
+						<td>
+							<div class="options-buttons">
+								<button class="neutral" onclick={() => handleEdit(row)}>
+									<PenSolid class="shrink-0 h-4 w-4" />
+								</button>
+								<button class="negative" onclick={() => handleDelete(row)}>
+									<TrashBinSolid class="shrink-0 h-4 w-4" />
+								</button>
+								<button
+									onclick={() => handleView(row)}
+								>
+									<EyeSolid class="shrink-0 h-4 w-4" />
+								</button>
+							</div>
+						</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</div>
 </section>
 
 <style>

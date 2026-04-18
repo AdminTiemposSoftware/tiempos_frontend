@@ -66,11 +66,11 @@
 					<option value="Reventado">Reventado</option>
 				</select>
 
-				<label>Dias</label>
+				<label for="sorteo-days">Dias</label>
 				<div class="days-grid">
 					{#each dayOptions as day}
 						<label class="day-option">
-							<input type="checkbox" value={day} bind:group={selectedDays} />
+							<input id="sorteo-days" type="checkbox" value={day} bind:group={selectedDays} />
 							<span>{day}</span>
 						</label>
 					{/each}
