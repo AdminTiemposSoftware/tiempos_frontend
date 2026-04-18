@@ -1,5 +1,6 @@
 import { redirect, Handle } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
+import { building } from '$app/environment';
 
 type AuthUser = {
 	id: string;
@@ -56,6 +57,10 @@ async function fetchUser(token: string, fetchFn: typeof fetch): Promise<AuthUser
 
 
 export const handle: Handle = async ({ event, resolve }) => {
+	if (building) {
+		return resolve(event);
+	}
+
 	const { pathname } = event.url;
 
 	// LOGIN POST
