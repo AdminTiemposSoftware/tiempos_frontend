@@ -6,14 +6,14 @@
 </script>
 
 <svelte:head>
-	<title>Login</title>
+	<title>Iniciar sesión</title>
 </svelte:head>
 
 <section class="login">
 	<div class="login-card">
 		<header>
-			<h1>Login</h1>
-			<p>Enter your credentials to continue.</p>
+			<h1>Iniciar sesión</h1>
+			<p>Ingresa tus credenciales para continuar.</p>
 		</header>
 
 		{#if hasFormError}
@@ -22,7 +22,7 @@
 
 		<form method="POST" action="/login" use:enhance>
 			<div class="field">
-				<label for="username">Email</label>
+				<label for="username">Usuario</label>
 				<input
 					id="username"
 					type="username"
@@ -39,12 +39,12 @@
 			</div>
 
 			<div class="field">
-				<label for="password">Password</label>
+				<label for="password">Contraseña</label>
 				<input
 					id="password"
 					type="password"
 					name="password"
-					placeholder="Your password"
+					placeholder="Tu contraseña"
 					autocomplete="current-password"
 					required
 					aria-invalid={form?.fieldErrors?.password ? 'true' : 'false'}
@@ -55,7 +55,7 @@
 				{/if}
 			</div>
 
-			<button type="submit" class="wide">Login</button>
+			<button type="submit" class="wide">Iniciar sesión</button>
 		</form>
 	</div>
 </section>
