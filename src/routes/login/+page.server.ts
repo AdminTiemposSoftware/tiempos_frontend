@@ -46,6 +46,9 @@ export const actions: Actions = {
 				fieldErrors: { password: 'Contraseña incorrecta.' }
 			});
 		} catch (error) {
+			if (error && typeof error === 'object' && 'status' in error && 'location' in error) {
+				throw error;
+			}
 			console.error('Error de inicio de sesión.', error);
 			return fail(500, {
 				error: 'Error al iniciar sesión. Intenta de nuevo.'
