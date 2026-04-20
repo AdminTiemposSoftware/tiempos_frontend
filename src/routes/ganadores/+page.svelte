@@ -142,13 +142,6 @@
         color: rgba(0, 0, 0, 0.6);
     }
 
-    .filters {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        gap: 0.75rem 1rem;
-        align-items: end;
-    }
-
     .field {
         display: flex;
         flex-direction: column;

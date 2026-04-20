@@ -285,3 +285,9 @@ th {
 	color: rgba(0, 0, 0, 0.6);
 	font-size: 0.95rem;
 }
+
+.filters {
+	display: flex;
+	gap: 1rem;
+	flex-wrap: wrap;
+}   

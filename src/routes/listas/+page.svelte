@@ -105,13 +105,6 @@
         flex: 1;
     }
 
-    .filters {
-        display: flex;
-        gap: 1rem;
-        flex-wrap: wrap;
-        width: 100%;
-    }   
-
     .content {
         display: flex;
         gap: 1rem;
