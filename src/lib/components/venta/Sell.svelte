@@ -16,7 +16,7 @@
     import QrModal from './QrModal.svelte';
     import TicketsModal from './TicketsModal.svelte';
 
-    function handleNumberKeydown(event: KeyboardEvent) {
+    function handlePriceKeydown(event: KeyboardEvent) {
         if (event.key === "Enter") {
             event.preventDefault();
             numberInput?.focus();
@@ -89,6 +89,7 @@
         updateSalesData(validNumbers, parseInt(price));
 
         (event.target as HTMLFormElement).reset();
+        priceInput?.focus();
         priceValue = '';
     }
 
@@ -103,7 +104,6 @@
         sold = {}; // Clear the local list
     }
 
-    // TODO: Implement functionality for these buttons
     function cleanSell() {
         if (Object.keys(sold).length === 0) {
             return;
@@ -122,8 +122,23 @@
         priceInput?.focus();
     }
 
-    // TODO: Implement functionality for these buttons
     function generatePairs() {
+        if (!priceValue.trim()) {
+            return;
+        }
+
+        const price = parseInt(priceValue.replace(/\./g, ''), 10);
+        if (!price || Number.isNaN(price)) {
+            return;
+        }
+
+        const pairNumbers = Array.from({ length: 10 }, (_, i) => String(i * 11));
+        const validNumbers = pairNumbers.filter(num => !$prohibitedNumbers.includes(parseInt(num, 10)));
+        if (validNumbers.length === 0) {
+            return;
+        }
+
+        updateSalesData(validNumbers, price);
     }
 
     //TODO: Implement functionality for these buttons
@@ -180,7 +195,7 @@
                 bind:this={priceInput}
                 bind:value={priceValue}
                 oninput={handlePriceInput}
-                onkeydown={handleNumberKeydown}
+                onkeydown={handlePriceKeydown}
             />
         </div>
         <div class="question numero">
@@ -195,7 +210,6 @@
         </div>
         <button type="submit">Agregar</button>
     </form>
-    <!-- TODO: Implement functionality for these buttons -->
     <div class="buttons-group">
         <button 
             onclick={cleanSell}
