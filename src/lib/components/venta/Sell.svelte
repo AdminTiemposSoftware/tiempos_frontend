@@ -7,6 +7,7 @@
     let showTicketsModal = $state(false);
     let tickets = $state([]);
     let numberInput: HTMLInputElement;
+    let randomCount = $state(1);
     let {getTickets, getSoldNumbersForTicket} = $props();
 
     import { TrashBinSolid, CubeSolid, QuestionCircleSolid, PrinterSolid, SearchSolid, EyeSolid, ReceiptSolid, CameraPhotoSolid } from "flowbite-svelte-icons";
@@ -112,14 +113,37 @@
     }
 
     function generateRandomNumbers() {
-        if (!numberInput) {
+        if (!priceValue.trim()) {
+            priceInput?.focus();
             return;
         }
-        const randomNumber = Math.floor(Math.random() * 100)
-            .toString()
-            .padStart(2, "0");
-        numberInput.value = randomNumber;
-        priceInput?.focus();
+
+        const price = parseInt(priceValue.replace(/\./g, ''), 10);
+        if (!price || Number.isNaN(price)) {
+            priceInput?.focus();
+            return;
+        }
+
+        const rawCount = Number(randomCount);
+        const requestedCount = Math.min(100, Math.max(1, Number.isFinite(rawCount) ? Math.floor(rawCount) : 1));
+        const existingNumbers = new Set(Object.keys(sold).map((num) => parseInt(num, 10)));
+        const pool = Array.from({ length: 100 }, (_, i) => i).filter(
+            (num) => !existingNumbers.has(num) && !$prohibitedNumbers.includes(num)
+        );
+        if (pool.length === 0) {
+            return;
+        }
+
+        const count = Math.min(requestedCount, pool.length);
+        const numbers: string[] = [];
+
+        for (let i = 0; i < count; i++) {
+            const index = Math.floor(Math.random() * pool.length);
+            const picked = pool.splice(index, 1)[0];
+            numbers.push(String(picked).padStart(2, "0"));
+        }
+
+        updateSalesData(numbers, price);
     }
 
     function generatePairs() {
@@ -222,17 +246,21 @@
             <CubeSolid class="shrink-0 h-4 w-4" />
             Pares
         </button>
-        <button onclick={generateRandomNumbers}>
-            <QuestionCircleSolid class="shrink-0 h-4 w-4" />
-            Aleatorio
-        </button>
-        <button 
-            onclick={printTicket}
-            disabled={Object.keys(sold).length === 0}
-        >
-            <PrinterSolid class="shrink-0 h-4 w-4" />
-            Imprimir
-        </button>
+        <div class="random-controls">
+            <button onclick={generateRandomNumbers}>
+                <QuestionCircleSolid class="shrink-0 h-4 w-4" />
+                Aleatorio
+            </button>
+            <input
+                class="random-count"
+                type="number"
+                min="1"
+                max="100"
+                step="1"
+                bind:value={randomCount}
+                aria-label="Cantidad de aleatorios"
+            />
+        </div>
     </div>
     <div class="sold">
         <table>
@@ -259,8 +287,9 @@
             onclick={confirmSale}
             disabled={Object.keys(sold).length === 0}
         >
-            Confirmar Venta</button
-        >
+            <PrinterSolid class="shrink-0 h-4 w-4" />
+            Imprimir
+        </button>
         <div class="buttons-group">
             <!-- TODO : This function shouldnt be necesary  -->
             <!-- <button onclick={searchTicket}>
@@ -376,6 +405,27 @@
 
     .buttons-group button {
         flex: 1;
+    }
+
+    .random-controls {
+        display: flex;
+        gap: 0.5rem;
+        border-radius: 0.25rem;
+        background-color: var(--color-theme-1);
+        padding: 0.5rem 1rem;
+        flex:1;
+    }
+
+    .random-controls button {
+        flex: 1;
+        background: none;
+        padding: 0;
+    }
+
+    .random-controls input {
+        width: 2rem;
+        padding: 0rem;
+        text-align: center;
     }
 
 </style>
