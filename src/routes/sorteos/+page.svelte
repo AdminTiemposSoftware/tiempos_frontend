@@ -3,6 +3,8 @@
 	import SchedulePuestoModal from '$lib/components/puestos/SchedulePuestoModal.svelte';
 	import ScheduleModal from '$lib/components/sorteos/ScheduleModal.svelte';
 	import SorteoModal from '$lib/components/sorteos/SorteoModal.svelte';
+	import AssignSorteoModal from '$lib/components/sorteos/AssignSorteoModal.svelte';
+	import AssignPuestoModal from '$lib/components/sorteos/AssignPuestoModal.svelte';
 	import { PenSolid, TrashBinSolid } from 'flowbite-svelte-icons';
 
 	let puestosHeaders = [
@@ -99,11 +101,17 @@
 	let showDeleteScheduleModal = $state(false);
 	let showDeletePuestoModal = $state(false);
 	let showDeleteSorteoModal = $state(false);
+	let showAssignSorteoModal = $state(false);
+	let showAssignPuestoModal = $state(false);
 	let selectedSorteo = $state(null);
 	let selectedSchedule = $state(null);
 	let selectedSorteoId = $state(0);
 	let selectedScheduleId = $state(0);
 	let selectedSchedulePuesto = $state(null);
+	let selectedShortcutSorteoId = $state<number | null>(null);
+	let selectedShortcutPuesto = $state('');
+	let selectedShortcutPuestoForAll = $state('');
+	let selectedShortcutSorteoForAll = $state<number | null>(null);
 	let puestoToDelete = $state(null);
 	let scheduleToDelete = $state(null);
 	let sorteoToDelete = $state(null);
@@ -292,6 +300,32 @@
 		sorteoToDelete = null;
 	}
 
+	function openAssignSorteoModal() {
+		selectedShortcutSorteoId = sorteos[0]?.id ?? null;
+		selectedShortcutPuesto = puestoOptions[0] ?? '';
+		showAssignSorteoModal = true;
+	}
+
+	function handleAssignSorteoToPuestos() {
+		if (!selectedShortcutSorteoId || !selectedShortcutPuesto) {
+			return;
+		}
+		// TODO Send request to backend
+	}
+
+	function openAssignPuestoModal() {
+		selectedShortcutPuestoForAll = puestoOptions[0] ?? '';
+		selectedShortcutSorteoForAll = sorteos[0]?.id ?? null;
+		showAssignPuestoModal = true;
+	}
+
+	function handleAssignPuestoToSorteos() {
+		if (!selectedShortcutPuestoForAll || !selectedShortcutSorteoForAll) {
+			return;
+		}
+		// TODO Send request to backend
+	}
+
 </script>
 
 <SchedulePuestoModal
@@ -344,6 +378,31 @@
 	confirmText="Eliminar"
 	cancelText="Cancelar"
 	confirm={handleConfirmDeleteSorteo}
+/>
+
+<!-- TODO send the modal with the selected puestos for this sorteo -->
+<AssignSorteoModal
+	bind:showModal={showAssignSorteoModal}
+	sorteos={sorteos}
+	puestos={puestoOptions}
+	bind:selectedSorteoId={selectedShortcutSorteoId}
+	bind:selectedPuesto={selectedShortcutPuesto}
+	title="Agregar sorteo a todos los puestos"
+	confirmText="Aplicar"
+	cancelText="Cancelar"
+	confirm={handleAssignSorteoToPuestos}
+/>
+
+<AssignPuestoModal
+	bind:showModal={showAssignPuestoModal}
+	sorteos={sorteos}
+	puestos={puestoOptions}
+	bind:selectedSorteoId={selectedShortcutSorteoForAll}
+	bind:selectedPuesto={selectedShortcutPuestoForAll}
+	title="Agregar puesto en todos los sorteos"
+	confirmText="Aplicar"
+	cancelText="Cancelar"
+	confirm={handleAssignPuestoToSorteos}
 />
 
 <section class="sorteos-container">
@@ -451,12 +510,20 @@
 			{/if}
 		</div>
 	{/each}
+	<div class="shortcuts">
+		<h2>Atajos</h2>
+		<div class="shortcuts-actions">
+			<button onclick={openAssignSorteoModal}>Agregar un sorteo a todos los puestos</button>
+			<button onclick={openAssignPuestoModal}>Agregar un puesto en todos los sorteos</button>
+		</div>
+	</div>
 </section>
 
 <style>
 	.sorteos-container {
 		flex-direction: column;
 		justify-content: start;
+		position: relative;
 		align-items: start;
 		gap: 1rem;
 		width: 100%;
@@ -556,6 +623,30 @@
 	.actions {
 		display: flex;
 		gap: 0.5rem;
+	}
+	.shortcuts {
+		position: absolute;
+		border-top: 2px dashed var(--color-border);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 1rem;
+		flex-direction: column;
+		bottom: 0rem;
+		right: -2rem;
+		left: -2rem;
+	}
+	.shortcuts h2 {
+		margin-top: -1rem;
+		padding: 0 1rem;
+		background-color: var(--color-bg-2);
+		font-size: 1.1rem;
+		
+	}
+	.shortcuts-actions {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
 	}
 </style>
 
