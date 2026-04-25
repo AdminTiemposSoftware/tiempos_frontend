@@ -415,101 +415,103 @@
 			Nuevo sorteo
 		</button>
 	</div>
-	{#each sorteos as sorteo}
-		<div class="sorteo">
-			<button class="sorteo-toggle" onclick={() => toggleSorteo(sorteo.id)}>
-				<div class="sorteo-main">
-					<span class="sorteo-name">{sorteo.name}</span>
-					<div class="chips">
-						<span class="chip">{sorteo.type}</span>
-						<span class="chip muted">{sorteo.days}</span>
+	<div class="sorteos-list">
+		{#each sorteos as sorteo}
+			<div class="sorteo">
+				<button class="sorteo-toggle" onclick={() => toggleSorteo(sorteo.id)}>
+					<div class="sorteo-main">
+						<span class="sorteo-name">{sorteo.name}</span>
+						<div class="chips">
+							<span class="chip">{sorteo.type}</span>
+							<span class="chip muted">{sorteo.days}</span>
+						</div>
 					</div>
-				</div>
-				<span class="count">{sorteo.schedule.length} horarios</span>
-			</button>
-			{#if expandedSorteo.includes(sorteo.id)}
-				<div class="sorteo-content">
-					{#each sorteo.schedule as slot}
-						<div class="schedule">
-							<button
-								class="schedule-toggle"
-								onclick={() => toggleSchedule(sorteo.id, slot.id)}
-							>
-								<div class="schedule-main">
-									<span class="schedule-name">{slot.name}</span>
-									<span class="schedule-time">{slot.time}</span>
-								</div>
-								<span class="count">{slot.puestos.length} puestos</span>
-							</button>
-							{#if isScheduleExpanded(sorteo.id, slot.id)}
-							<div class="table-wrap">
-								<table>
-									<thead>
-										<tr>
-											{#each puestosHeaders as header}
-												<th>{header.label}</th>
-											{/each}
-										</tr>
-									</thead>
-									<tbody>
-										{#if slot.puestos.length === 0}
+					<span class="count">{sorteo.schedule.length} horarios</span>
+				</button>
+				{#if expandedSorteo.includes(sorteo.id)}
+					<div class="sorteo-content">
+						{#each sorteo.schedule as slot}
+							<div class="schedule">
+								<button
+									class="schedule-toggle"
+									onclick={() => toggleSchedule(sorteo.id, slot.id)}
+								>
+									<div class="schedule-main">
+										<span class="schedule-name">{slot.name}</span>
+										<span class="schedule-time">{slot.time}</span>
+									</div>
+									<span class="count">{slot.puestos.length} puestos</span>
+								</button>
+								{#if isScheduleExpanded(sorteo.id, slot.id)}
+								<div class="table-wrap">
+									<table>
+										<thead>
 											<tr>
-												<td colspan={puestosHeaders.length} class="empty-row">
-													Sin puestos en este horario
-												</td>
+												{#each puestosHeaders as header}
+													<th>{header.label}</th>
+												{/each}
 											</tr>
-										{:else}
-											{#each slot.puestos as puesto}
+										</thead>
+										<tbody>
+											{#if slot.puestos.length === 0}
 												<tr>
-													<td>{puesto.commission}%</td>
-													<td>{puesto.name}</td>
-													<td>{puesto.normalPayment}</td>
-													<td>{puesto.extraPayment}</td>
-													<td>
-														<div class="options-buttons">
-															<button class="neutral" onclick={() => showEditPuestoFromSchedule(puesto)}>
-																<PenSolid class="shrink-0 h-4 w-4" />
-															</button>
-															<button class="negative" onclick={() => showDeletePuestoFromSchedule(puesto)}>
-																<TrashBinSolid class="shrink-0 h-4 w-4" />
-															</button>
-														</div>
+													<td colspan={puestosHeaders.length} class="empty-row">
+														Sin puestos en este horario
 													</td>
 												</tr>
-											{/each}
-										{/if}
-									</tbody>
-								</table>
+											{:else}
+												{#each slot.puestos as puesto}
+													<tr>
+														<td>{puesto.commission}%</td>
+														<td>{puesto.name}</td>
+														<td>{puesto.normalPayment}</td>
+														<td>{puesto.extraPayment}</td>
+														<td>
+															<div class="options-buttons">
+																<button class="neutral" onclick={() => showEditPuestoFromSchedule(puesto)}>
+																	<PenSolid class="shrink-0 h-4 w-4" />
+																</button>
+																<button class="negative" onclick={() => showDeletePuestoFromSchedule(puesto)}>
+																	<TrashBinSolid class="shrink-0 h-4 w-4" />
+																</button>
+															</div>
+														</td>
+													</tr>
+												{/each}
+											{/if}
+										</tbody>
+									</table>
+								</div>
+								<div class="actions">
+									<button onclick={() => showAddPuestoToSchedule(sorteo.id, slot.id)}>
+										Agregar puesto
+									</button>
+									<button onclick={() => showEditSchedule(sorteo.id, slot.id)}>
+										Editar horario
+									</button>
+									<button onclick={() => showDeleteSchedule(sorteo.id, slot.id)}>
+										Eliminar horario
+									</button>
+								</div>
+								{/if}
 							</div>
-							<div class="actions">
-								<button onclick={() => showAddPuestoToSchedule(sorteo.id, slot.id)}>
-									Agregar puesto
-								</button>
-								<button onclick={() => showEditSchedule(sorteo.id, slot.id)}>
-									Editar horario
-								</button>
-								<button onclick={() => showDeleteSchedule(sorteo.id, slot.id)}>
-									Eliminar horario
-								</button>
-							</div>
-							{/if}
+						{/each}
+						<div class="actions">
+							<button onclick={() => showAddSchedule(sorteo.id)}>
+								Agregar horario
+							</button>
+							<button onclick={() => showEditSorteo(sorteo.id)}>
+								Editar sorteo
+							</button>
+							<button onclick={() => showDeleteSorteo(sorteo.id)}>
+								Eliminar sorteo
+							</button>
 						</div>
-					{/each}
-					<div class="actions">
-						<button onclick={() => showAddSchedule(sorteo.id)}>
-							Agregar horario
-						</button>
-						<button onclick={() => showEditSorteo(sorteo.id)}>
-							Editar sorteo
-						</button>
-						<button onclick={() => showDeleteSorteo(sorteo.id)}>
-							Eliminar sorteo
-						</button>
 					</div>
-				</div>
-			{/if}
-		</div>
-	{/each}
+				{/if}
+			</div>
+		{/each}
+	</div>
 	<div class="shortcuts">
 		<h2>Atajos</h2>
 		<div class="shortcuts-actions">
@@ -526,13 +528,21 @@
 		position: relative;
 		align-items: start;
 		gap: 1rem;
+		overflow: hidden;
 		width: 100%;
+	}
+	.sorteos-list {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		width: 100%;
+		max-height: 70vh;
+		overflow-y: auto;
 	}
 	.sorteo {
 		width: 100%;
 		border: 1px solid var(--color-border);
 		border-radius: 10px;
-		overflow: hidden;
 		background: #fafafa;
 	}
 	.sorteo-toggle {
@@ -627,6 +637,7 @@
 	.shortcuts {
 		position: absolute;
 		border-top: 2px dashed var(--color-border);
+		background: var(--color-bg-2);
 		display: flex;
 		align-items: center;
 		justify-content: center;

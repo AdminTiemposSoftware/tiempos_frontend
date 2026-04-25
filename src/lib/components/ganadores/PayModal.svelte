@@ -2,7 +2,8 @@
     let {
         showModal = $bindable(),
         ticketNumber = $bindable(''),
-        group = '',
+        name = '',
+        time = '',
         title = 'Pagar premio',
         confirmText = 'Pagar',
         cancelText = 'Cancelar',
@@ -35,9 +36,8 @@
         tabindex="0"
     >
         <div class="modal pay-modal" onclick={(e) => e.stopPropagation()} role="presentation">
-            <h2>{title}</h2>
-            {#if group}
-                <p class="pay-modal-subtitle">Grupo: {group}</p>
+            {#if name && time}
+                <p>Pagando el sorteo {name} que jugo a las {time}</p>
             {/if}
             <form
                 onsubmit={(e) => {
@@ -45,17 +45,19 @@
                     handleSubmit();
                 }}
             >
-                <label for="pay-ticket">Numero de tiquete ganador</label>
-                <input
-                    id="pay-ticket"
-                    type="text"
-                    inputmode="numeric"
-                    placeholder="Ej: 12345"
-                    bind:value={ticketNumber}
-                />
+                <div class="pay-ticket">
+                    <label for="pay-ticket">Numero de tiquete ganador</label>
+                    <input
+                        id="pay-ticket"
+                        type="text"
+                        inputmode="numeric"
+                        placeholder="Ej: 12345"
+                        bind:value={ticketNumber}
+                    />
+                </div>
                 <div class="modal-actions">
-                    <button type="button" onclick={closeModal}>{cancelText}</button>
-                    <button type="submit" class="negative">{confirmText}</button>
+                    <button type="button" class="negative" onclick={closeModal}>{cancelText}</button>
+                    <button type="submit">{confirmText}</button>
                 </div>
             </form>
         </div>
@@ -63,18 +65,22 @@
 {/if}
 
 <style>
-    .modal-backdrop {
-        z-index: 11;
-    }
-
-    .pay-modal form {
+    .pay-modal {
+        width: 35%;
+        gap:1rem;
         display: flex;
         flex-direction: column;
-        gap: 1rem;
+        align-items: center;
+        justify-content: start;
     }
-
-    .pay-modal-subtitle {
-        margin: 0.25rem 0 0.75rem;
-        color: rgba(0, 0, 0, 0.6);
+    .pay-modal p {
+        font-size: 1.2rem;
+        font-weight: bold;
+    }
+    .pay-ticket {
+        display: flex;
+        flex-direction: row;
+        gap: 1rem;
+        margin-bottom: 1rem;
     }
 </style>

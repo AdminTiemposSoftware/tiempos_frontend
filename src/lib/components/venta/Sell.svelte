@@ -10,12 +10,17 @@
     let randomCount = $state(1);
     let {getTickets, getSoldNumbersForTicket} = $props();
 
+    import { onMount } from 'svelte';
     import { TrashBinSolid, CubeSolid, QuestionCircleSolid, PrinterSolid, SearchSolid, EyeSolid, ReceiptSolid, CameraPhotoSolid } from "flowbite-svelte-icons";
     import { sellingMatrix } from '../../stores/UpdateSellMatrix';
     import { prohibitedNumbers } from '../../stores/UpdateSellMatrix';
     import { total } from '../../stores/UpdateSellMatrix';
     import QrModal from './QrModal.svelte';
     import TicketsModal from './TicketsModal.svelte';
+
+    onMount(() => {
+        priceInput?.focus();
+    });
 
     function handlePriceKeydown(event: KeyboardEvent) {
         if (event.key === "Enter") {
@@ -67,27 +72,54 @@
         }
 
         // Split by plus sign
-        let numbers: string[] = numberInput.split('+').map(n => n.trim()).filter(n => n);
-        
-        // Expand any ranges marked with * (e.g., "1*" becomes 10-19)
+        const parts: string[] = numberInput.split('+').map((n) => n.trim()).filter((n) => n);
+
         const expandedNumbers: string[] = [];
-        numbers.forEach(num => {
-            if (num.includes('*')) {
-                const digit = num.replace('*', '');
-                const baseNum = parseInt(digit) * 10;
-                for (let i = 0; i < 10; i++) {
-                    console.log(baseNum + i);
-                    expandedNumbers.push(String(baseNum + i));
-                }
-            } else {
-                expandedNumbers.push(num);
+        const addIfValid = (value: number) => {
+            if (Number.isNaN(value) || value < 0 || value > 99) {
+                return;
             }
+            expandedNumbers.push(String(value));
+        };
+
+        parts.forEach((part) => {
+            if (part.includes('*')) {
+                const digit = part.replace('*', '').trim();
+                const base = parseInt(digit, 10);
+                if (Number.isNaN(base)) {
+                    return;
+                }
+                const baseNum = base * 10;
+                for (let i = 0; i < 10; i++) {
+                    addIfValid(baseNum + i);
+                }
+                return;
+            }
+
+            if (part.includes('-')) {
+                const [startRaw, endRaw] = part.split('-').map((n) => n.trim());
+                const start = parseInt(startRaw, 10);
+                const end = parseInt(endRaw, 10);
+                if (Number.isNaN(start) || Number.isNaN(end)) {
+                    return;
+                }
+                const from = Math.min(start, end);
+                const to = Math.max(start, end);
+                for (let i = from; i <= to; i++) {
+                    addIfValid(i);
+                }
+                return;
+            }
+
+            addIfValid(parseInt(part, 10));
         });
 
         // Filter out prohibited numbers
-        const validNumbers = expandedNumbers.filter(num => !$prohibitedNumbers.includes(parseInt(num)));
+        const validNumbers = expandedNumbers.filter(
+            (num) => !$prohibitedNumbers.includes(parseInt(num, 10))
+        );
 
-        updateSalesData(validNumbers, parseInt(price));
+        updateSalesData(validNumbers, parseInt(price, 10));
 
         (event.target as HTMLFormElement).reset();
         priceInput?.focus();

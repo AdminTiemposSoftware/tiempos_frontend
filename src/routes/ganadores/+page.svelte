@@ -142,7 +142,8 @@
 <PayModal
     bind:showModal={showPayModal}
     bind:ticketNumber={payTicketNumber}
-    group={pendingPayRow?.name ?? ''}
+    name={pendingPayRow?.name ?? ''}
+    time={pendingPayRow?.time ?? ''}
     onPay={handlePaySubmit}
     onClose={resetPayModal}
 />

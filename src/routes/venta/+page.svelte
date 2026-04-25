@@ -11,7 +11,17 @@
     let selectedDate = new Date().toISOString().split('T')[0];
     let closeTime = 'N/A';
     let message = '';
-    let availableBets = [{"name": "Nica Tarde", "closeTime": "18:00"}, {"name": "Nica Noche", "closeTime": "22:00"}]; // TODO
+    let availableBets = [
+        { name: "Nica Tarde", closeTime: "18:00" },
+        { name: "Nica Noche", closeTime: "22:00" },
+        { name: "Nica Dia", closeTime: "12:00" },
+        { name: "Tiempos Manana", closeTime: "10:30" },
+        { name: "Tiempos Tarde", closeTime: "15:30" },
+        { name: "Tiempos abs", closeTime: "20:30" },
+        { name: "Tiempos zqe", closeTime: "10:30" },
+        // { name: "Tiempos 13", closeTime: "15:30" },
+        { name: "Tiempos 888", closeTime: "20:30" }
+    ]; // TODO
     let tickets = [
             { id: 1, total: 150, details: "Ticket 1 details", status: true },
             { id: 2, total: 50, details: "Ticket 2 details", status: true },
