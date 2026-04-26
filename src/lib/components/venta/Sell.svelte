@@ -42,6 +42,42 @@
         priceValue = formatThousands(target.value);
     }
 
+    function handleNumberInput(event: Event) {
+        const target = event.target as HTMLInputElement;
+        const raw = target.value.replace(/[^0-9+*\-]/g, '');
+        let result = '';
+        let digitCount = 0;
+        let lastWasOperator = true;
+        for (const char of raw) {
+            if (char >= '0' && char <= '9') {
+                if (digitCount < 2) {
+                    result += char;
+                    digitCount += 1;
+                    lastWasOperator = false;
+                }
+                continue;
+            }
+            if (char === '+' || char === '-' || char === '*') {
+                if (!lastWasOperator && digitCount > 0) {
+                    result += char;
+                    digitCount = 0;
+                    lastWasOperator = true;
+                    continue;
+                }
+                if (lastWasOperator && result.length === 0 && char === '*') {
+                    result = '*';
+                    continue;
+                }
+                if (lastWasOperator && result.length > 0) {
+                    result = result.slice(0, -1) + char;
+                }
+            }
+        }
+        if (target.value !== result) {
+            target.value = result;
+        }
+    }
+
     function updateSalesData(numbers: string[], price: number) {
         // TODO This should also update the database
         const newSelled = { ...sold };
@@ -84,9 +120,19 @@
 
         parts.forEach((part) => {
             if (part.includes('*')) {
-                const digit = part.replace('*', '').trim();
-                const base = parseInt(digit, 10);
+                const cleaned = part.replace('*', '').trim();
+                const base = parseInt(cleaned, 10);
                 if (Number.isNaN(base)) {
+                    return;
+                }
+                if (part.startsWith('*') && !part.endsWith('*')) {
+                    if (base < 10) {
+                        for (let i = 0; i < 10; i++) {
+                            addIfValid(i * 10 + base);
+                        }
+                    } else {
+                        addIfValid(base);
+                    }
                     return;
                 }
                 const baseNum = base * 10;
@@ -259,9 +305,12 @@
             <input
                 id="number"
                 name="number"
+                inputmode="numeric"
+                pattern="[0-9+*\-]*"
                 min="0"
                 max="99"
                 bind:this={numberInput}
+                oninput={handleNumberInput}
             />
         </div>
         <button type="submit">Agregar</button>
@@ -295,25 +344,27 @@
         </div>
     </div>
     <div class="sold">
-        <table>
-            <thead>
-                <tr>
-                    <th>Numero</th>
-                    <th>Monto</th>
-                </tr>
-            </thead>
-            <tbody>
-                {#each Object.entries(sold) as [number, price]}
+        <div class="sold-table scroll-thin">
+            <table>
+                <thead>
                     <tr>
-                        <td>{number}</td>
-                        <td>₡{price.price}</td>
-                        <td>
-                            <button class="negative" onclick={() => deleteNumber(number)}>X</button>
-                        </td>
+                        <th>Numero</th>
+                        <th>Monto</th>
                     </tr>
-                {/each}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    {#each Object.entries(sold) as [number, price]}
+                        <tr>
+                            <td>{number}</td>
+                            <td>₡{price.price}</td>
+                            <td>
+                                <button class="negative" onclick={() => deleteNumber(number)}>X</button>
+                            </td>
+                        </tr>
+                    {/each}
+                </tbody>
+            </table>
+        </div>
         <!-- TODO: Implement functionality for these buttons -->
         <button
             onclick={confirmSale}
@@ -351,8 +402,24 @@
 <style>
     .sell {
         flex-direction: column;
-        width: 40%;
+        width: 100%;
         height: 100%;
+        position: relative;
+        padding: 1rem;
+        box-sizing: border-box;
+        background: #fff;
+        border: 1px dashed var(--color-border);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+    }
+
+
+
+    .sell::before {
+        top: -4px;
+    }
+
+    .sell::after {
+        bottom: -4px;
     }
 
     .sell form {
@@ -394,11 +461,14 @@
         width: 100%;
         flex:1;
     }
+    .sold-table {
+        max-height: 240px;
+        overflow-y: auto;
+    }
     
     .sold table {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 1rem;
     }
 
     .sold th,
@@ -413,6 +483,9 @@
         font-weight: 600;
         border: 1px solid #ccc;
         border-bottom: 2px solid #ccc;
+        position: sticky;
+        top: 0;
+        z-index: 2;
     }
 
     .sold tr:hover {

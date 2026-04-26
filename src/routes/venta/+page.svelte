@@ -50,34 +50,36 @@
 </script>
 
 <section class="sell-container">
-    <SellHeader
-        bind:selectedDate={selectedDate}
-        bind:closeTime={closeTime}
-        bind:message={message}
-        bind:availableBets={availableBets}
-    />
     <section class="set-section">
+        <SellHeader
+            bind:selectedDate={selectedDate}
+            bind:closeTime={closeTime}
+            bind:message={message}
+            bind:availableBets={availableBets}
+        />
         <Sell 
             getTickets={getTickets}
             getSoldNumbersForTicket={getSoldNumbersForTicket}
         />
-        <Matrix 
-            rows={20}
-            columns={5}
-        />
     </section>
+    <Matrix 
+        rows={20}
+        columns={5}
+    />
 </section>
 
 <style>
     .sell-container {
         display: flex;
-        flex-direction: column;
-        gap: 2rem;
+        flex-direction: row;
+        gap: 0rem;
         flex: 1;
+        align-items: start;
     }
     
     .set-section {
         gap: 1rem;
-        width: 100%;
+        display: flex;
+        flex-direction: column;
     }
 </style>

@@ -4,125 +4,147 @@
     let { selectedDate = $bindable(), closeTime = $bindable(), message = $bindable(), availableBets = $bindable() } =
         $props();
     let selectedBet = $state(availableBets[0]);
-    let visibleBetNames = $state(availableBets.map((bet) => bet.name));
-    let showCustomizations = $state(false);
+    let showSorteoOptions = $state(false);
 
-    function selectBet(bet) {
-        selectedBet = bet;
+    function parseCloseTime(value: string) {
+        if (!value) {
+            return null;
+        }
+        const match = value.match(/^(\d{1,2}):(\d{2})$/);
+        if (!match) {
+            return null;
+        }
+        const hours = Number(match[1]);
+        const minutes = Number(match[2]);
+        if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+            return null;
+        }
+        return hours * 60 + minutes;
     }
 
-    function toggleVisibleBet(name: string) {
-        visibleBetNames = visibleBetNames.includes(name)
-            ? visibleBetNames.filter((entry) => entry !== name)
-            : [...visibleBetNames, name];
-        if (!visibleBetNames.includes(selectedBet?.name)) {
-            const nextVisible = availableBets.find((bet) => visibleBetNames.includes(bet.name));
-            if (nextVisible) {
-                selectedBet = nextVisible;
-            }
+    function minutesUntilClose(closeTime: string) {
+        const closeMinutes = parseCloseTime(closeTime);
+        if (closeMinutes === null) {
+            return Number.MAX_SAFE_INTEGER;
         }
+        const now = new Date();
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        const diff = closeMinutes - nowMinutes;
+        return diff >= 0 ? diff : diff + 24 * 60;
+    }
+
+    function getSortedBets(bets) {
+        return [...bets].sort(
+            (a, b) => minutesUntilClose(a.closeTime) - minutesUntilClose(b.closeTime)
+        );
     }
 </script>
 
 <header>
-    <div class="header-top">
+    <div class="header-left">
         <div class="date-section">
-            <label for="date">Día:</label>
+            <span>Día:</span>
             <input type="date" id="date" bind:value={selectedDate} />
         </div>
-        <div class="customization-section">
-            <button
-                class="customize-toggle"
-                onclick={() => (showCustomizations = !showCustomizations)}
-                aria-expanded={showCustomizations}
-                aria-controls="sorteo-customizations"
-            >
-                Sorteos visibles
-            </button>
-            {#if showCustomizations}
-                <div class="sorteo-panel" id="sorteo-customizations">
-                    <div class="sorteo-buttons">
-                        {#each availableBets as bet}
-                            <label class="sorteo-option">
-                                <input
-                                    type="checkbox"
-                                    checked={visibleBetNames.includes(bet.name)}
-                                    onchange={() => toggleVisibleBet(bet.name)}
-                                />
-                                <span>{bet.name}</span>
-                            </label>
-                        {/each}
-                    </div>
+
+        <span class="label">Total: ₡{$total}</span>
+    </div>
+    <div class="header-right">
+        <div class="spans">
+            <span class="sorteo-label">Sorteo:</span>
+            <span class="label">Cierre: </span>
+        </div>
+        <div class="spans">
+            <div class="sorteo-radio">
+                <div class="sorteo-dropdown">
+                    <button
+                        class="sorteo-trigger"
+                        onclick={() => (showSorteoOptions = !showSorteoOptions)}
+                        aria-expanded={showSorteoOptions}
+                        aria-controls="sorteo-options"
+                    >
+                        {selectedBet?.name ?? 'Seleccionar'}
+                    </button>
+                    {#if showSorteoOptions}
+                        <div class="sorteo-options scroll-thin" id="sorteo-options">
+                            {#each getSortedBets(availableBets) as bet}
+                                <label class="sorteo-option">
+                                    <input
+                                        type="radio"
+                                        name="sorteo"
+                                        bind:group={selectedBet}
+                                        value={bet}
+                                        onchange={() => (showSorteoOptions = false)}
+                                    />
+                                    <span>{bet.name}</span>
+                                </label>
+                            {/each}
+                        </div>
+                    {/if}
                 </div>
-            {/if}
-        </div>
-        <div class="buttons-section scroll-thin">
-            {#each availableBets.filter((bet) => visibleBetNames.includes(bet.name)) as bet}
-                <button 
-                    class:selected={selectedBet.name === bet.name}
-                    onclick={() => selectBet(bet)}
-                >
-                    {bet.name}
-                </button>
-            {/each}
-        </div>
-    </div>
-
-    <div class="header-bottom">
-        <div class="info-item">
-            <span class="label">Total: ₡{$total}</span>
-        </div>
-
-        <!-- <div class="info-item">
-            <span class="label">Restricciones:</span>
-            <div class="restriction-buttons">
-                <button class="restriction-btn">Globales</button>
-                <button class="restriction-btn">Bloqueos</button>
             </div>
-        </div> -->
-
-        <div class="info-item">
-            <span class="label">Cierre: {selectedBet.closeTime}</span>
+                <span>{selectedBet.closeTime} </span>
         </div>
     </div>
+
+    <!-- <div class="info-item">// TODO
+        <span class="label">Restricciones:</span>
+        <div class="restriction-buttons">
+            <button class="restriction-btn">Globales</button>
+            <button class="restriction-btn">Bloqueos</button>
+        </div>
+    </div> -->
+
 </header>
 
 <style>
-    .header-top {
+    header {
         display: flex;
+        flex-direction: row;
         gap: 1.5rem;
         align-items: center;
         width: 100%;
     }
-
     .date-section {
         display: flex;
         flex: 1;
         gap: 0.5rem;
         align-items: center;
     }
-    .customize-toggle {
-        padding: 0.5rem 1rem;
-        font-size: 1rem;
+    .sorteo-radio {
+        display: flex;
+        flex: 5;
+        gap: 0.75rem;
+        align-items: center;
+        min-width: 0;
+    }
+    .sorteo-label {
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    .sorteo-dropdown {
+        position: relative;
+        flex: 1;
+    }
+    .sorteo-trigger {
+        width: 100%;
+        justify-content: space-between;
         background-color: var(--color-theme-1);
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        display: flex;
+        color: #fff;
     }
-    .sorteo-panel {
-        margin-top: 0.5rem;
-        border: 1px solid var(--color-border);
-        padding: 0.5rem;
-        border-radius: 6px;
-        background: #fff;
+    .sorteo-options {
+        display: flex;
         position: absolute;
-        width: 300px;
-    }
-    .sorteo-buttons {
-        display: flex;
+        z-index: 5;
+        left: 0;
+        background: #fff;
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        padding: 0.5rem;
+        overflow-x: auto;
+        max-height: 200px;
         gap: 0.5rem;
+        min-width: 0;
         flex-wrap: wrap;
     }
     .sorteo-option {
@@ -134,46 +156,31 @@
         background: var(--color-bg-2);
     }
 
-    .buttons-section {
+    .header-right {
         display: flex;
-        overflow-x: auto;
-        gap: 0.5rem;
-        flex: 5;
-    }
-    .buttons-section button {
-        white-space: nowrap;
-        padding: 0rem 0.5rem;
-    }
-    .buttons-section button {
-        background-color: var(--color-border);
-        color: var(--color-text);
-    }
-    .buttons-section button.selected {
-        padding: 0.5rem 1rem;
-        border: 1px solid var(--color-border);
-        color: white;
-	    background-color: #00c44b;
-        cursor: pointer;
-        transition: background-color 0.2s ease, color 0.2s ease;
-    }
-
-    .header-bottom {
-        display: flex;
-        gap: 2rem;
+        gap: 1rem;
+        flex: 1;
         border: 1px solid var(--color-border);
         padding: 0.75rem;
     }
-
-    .info-item {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
+    .header-right *{
+        justify-content: space-between;
+        margin-left: auto;
     }
-    .customization-section {
-        position: relative;
+    .header-left {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
         flex: 1;
+        border: 1px solid var(--color-border);
+        padding: 0.75rem;
     }
     span{
         font-size: 1.25rem;
+    }
+    .spans {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
     }
 </style>

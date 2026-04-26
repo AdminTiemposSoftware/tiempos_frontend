@@ -43,7 +43,7 @@
 
 <style>
     .matrix-container {
-        flex:4;
+        flex:1;
     }
 
     .matrix {
