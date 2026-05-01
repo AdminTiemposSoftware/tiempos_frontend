@@ -1,8 +1,13 @@
 <script lang="ts">
     import { total } from "../../stores/UpdateSellMatrix";
+    import { prohibitedNumbers } from "../../stores/UpdateSellMatrix";
 
-    let { selectedDate = $bindable(), closeTime = $bindable(), message = $bindable(), availableBets = $bindable() } =
-        $props();
+    let { 
+        selectedDate = $bindable(), 
+        closeTime = $bindable(), 
+        message = $bindable(), 
+        availableBets = $bindable(),
+    } = $props();
     let selectedBet = $state(availableBets[0]);
     let showSorteoOptions = $state(false);
 
@@ -41,75 +46,77 @@
 </script>
 
 <header>
-    <div class="header-left">
-        <div class="date-section">
-            <span>Día:</span>
-            <input type="date" id="date" bind:value={selectedDate} />
-        </div>
-
-        <span class="label">Total: ₡{$total}</span>
-    </div>
-    <div class="header-right">
-        <div class="spans">
-            <span class="sorteo-label">Sorteo:</span>
-            <span class="label">Cierre: </span>
-        </div>
-        <div class="spans">
-            <div class="sorteo-radio">
-                <div class="sorteo-dropdown">
-                    <button
-                        class="sorteo-trigger"
-                        onclick={() => (showSorteoOptions = !showSorteoOptions)}
-                        aria-expanded={showSorteoOptions}
-                        aria-controls="sorteo-options"
-                    >
-                        {selectedBet?.name ?? 'Seleccionar'}
-                    </button>
-                    {#if showSorteoOptions}
-                        <div class="sorteo-options scroll-thin" id="sorteo-options">
-                            {#each getSortedBets(availableBets) as bet}
-                                <label class="sorteo-option">
-                                    <input
-                                        type="radio"
-                                        name="sorteo"
-                                        bind:group={selectedBet}
-                                        value={bet}
-                                        onchange={() => (showSorteoOptions = false)}
-                                    />
-                                    <span>{bet.name}</span>
-                                </label>
-                            {/each}
-                        </div>
-                    {/if}
-                </div>
+    <div class="header-top">
+        <div class="header-content">
+            <div class="spans">
+                <span>Día:</span>
+                <span class="label">Total:</span> 
             </div>
-                <span>{selectedBet.closeTime} </span>
+            <div class="spans">
+                <input type="date" id="date" bind:value={selectedDate} />
+                <span>₡{$total}</span>
+            </div>
+        </div>
+        <div class="header-content">
+            <div class="spans">
+                <span class="sorteo-label">Sorteo:</span>
+                <span class="label">Cierre: </span>
+            </div>
+            <div class="spans">
+                <div class="sorteo-radio">
+                    <div class="sorteo-dropdown">
+                        <button
+                            class="sorteo-trigger"
+                            onclick={() => (showSorteoOptions = !showSorteoOptions)}
+                            aria-expanded={showSorteoOptions}
+                            aria-controls="sorteo-options"
+                        >
+                            {selectedBet?.name ?? 'Seleccionar'}
+                        </button>
+                        {#if showSorteoOptions}
+                            <div class="sorteo-options scroll-thin" id="sorteo-options">
+                                {#each getSortedBets(availableBets) as bet}
+                                    <label class="sorteo-option">
+                                        <input
+                                            type="radio"
+                                            name="sorteo"
+                                            bind:group={selectedBet}
+                                            value={bet}
+                                            onchange={() => (showSorteoOptions = false)}
+                                        />
+                                        <span>{bet.name}</span>
+                                    </label>
+                                {/each}
+                            </div>
+                        {/if}
+                    </div>
+                </div>
+                    <span>{selectedBet.closeTime} </span>
+            </div>
         </div>
     </div>
 
-    <!-- <div class="info-item">// TODO
-        <span class="label">Restricciones:</span>
-        <div class="restriction-buttons">
-            <button class="restriction-btn">Globales</button>
-            <button class="restriction-btn">Bloqueos</button>
+    <div class="prohibited">
+        <span class="label">Restringidos:</span>
+        <div class="prohibited-list">
+            {#if $prohibitedNumbers?.length}
+                {#each $prohibitedNumbers as number}
+                    <span class="prohibited-badge">{number}</span>
+                {/each}
+            {:else}
+                <span class="prohibited-empty">-</span>
+            {/if}
         </div>
-    </div> -->
+    </div> 
 
 </header>
 
 <style>
     header {
         display: flex;
-        flex-direction: row;
-        gap: 1.5rem;
-        align-items: center;
+        flex-direction: column;
+        gap: 1rem;
         width: 100%;
-    }
-    .date-section {
-        display: flex;
-        flex: 1;
-        gap: 0.5rem;
-        align-items: center;
     }
     .sorteo-radio {
         display: flex;
@@ -155,25 +162,21 @@
         border: 1px solid var(--color-border);
         background: var(--color-bg-2);
     }
-
-    .header-right {
+    .header-top {
+        display: flex;
+        gap: 1rem;
+        flex: 1;
+    }
+    .header-content {
         display: flex;
         gap: 1rem;
         flex: 1;
         border: 1px solid var(--color-border);
         padding: 0.75rem;
     }
-    .header-right *{
+    .header-content *{
         justify-content: space-between;
         margin-left: auto;
-    }
-    .header-left {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-        flex: 1;
-        border: 1px solid var(--color-border);
-        padding: 0.75rem;
     }
     span{
         font-size: 1.25rem;
@@ -182,5 +185,34 @@
         display: flex;
         flex-direction: column;
         gap: 1rem;
+    }
+    .prohibited {
+        display: flex;
+        flex-direction: row;
+        gap: 0.5rem;
+        align-items: center;
+        width: 100%;
+    }
+    .prohibited-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr));
+        gap: 0.5rem;
+        justify-items: center;
+        flex: 1;
+        min-width: 0;
+    }
+    .prohibited-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        border: 2px solid var(--color-theme-3);
+        background: #fff;
+        color: var(--color-theme-3);
+    }
+    .prohibited-empty {
+        color: #666;
     }
 </style>

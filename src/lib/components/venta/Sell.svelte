@@ -424,8 +424,8 @@
 
     .sell form {
         display: flex;
-        justify-content: center;
         justify-content: space-between;
+        align-items: flex-end;
         width: 100%;
         gap: 1rem;
     }

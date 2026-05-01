@@ -13,7 +13,6 @@
 	<div class="login-card">
 		<header>
 			<h1>Iniciar sesión</h1>
-			<p>Ingresa tus credenciales para continuar.</p>
 		</header>
 
 		{#if hasFormError}

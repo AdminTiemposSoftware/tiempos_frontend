@@ -405,6 +405,9 @@
 	confirm={handleAssignPuestoToSorteos}
 />
 
+<svelte:head>
+	<title>Sorteos</title>
+</svelte:head>
 <section class="sorteos-container">
 	<div class="header-contained">
 		<div>
@@ -537,12 +540,15 @@
 		gap: 1rem;
 		width: 100%;
 		max-height: 70vh;
+		padding: 1rem;
 		overflow-y: auto;
 	}
 	.sorteo {
 		width: 100%;
 		border: 1px solid var(--color-border);
-		border-radius: 10px;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		border-radius: 0.5rem;
+		background-clip: padding-box;
 		background: #fafafa;
 	}
 	.sorteo-toggle {
@@ -553,6 +559,8 @@
 		border: none;
 		cursor: pointer;
 		background: #fafafa;
+		border-top-left-radius: 0.5rem;
+		border-top-right-radius: 0.5rem;
 	}
 	.sorteo-main {
 		display: flex;
@@ -599,6 +607,7 @@
 		background: #fff;
 		border: 1px solid var(--color-border);
 		padding: 1rem;
+		background-clip: padding-box;
 	}
 	.schedule-toggle {
 		padding: 0;

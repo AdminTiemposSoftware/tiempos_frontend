@@ -7,7 +7,7 @@
     import { total } from "../../lib/stores/UpdateSellMatrix";
 
     // TODO This is all testing data, replace with actual data from the database
-    prohibitedNumbers.set([3, 7, 13, 17, 23, 27]); 
+    prohibitedNumbers.set([3, 7, 13, 17, 23, 27,33,37,40,51,57,61,67,71,73,83,97]); 
     let selectedDate = new Date().toISOString().split('T')[0];
     let closeTime = 'N/A';
     let message = '';
@@ -49,6 +49,9 @@
 
 </script>
 
+<svelte:head>
+	<title>Venta</title>
+</svelte:head>
 <section class="sell-container">
     <section class="set-section">
         <SellHeader
@@ -72,7 +75,7 @@
     .sell-container {
         display: flex;
         flex-direction: row;
-        gap: 0rem;
+        gap: 2rem;
         flex: 1;
         align-items: start;
     }

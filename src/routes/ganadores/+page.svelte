@@ -123,10 +123,6 @@
     );
 </script>
 
-<svelte:head>
-    <title>Ganadores</title>
-</svelte:head>
-
 <ConfirmModal
     bind:showModal={showAssignConfirm}
     message={
@@ -147,6 +143,10 @@
     onPay={handlePaySubmit}
     onClose={resetPayModal}
 />
+
+<svelte:head>
+	<title>Ganadores</title>
+</svelte:head>
 
 <section class="ganadores">
     <div class="header-contained">

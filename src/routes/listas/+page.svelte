@@ -30,6 +30,9 @@
     };
 </script>
 
+<svelte:head>
+	<title>Venta</title>
+</svelte:head>
 <section class="container">
     <header>
         <div class="filters">

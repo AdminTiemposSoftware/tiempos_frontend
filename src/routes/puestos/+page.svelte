@@ -94,6 +94,10 @@
 	on:confirm={handleConfirmDelete}
 />
 
+<svelte:head>
+	<title>Puestos</title>
+</svelte:head>
+
 <section class="puestos-container">
 	<div class="header-contained">
 		<div>
