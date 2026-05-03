@@ -8,18 +8,16 @@
 	import { PenSolid, TrashBinSolid } from 'flowbite-svelte-icons';
 
 	let puestosHeaders = [
-		{ key: 'merchantName', label: 'Nombre Comercio' },
+		{ key: 'branch', label: 'Puesto' },
 		{ key: 'commission', label: 'Comision' },
-		{ key: 'normalPayment', label: 'Pago normal' },
-		{ key: 'extraPayment', label: 'Pago extra' },
-		{ key: 'options', label: 'Opciones' }
 	];
 
 	let sorteos = $state([
 		{
 			id: 1,
 			name: 'Loteria Nacional',
-			type: 'Tiempos',
+			is_reventado: true,
+			is_megareventado: true,
 			days: 'Lun, Mar, Mie, Jue, Vie',
 			schedule: [
 				{
@@ -57,7 +55,8 @@
 		{
 			id: 2,
 			name: 'Loteria Premium',
-			type: 'Reventado',
+			is_reventado: true,
+			is_megareventado: false,
 			days: 'Sab, Dom',
 			schedule: [
                 {
@@ -116,26 +115,30 @@
 	let scheduleToDelete = $state(null);
 	let sorteoToDelete = $state(null);
 	let expandedSorteo = $state<number[]>([]);
-	let expandedSchedule = $state<Record<number, number[]>>({});
+	let selectedScheduleBySorteo = $state<Record<number, number | null>>({});
 
 	// UI state toggles
 	function toggleSorteo(sorteoId: number) {
-		expandedSorteo = expandedSorteo.includes(sorteoId)
-			? expandedSorteo.filter((id) => id !== sorteoId)
-			: [...expandedSorteo, sorteoId];
+		const isOpen = expandedSorteo.includes(sorteoId);
+		if (isOpen) {
+			expandedSorteo = expandedSorteo.filter((id) => id !== sorteoId);
+			return;
+		}
+		expandedSorteo = [...expandedSorteo, sorteoId];
+		const sorteo = sorteos.find((item) => item.id === sorteoId);
+		if (sorteo && sorteo.schedule.length > 0 && selectedScheduleBySorteo[sorteoId] == null) {
+			selectedScheduleBySorteo = { ...selectedScheduleBySorteo, [sorteoId]: sorteo.schedule[0].id };
+		}
 	}
 
-	function toggleSchedule(sorteoId: number, scheduleKey: number) {
-		expandedSchedule = {
-			...expandedSchedule,
-			[sorteoId]: expandedSchedule[sorteoId]?.includes(scheduleKey)
-				? expandedSchedule[sorteoId].filter((item) => item !== scheduleKey)
-				: [...(expandedSchedule[sorteoId] || []), scheduleKey]
-		};
+	function selectSchedule(sorteoId: number, scheduleId: number) {
+		selectedScheduleBySorteo = { ...selectedScheduleBySorteo, [sorteoId]: scheduleId };
 	}
 
-	function isScheduleExpanded(sorteoId: number, scheduleKey: number) {
-		return expandedSchedule[sorteoId]?.includes(scheduleKey);
+	function getSelectedSchedule(sorteo) {
+		const selectedId = selectedScheduleBySorteo[sorteo.id];
+		const selected = sorteo.schedule.find((slot) => slot.id === selectedId);
+		return selected ?? sorteo.schedule[0] ?? null;
 	}
 
 	// Open modals for create actions
@@ -175,8 +178,10 @@
 		showScheduleModal = true;
 	}
 
-	function showEditPuestoFromSchedule(puesto) {
-		selectedSchedulePuesto = { ...puesto };
+	function showEditPuestoFromSchedule(puesto, sorteoId, scheduleId) {
+		selectedSorteoId = sorteoId;
+		selectedScheduleId = scheduleId;
+		selectedSchedulePuesto = { ...puesto, merchantName: puesto.name };
 		showSchedulePuestoModal = true;
 	}
 
@@ -217,8 +222,16 @@
 		});
 	}
 
-	function handleAddSchedulePuestoSubmit(event: CustomEvent) {
-		const { sorteoId, scheduleId, puesto } = event.detail;
+	function handleAddSchedulePuestoSubmit(puesto) {
+		const sorteoId = selectedSorteoId;
+		const scheduleId = selectedScheduleId;
+		if (!sorteoId || !scheduleId) {
+			return;
+		}
+		const nextPuesto = {
+			...puesto,
+			name: puesto.merchantName ?? puesto.name
+		};
 		sorteos = sorteos.map((sorteo) => {
 			if (sorteo.id !== sorteoId) {
 				return sorteo;
@@ -232,7 +245,7 @@
 					const nextId = Math.max(0, ...slot.puestos.map((item) => item.id)) + 1;
 					return {
 						...slot,
-						puestos: [...slot.puestos, { ...puesto, id: nextId }]
+						puestos: [...slot.puestos, { ...nextPuesto, id: nextId }]
 					};
 				})
 			};
@@ -258,15 +271,56 @@
 
 	function updateSchedulePuesto(updatedPuesto) {
 		// TODO Send update request to backend
-		sorteos = sorteos.map((sorteo) => ({
-			...sorteo,
-			schedule: sorteo.schedule.map((slot) => ({
-				...slot,
-				puestos: slot.puestos.map((puesto) =>
-					puesto.id === updatedPuesto.id ? { ...puesto, ...updatedPuesto } : puesto
+		const sorteoId = selectedSorteoId;
+		const scheduleId = selectedScheduleId;
+		if (!sorteoId || !scheduleId || !updatedPuesto?.id) {
+			return;
+		}
+		const normalized = {
+			...updatedPuesto,
+			name: updatedPuesto.merchantName ?? updatedPuesto.name
+		};
+		sorteos = sorteos.map((sorteo) => {
+			if (sorteo.id !== sorteoId) {
+				return sorteo;
+			}
+			return {
+				...sorteo,
+				schedule: sorteo.schedule.map((slot) =>
+					slot.id === scheduleId
+						? {
+							...slot,
+							puestos: slot.puestos.map((puesto) =>
+								puesto.id === normalized.id ? { ...puesto, ...normalized } : puesto
+							)
+						}
+						: slot
 				)
-			}))
-		}));
+			};
+		});
+	}
+
+	function deleteSchedulePuesto(payload) {
+		// TODO Send delete request to backend
+		const sorteoId = payload?.sorteoId ?? selectedSorteoId;
+		const scheduleId = payload?.scheduleId ?? selectedScheduleId;
+		const puestoId = payload?.puestoId;
+		if (!sorteoId || !scheduleId || !puestoId) {
+			return;
+		}
+		sorteos = sorteos.map((sorteo) => {
+			if (sorteo.id !== sorteoId) {
+				return sorteo;
+			}
+			return {
+				...sorteo,
+				schedule: sorteo.schedule.map((slot) =>
+					slot.id === scheduleId
+						? { ...slot, puestos: slot.puestos.filter((puesto) => puesto.id !== puestoId) }
+						: slot
+				)
+			};
+		});
 	}
 
 	// Delete handlers
@@ -336,6 +390,7 @@
 	options={puestoOptions}
 	addSchedulePuesto={handleAddSchedulePuestoSubmit}
 	updateSchedulePuesto={updateSchedulePuesto}
+	deleteSchedulePuesto={deleteSchedulePuesto}
 />
 
 <ScheduleModal
@@ -408,7 +463,7 @@
 <svelte:head>
 	<title>Sorteos</title>
 </svelte:head>
-<section class="sorteos-container">
+<section class="page-stack sorteos-page">
 	<div class="header-contained">
 		<div>
 			<h1>Sorteos</h1>
@@ -418,97 +473,122 @@
 			Nuevo sorteo
 		</button>
 	</div>
-	<div class="sorteos-list">
+	<div class="panel-list">
 		{#each sorteos as sorteo}
-			<div class="sorteo">
-				<button class="sorteo-toggle" onclick={() => toggleSorteo(sorteo.id)}>
-					<div class="sorteo-main">
-						<span class="sorteo-name">{sorteo.name}</span>
-						<div class="chips">
-							<span class="chip">{sorteo.type}</span>
-							<span class="chip muted">{sorteo.days}</span>
+			<div class="panel-card">
+				<div 
+					class="panel-toggle" 
+					onclick={() => toggleSorteo(sorteo.id)}
+					onkeydown={(e) => e.key === "Enter" && toggleSorteo(sorteo.id)}
+					role="button"
+					tabindex="0"
+				>
+					<div class="panel-main">
+						<span class="panel-title">{sorteo.name}</span>
+						<div class="chip-row">
+							{#if sorteo.is_reventado }
+								<span class="chip">Reventado</span>
+							{/if}
+							{#if sorteo.is_megareventado }
+								<span class="chip">Megareventado</span>
+							{/if}
+							<span class="chip chip--muted">{sorteo.days}</span>
 						</div>
 					</div>
-					<span class="count">{sorteo.schedule.length} horarios</span>
-				</button>
+						<div class="options-buttons">
+							<button class="neutral" onclick={() => showEditSorteo(sorteo.id)}>
+								<PenSolid class="shrink-0 h-4 w-4" />
+							</button>
+							<button class="negative" onclick={() => showDeleteSorteo(sorteo.id)}>
+								<TrashBinSolid class="shrink-0 h-4 w-4" />
+							</button>
+						</div>
+				</div>
 				{#if expandedSorteo.includes(sorteo.id)}
-					<div class="sorteo-content">
-						{#each sorteo.schedule as slot}
-							<div class="schedule">
-								<button
-									class="schedule-toggle"
-									onclick={() => toggleSchedule(sorteo.id, slot.id)}
-								>
-									<div class="schedule-main">
-										<span class="schedule-name">{slot.name}</span>
-										<span class="schedule-time">{slot.time}</span>
+					{@const selectedSlot = getSelectedSchedule(sorteo)}
+					<div class="panel-content sorteo-content">
+						<div class="schedule-split">
+							<div class="schedule-list-panel">
+								<div class="schedule-list-header">
+									<h3>Horarios</h3>
+									<button onclick={() => showAddSchedule(sorteo.id)}>
+										Agregar horario
+									</button>
+								</div>
+								{#if sorteo.schedule.length === 0}
+									<p class="empty-state">Sin horarios creados.</p>
+								{:else}
+									<div class="schedule-items scroll-thin">
+										{#each sorteo.schedule as slot}
+											<div
+												class="schedule-item"
+												class:schedule-item--active={selectedSlot && selectedSlot.id === slot.id}
+												onkeydown={(e) => e.key === "Enter" && selectSchedule(sorteo.id, slot.id)}
+												onclick={() => selectSchedule(sorteo.id, slot.id)}
+												role="button"
+												tabindex="0"
+											>
+												<div class="schedule-main">
+													<span class="schedule-name">{slot.name}</span>
+													<span class="schedule-time">{slot.time}</span>
+												</div>
+												<div class="options-buttons">
+													<button class="neutral" onclick={() => showEditSchedule(sorteo.id, selectedSlot.id)}>
+														<PenSolid class="shrink-0 h-4 w-4" />
+													</button>
+													<button class="negative" onclick={() => showDeleteSchedule(sorteo.id, selectedSlot.id)}>
+														<TrashBinSolid class="shrink-0 h-4 w-4" />
+													</button>
+												</div>
+											</div>
+										{/each}
 									</div>
-									<span class="count">{slot.puestos.length} puestos</span>
-								</button>
-								{#if isScheduleExpanded(sorteo.id, slot.id)}
-								<div class="table-wrap">
-									<table>
-										<thead>
-											<tr>
-												{#each puestosHeaders as header}
-													<th>{header.label}</th>
-												{/each}
-											</tr>
-										</thead>
-										<tbody>
-											{#if slot.puestos.length === 0}
-												<tr>
-													<td colspan={puestosHeaders.length} class="empty-row">
-														Sin puestos en este horario
-													</td>
-												</tr>
-											{:else}
-												{#each slot.puestos as puesto}
-													<tr>
-														<td>{puesto.commission}%</td>
-														<td>{puesto.name}</td>
-														<td>{puesto.normalPayment}</td>
-														<td>{puesto.extraPayment}</td>
-														<td>
-															<div class="options-buttons">
-																<button class="neutral" onclick={() => showEditPuestoFromSchedule(puesto)}>
-																	<PenSolid class="shrink-0 h-4 w-4" />
-																</button>
-																<button class="negative" onclick={() => showDeletePuestoFromSchedule(puesto)}>
-																	<TrashBinSolid class="shrink-0 h-4 w-4" />
-																</button>
-															</div>
-														</td>
-													</tr>
-												{/each}
-											{/if}
-										</tbody>
-									</table>
-								</div>
-								<div class="actions">
-									<button onclick={() => showAddPuestoToSchedule(sorteo.id, slot.id)}>
-										Agregar puesto
-									</button>
-									<button onclick={() => showEditSchedule(sorteo.id, slot.id)}>
-										Editar horario
-									</button>
-									<button onclick={() => showDeleteSchedule(sorteo.id, slot.id)}>
-										Eliminar horario
-									</button>
-								</div>
 								{/if}
 							</div>
-						{/each}
-						<div class="actions">
-							<button onclick={() => showAddSchedule(sorteo.id)}>
-								Agregar horario
-							</button>
-							<button onclick={() => showEditSorteo(sorteo.id)}>
-								Editar sorteo
-							</button>
-							<button onclick={() => showDeleteSorteo(sorteo.id)}>
-								Eliminar sorteo
-							</button>
+							<div class="schedule-detail-panel">
+								{#if selectedSlot}
+									<div class="schedule-detail-header">
+										<h3>Puestos del horario</h3>
+										<button onclick={() => showAddPuestoToSchedule(sorteo.id, selectedSlot.id)}>
+											Agregar puesto
+										</button>
+									</div>
+									<div class="table-scroll table-scroll--rows">
+										<table>
+											<thead>
+												<tr>
+													<th>Puesto</th>
+													<th>Comision</th>
+												</tr>
+											</thead>
+											<tbody>
+												{#if selectedSlot.puestos.length === 0}
+													<tr>
+														<td colspan={puestosHeaders.length} class="empty-state">
+															Sin puestos en este horario
+														</td>
+													</tr>
+												{:else}
+													{#each selectedSlot.puestos as puesto}
+														<tr
+															class="row-action"
+															tabindex="0"
+															role="button"
+															onclick={() => showEditPuestoFromSchedule(puesto, sorteo.id, selectedSlot.id)}
+															onkeydown={(e) => e.key === 'Enter' && showEditPuestoFromSchedule(puesto, sorteo.id, selectedSlot.id)}
+														>
+															<td>{puesto.name}</td>
+															<td>{puesto.commission}%</td>
+														</tr>
+													{/each}
+												{/if}
+											</tbody>
+										</table>
+									</div>
+								{:else}
+									<p class="empty-state">Selecciona un horario para ver sus puestos.</p>
+								{/if}
+							</div>
 						</div>
 					</div>
 				{/if}
@@ -525,100 +605,93 @@
 </section>
 
 <style>
-	.sorteos-container {
-		flex-direction: column;
-		justify-content: start;
+	.sorteos-page {
 		position: relative;
-		align-items: start;
-		gap: 1rem;
 		overflow: hidden;
-		width: 100%;
-	}
-	.sorteos-list {
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-		width: 100%;
-		max-height: 70vh;
-		padding: 1rem;
-		overflow-y: auto;
-	}
-	.sorteo {
-		width: 100%;
-		border: 1px solid var(--color-border);
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-		border-radius: 0.5rem;
-		background-clip: padding-box;
-		background: #fafafa;
-	}
-	.sorteo-toggle {
-		width: 100%;
-		display: flex;
-		justify-content: space-between;
-		padding: 0.75rem 1rem;
-		border: none;
-		cursor: pointer;
-		background: #fafafa;
-		border-top-left-radius: 0.5rem;
-		border-top-right-radius: 0.5rem;
-	}
-	.sorteo-main {
-		display: flex;
-		flex-direction: column;
-		gap: 0.35rem;
-	}
-	.sorteo-name {
-		font-size: 1.25rem;
-		color: rgba(0, 0, 0, 0.85);
-	}
-	.chips {
-		display: flex;
-		gap: 0.5rem;
-		flex-wrap: wrap;
-	}
-	.chip {
-		padding: 0.15rem 0.5rem;
-		border-radius: 999px;
-		background: var(--color-bg-2);
-		font-size: 0.9rem;
-		color: rgba(0, 0, 0, 0.7);
-		font-weight: 600;
-	}
-	.chip.muted {
-		background: #eaeaea;
-		color: rgba(0, 0, 0, 0.55);
-		font-weight: 500;
-	}
-	.count {
-		color: rgba(0, 0, 0, 0.55);
-		font-weight: 500;
-		margin: 0;
 	}
 	.sorteo-content {
-		padding: 1rem;
-		display: flex;
-		flex-direction: column;
+		gap: 1.25rem;
+	}
+	.schedule-split {
+		display: grid;
+		grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.15fr);
 		gap: 1rem;
 	}
-	.schedule {
+	.schedule-list-panel {
 		display: flex;
-		border-radius: 10px;
 		flex-direction: column;
-		background: #fff;
+		gap: 0.75rem;
 		border: 1px solid var(--color-border);
-		padding: 1rem;
-		background-clip: padding-box;
+		border-radius: 0.5rem;
+		background: #fff;
+		padding: 0.75rem;
 	}
-	.schedule-toggle {
-		padding: 0;
+	.schedule-list-header {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		border-radius: 10px;
+		gap: 0.5rem;
+	}
+	.schedule-list-header h3 {
+		margin: 0;
+		font-size: 1rem;
+	}
+	.schedule-items {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		max-height: 320px;
+		overflow-y: auto;
+		padding-right: 0.25rem;
+	}
+	.schedule-item {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		border: 1px solid transparent;
+		border-radius: 0.45rem;
+		padding: 0.55rem 0.65rem;
+		background: var(--color-bg-2);
 		cursor: pointer;
 		text-align: left;
-		color: rgba(0, 0, 0, 0.85);
-		background: transparent;
+	}
+	.schedule-item:hover {
+		background: #f0f0f0;
+	}
+	.schedule-item--active {
+		border-color: var(--color-theme-1);
+		background: #fff;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+	}
+	.schedule-detail-panel {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		border: 1px solid var(--color-border);
+		border-radius: 0.5rem;
+		background: #fff;
+		padding: 0.75rem;
+		min-height: 200px;
+	}
+	.schedule-detail-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		flex-wrap: wrap;
+	}
+	.schedule-detail-header h3 {
+		margin: 0;
+		font-size: 1rem;
+	}
+	.schedule-pill {
+		padding: 0.15rem 0.6rem;
+		border-radius: 999px;
+		background: var(--color-bg-2);
+		font-size: 0.85rem;
+		color: rgba(0, 0, 0, 0.7);
+		font-weight: 600;
 	}
 	.schedule-main {
 		display: flex;
@@ -628,20 +701,20 @@
 	.schedule-name {
 		font-size: 1.1rem;
 		font-weight: 600;
+		color: #000000;
 	}
 	.schedule-time {
 		font-size: 0.8rem;
 		color: rgba(0, 0, 0, 0.6);
 	}
-	.empty-row {
+	.row-action {
+		cursor: pointer;
+	}
+	.row-action:hover {
+		background: var(--color-bg-2);
+	}
+	.empty-state {
 		text-align: center;
-	}
-	.table-wrap {
-		margin: 1rem 0rem;
-	}
-	.actions {
-		display: flex;
-		gap: 0.5rem;
 	}
 	.shortcuts {
 		position: absolute;

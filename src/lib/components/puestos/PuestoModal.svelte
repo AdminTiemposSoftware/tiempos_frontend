@@ -1,30 +1,90 @@
 <script lang="ts">
-	let {showModal = $bindable(), puesto = $bindable(
-		{
-			name: '',
-			phone: '',
-			commission: false,
-			status: 'Activo',
-			user: ''
-		}
-	) } = $props();
+	type Puesto = {
+		id?: number;
+		banking_id: number | '' | null;
+		name: string;
+		location: string;
+		prohibited_percentage: number | '';
+		users: string[];
+	};
 
+	const defaultPuesto: Puesto = {
+		banking_id: null,
+		name: '',
+		location: '',
+		prohibited_percentage: 0,
+		users: []
+	};
+
+	let { 
+		showModal = $bindable(), 
+		puesto = $bindable({ ...defaultPuesto }),
+		updatePuesto = $bindable(),
+		addPuesto = $bindable()
+	} = $props();
+	let userInput = $state('');
+	let wasOpen = false;
+
+	$effect(() => {
+		if (showModal && !wasOpen) {
+			const merged = { ...defaultPuesto, ...(puesto ?? {}) } as Puesto;
+			merged.users = Array.isArray(merged.users) ? merged.users : [];
+			puesto = merged;
+			userInput = '';
+		}
+		wasOpen = showModal;
+	});
 
 	function onClose() {
 		showModal = false;
 	}
 
+	function addUser() {
+		const value = userInput.trim();
+		if (!puesto || !value) {
+			return;
+		}
+		const exists = puesto.users.some((user) => user.toLowerCase() === value.toLowerCase());
+		if (!exists) {
+			puesto = { ...puesto, users: [...puesto.users, value] };
+		}
+		userInput = '';
+	}
+
+	function removeUser(value: string) {
+		if (!puesto) {
+			return;
+		}
+		puesto = { ...puesto, users: puesto.users.filter((user) => user !== value) };
+	}
+
 	function handleSubmit() {
-		console.log('Puesto data:', puesto);
-		if (puesto?.id) {
-		// TODO: Update existing puesto
+		if (!puesto) {
+			return;
+		}
+		const bankingId = puesto.banking_id === null || puesto.banking_id === ''
+			? null
+			: Number(puesto.banking_id);
+		const payload: Puesto = {
+			...puesto,
+			banking_id: bankingId,
+			name: puesto.name.trim(),
+			location: puesto.location.trim(),
+			prohibited_percentage: Number(puesto.prohibited_percentage || 0),
+			users: puesto.users.map((user) => user.trim()).filter(Boolean)
+		};
+
+		if (!payload.name || !payload.location || payload.banking_id === null) {
+			return;
+		}
+
+		if (payload.id) {
+			updatePuesto(payload);
 		} else {
-			// TODO: Add new puesto
+			addPuesto(payload);
 		}
 		onClose();
 	}
-
-	console.log('Puesto to edit:', puesto);
 </script>
 
 {#if showModal}
@@ -35,56 +95,42 @@
 		onkeydown={(e) => e.key === "Escape" && onClose()} 
 		tabindex="0"
 	>
-		<div
-			class="modal"
-			onclick={(e) => e.stopPropagation()}
-			role="presentation"
-		>
-			<h2>{puesto?.id ? 'Editar Puesto' : 'Agregar Nuevo Puesto'}</h2>
-			<form 
-				onsubmit={(e) => {
-					e.preventDefault();
-					handleSubmit();
-				}}
+		{#if puesto}
+			<div
+				class="modal"
+				onclick={(e) => e.stopPropagation()}
+				role="presentation"
 			>
-				<label for="name">Nombre</label>
-				<input id="name" type="text" value={puesto?.name} required />
+				<h2 class="modal-title">{puesto?.id ? 'Editar Puesto' : 'Agregar Nuevo Puesto'}</h2>
+				<form class="modal-form"
+					onsubmit={(e) => {
+						e.preventDefault();
+						handleSubmit();
+					}}
+				>
+					<label class="modal-label" for="name">Nombre</label>
+					<input class="modal-input" id="name" type="text" bind:value={puesto.name} required />
 
-				<label for="phone">Teléfono</label>
-				<input id="phone" type="text" value={puesto?.phone} />
+					<label class="modal-label" for="location">Ubicacion</label>
+					<input class="modal-input" id="location" type="text" bind:value={puesto.location} required />
 
-				<label for="user">Usuario</label>
-				<input id="user" type="text" value={puesto?.user} />
+					<label class="modal-label" for="prohibited-percentage">Porcentaje prohibido</label>
+					<input
+						class="modal-input"
+						id="prohibited-percentage"
+						type="number"
+						min="0"
+						max="100"
+						step="0.01"
+						bind:value={puesto.prohibited_percentage}
+					/>
 
-				<label for="status">Estado</label>
-				<select id="status" value={puesto?.status}>
-					<option value="Activo">Activo</option>
-					<option value="Inactivo">Inactivo</option>
-				</select>
-
-				<div class="checkbox-container">
-					<input id="commission" type="checkbox" checked={puesto?.commission} />
-					<label for="commission">Ve comisión</label>
-				</div>
-
-				<div class="modal-actions">
-					<button type="button" onclick={onClose} >Cancelar</button>
-					<button type="submit">Guardar</button>
-				</div>
-			</form>
-		</div>
+					<div class="modal-actions modal-actions--form">
+						<button type="button" onclick={onClose} >Cancelar</button>
+						<button type="submit">Guardar</button>
+					</div>
+				</form>
+			</div>
+		{/if}
 	</div>
 {/if}
-
-<style>
-	form {
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-	}
-	.checkbox-container {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-</style>

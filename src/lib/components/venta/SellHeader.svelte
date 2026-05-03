@@ -149,7 +149,7 @@
         border-radius: 6px;
         padding: 0.5rem;
         overflow-x: auto;
-        max-height: 200px;
+        max-height: 250px;
         gap: 0.5rem;
         min-width: 0;
         flex-wrap: wrap;
@@ -161,6 +161,9 @@
         padding: 0.25rem 0.5rem;
         border: 1px solid var(--color-border);
         background: var(--color-bg-2);
+    }
+    .sorteo-option span {
+        font-size: 0.9rem;
     }
     .header-top {
         display: flex;
