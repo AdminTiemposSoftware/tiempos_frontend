@@ -189,33 +189,4 @@
         flex-direction: column;
         gap: 1rem;
     }
-    .prohibited {
-        display: flex;
-        flex-direction: row;
-        gap: 0.5rem;
-        align-items: center;
-        width: 100%;
-    }
-    .prohibited-list {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr));
-        gap: 0.5rem;
-        justify-items: center;
-        flex: 1;
-        min-width: 0;
-    }
-    .prohibited-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 2.5rem;
-        height: 2.5rem;
-        border-radius: 50%;
-        border: 2px solid var(--color-theme-3);
-        background: #fff;
-        color: var(--color-theme-3);
-    }
-    .prohibited-empty {
-        color: #666;
-    }
 </style>

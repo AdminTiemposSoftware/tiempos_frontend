@@ -125,7 +125,7 @@
 						bind:value={puesto.prohibited_percentage}
 					/>
 
-					<div class="modal-actions modal-actions--form">
+					<div class="modal-actions">
 						<button type="button" onclick={onClose} >Cancelar</button>
 						<button type="submit">Guardar</button>
 					</div>

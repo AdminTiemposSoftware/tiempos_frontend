@@ -36,9 +36,9 @@
 </script>
 
 <aside class="sidebar" class:collapsed={!isExpanded}>
-    <button class="collapse-toggle" onclick={toggleSidebar} aria-label="Toggle sidebar">
-        <span class="icon">&gt;&gt;</span>
-    </button>
+	<button class="collapse-toggle" onclick={toggleSidebar} aria-label="Toggle sidebar">
+		<span class="icon" aria-hidden="true"></span>
+	</button>
 
     <nav>
         <ul>
@@ -63,23 +63,61 @@
 		display: flex;
 		flex-direction: column;
 		border-right: 1px solid #e5e7eb;
-		min-width: 15vw;
+		width: 240px;
+		min-width: 240px;
+		overflow: hidden;
 	}
 
 	.sidebar.collapsed {
 		width: 80px;
+		min-width: 80px;
 	}
 
 	.collapse-toggle {
 		width: 100%;
 		background: none;
-		cursor: pointer;
-		font-size: 1.5rem;
 		color: var(--color-text);
 		transition: all 0.2s ease;
 		display: flex;
-		justify-content: right;
+		justify-content: center;
 		border-bottom: 1px solid #e5e7eb;
+	}
+
+	.icon {
+		position: relative;
+		width: 1.4rem;
+		height: 0.9rem;
+		display: inline-block;
+	}
+
+	.icon::before,
+	.icon::after,
+	.icon {
+		background: transparent;
+	}
+
+	.icon::before,
+	.icon::after {
+		content: '';
+		position: absolute;
+		left: 0;
+		width: 100%;
+		height: 2px;
+		background: currentColor;
+		border-radius: 999px;
+	}
+
+	.icon::before {
+		top: 0;
+		box-shadow: 0 0.35rem 0 currentColor;
+	}
+
+	.icon::after {
+		bottom: 0;
+	}
+
+	.collapse-toggle span {
+		margin-left: auto;
 	}
 
 	.collapse-toggle:hover {
@@ -128,25 +166,5 @@
 
 	.sidebar.collapsed a span {
 		display: none;
-	}
-
-	@media (max-width: 768px) {
-		.sidebar {
-			width: 200px;
-		}
-
-		.sidebar.collapsed {
-			width: 70px;
-		}
-
-		a {
-			font-size: 0.8rem;
-			padding: 0.8rem 1rem;
-		}
-
-		.icon {
-			min-width: 1.2rem;
-			font-size: 1rem;
-		}
 	}
 </style>

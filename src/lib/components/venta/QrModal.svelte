@@ -17,11 +17,13 @@
         onclick={(e) => e.stopPropagation()}
         role="presentation"
     >
-        <h2>Código QR de la Venta</h2>
+        <h2 class="modal-title">Código QR de la Venta</h2>
         <div class="qr-container">
             <QrCode value={data} />
         </div>
-        <button onclick={onClose}>Cerrar</button>
+        <div class="modal-actions">
+            <button onclick={onClose}>Cerrar</button>
+        </div>
     </div>
 </div>
 

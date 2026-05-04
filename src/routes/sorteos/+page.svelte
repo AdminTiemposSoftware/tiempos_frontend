@@ -3,9 +3,11 @@
 	import SchedulePuestoModal from '$lib/components/puestos/SchedulePuestoModal.svelte';
 	import ScheduleModal from '$lib/components/sorteos/ScheduleModal.svelte';
 	import SorteoModal from '$lib/components/sorteos/SorteoModal.svelte';
+	import SorteoCard from '$lib/components/sorteos/SorteoCard.svelte';
 	import AssignSorteoModal from '$lib/components/sorteos/AssignSorteoModal.svelte';
 	import AssignPuestoModal from '$lib/components/sorteos/AssignPuestoModal.svelte';
-	import { PenSolid, TrashBinSolid } from 'flowbite-svelte-icons';
+	import ProhibitedNumberModal from '$lib/components/ProhibitedNumberModal.svelte';
+    import { prohibitedNumbers } from "../../lib/stores/UpdateSellMatrix";
 
 	let puestosHeaders = [
 		{ key: 'branch', label: 'Puesto' },
@@ -100,6 +102,8 @@
 	let showDeleteScheduleModal = $state(false);
 	let showDeletePuestoModal = $state(false);
 	let showDeleteSorteoModal = $state(false);
+	let showDeleteProhibitedModal = $state(false);
+	let showAddProhibitedModal = $state(false);
 	let showAssignSorteoModal = $state(false);
 	let showAssignPuestoModal = $state(false);
 	let selectedSorteo = $state(null);
@@ -114,6 +118,8 @@
 	let puestoToDelete = $state(null);
 	let scheduleToDelete = $state(null);
 	let sorteoToDelete = $state(null);
+	let prohibitedNumberToDelete = $state<number | null>(null);
+	let newProhibitedNumber = $state('');
 	let expandedSorteo = $state<number[]>([]);
 	let selectedScheduleBySorteo = $state<Record<number, number | null>>({});
 
@@ -143,7 +149,7 @@
 
 	// Open modals for create actions
 	function handleAddSorteo() {
-		selectedSorteo = { name: '', type: 'Tiempos', days: '' };
+		selectedSorteo = { name: '', days: '', is_reventado: false, is_megareventado: false };
 		showSorteoModal = true;
 	}
 
@@ -199,6 +205,11 @@
 	function showDeleteSorteo(sorteoId: number) {
 		sorteoToDelete = sorteos.find((s) => s.id === sorteoId);
 		showDeleteSorteoModal = true;
+	}
+
+	function showDeleteProhibitedNumber(value: number) {
+		prohibitedNumberToDelete = value;
+		showDeleteProhibitedModal = true;
 	}
 
 	// Create handlers
@@ -354,6 +365,32 @@
 		sorteoToDelete = null;
 	}
 
+	function handleConfirmDeleteProhibitedNumber() {
+		if (prohibitedNumberToDelete == null) {
+			return;
+		}
+		prohibitedNumbers.update((items) => items.filter((item) => item !== prohibitedNumberToDelete));
+		prohibitedNumberToDelete = null;
+	}
+
+	function openAddProhibitedModal() {
+		newProhibitedNumber = '';
+		showAddProhibitedModal = true;
+	}
+
+	function handleAddProhibitedNumber(newProhibitedNumber) {
+		const trimmed = newProhibitedNumber.trim();
+		if (!trimmed || !/^\d+$/.test(trimmed)) {
+			return;
+		}
+		const value = Number(trimmed);
+		prohibitedNumbers.update((items) =>
+			items.includes(value) ? items : [...items, value].sort((a, b) => a - b)
+		);
+		newProhibitedNumber = '';
+		showAddProhibitedModal = false;
+	}
+
 	function openAssignSorteoModal() {
 		selectedShortcutSorteoId = sorteos[0]?.id ?? null;
 		selectedShortcutPuesto = puestoOptions[0] ?? '';
@@ -435,6 +472,27 @@
 	confirm={handleConfirmDeleteSorteo}
 />
 
+<ConfirmModal
+	bind:showModal={showDeleteProhibitedModal}
+	message={
+		prohibitedNumberToDelete == null
+			? 'Eliminar numero restringido?'
+			: `Eliminar el numero ${prohibitedNumberToDelete}?`
+	}
+	confirmText="Eliminar"
+	cancelText="Cancelar"
+	confirm={handleConfirmDeleteProhibitedNumber}
+/>
+
+<ProhibitedNumberModal
+	bind:showModal={showAddProhibitedModal}
+	bind:value={newProhibitedNumber}
+	title="Agregar numero restringido"
+	confirmText="Guardar"
+	cancelText="Cancelar"
+	onConfirm={handleAddProhibitedNumber}
+/>
+
 <!-- TODO send the modal with the selected puestos for this sorteo -->
 <AssignSorteoModal
 	bind:showModal={showAssignSorteoModal}
@@ -473,126 +531,53 @@
 			Nuevo sorteo
 		</button>
 	</div>
+	<div class="prohibited">
+        <span class="label">Restringidos:</span>
+        <div class="prohibited-list">
+            {#if $prohibitedNumbers?.length}
+                {#each $prohibitedNumbers as number}
+					<button
+						type="button"
+						class="prohibited-badge"
+						onclick={() => showDeleteProhibitedNumber(number)}
+						aria-label={`Eliminar numero restringido ${number}`}
+					>
+						{number}
+					</button>
+                {/each}
+            {:else}
+                <span class="prohibited-empty">-</span>
+            {/if}
+			<button
+				type="button"
+				class="prohibited-badge prohibited-add"
+				onclick={openAddProhibitedModal}
+				aria-label="Agregar numero restringido"
+			>
+				+
+			</button>
+        </div>
+    </div> 
 	<div class="panel-list">
 		{#each sorteos as sorteo}
-			<div class="panel-card">
-				<div 
-					class="panel-toggle" 
-					onclick={() => toggleSorteo(sorteo.id)}
-					onkeydown={(e) => e.key === "Enter" && toggleSorteo(sorteo.id)}
-					role="button"
-					tabindex="0"
-				>
-					<div class="panel-main">
-						<span class="panel-title">{sorteo.name}</span>
-						<div class="chip-row">
-							{#if sorteo.is_reventado }
-								<span class="chip">Reventado</span>
-							{/if}
-							{#if sorteo.is_megareventado }
-								<span class="chip">Megareventado</span>
-							{/if}
-							<span class="chip chip--muted">{sorteo.days}</span>
-						</div>
-					</div>
-						<div class="options-buttons">
-							<button class="neutral" onclick={() => showEditSorteo(sorteo.id)}>
-								<PenSolid class="shrink-0 h-4 w-4" />
-							</button>
-							<button class="negative" onclick={() => showDeleteSorteo(sorteo.id)}>
-								<TrashBinSolid class="shrink-0 h-4 w-4" />
-							</button>
-						</div>
-				</div>
-				{#if expandedSorteo.includes(sorteo.id)}
-					{@const selectedSlot = getSelectedSchedule(sorteo)}
-					<div class="panel-content sorteo-content">
-						<div class="schedule-split">
-							<div class="schedule-list-panel">
-								<div class="schedule-list-header">
-									<h3>Horarios</h3>
-									<button onclick={() => showAddSchedule(sorteo.id)}>
-										Agregar horario
-									</button>
-								</div>
-								{#if sorteo.schedule.length === 0}
-									<p class="empty-state">Sin horarios creados.</p>
-								{:else}
-									<div class="schedule-items scroll-thin">
-										{#each sorteo.schedule as slot}
-											<div
-												class="schedule-item"
-												class:schedule-item--active={selectedSlot && selectedSlot.id === slot.id}
-												onkeydown={(e) => e.key === "Enter" && selectSchedule(sorteo.id, slot.id)}
-												onclick={() => selectSchedule(sorteo.id, slot.id)}
-												role="button"
-												tabindex="0"
-											>
-												<div class="schedule-main">
-													<span class="schedule-name">{slot.name}</span>
-													<span class="schedule-time">{slot.time}</span>
-												</div>
-												<div class="options-buttons">
-													<button class="neutral" onclick={() => showEditSchedule(sorteo.id, selectedSlot.id)}>
-														<PenSolid class="shrink-0 h-4 w-4" />
-													</button>
-													<button class="negative" onclick={() => showDeleteSchedule(sorteo.id, selectedSlot.id)}>
-														<TrashBinSolid class="shrink-0 h-4 w-4" />
-													</button>
-												</div>
-											</div>
-										{/each}
-									</div>
-								{/if}
-							</div>
-							<div class="schedule-detail-panel">
-								{#if selectedSlot}
-									<div class="schedule-detail-header">
-										<h3>Puestos del horario</h3>
-										<button onclick={() => showAddPuestoToSchedule(sorteo.id, selectedSlot.id)}>
-											Agregar puesto
-										</button>
-									</div>
-									<div class="table-scroll table-scroll--rows">
-										<table>
-											<thead>
-												<tr>
-													<th>Puesto</th>
-													<th>Comision</th>
-												</tr>
-											</thead>
-											<tbody>
-												{#if selectedSlot.puestos.length === 0}
-													<tr>
-														<td colspan={puestosHeaders.length} class="empty-state">
-															Sin puestos en este horario
-														</td>
-													</tr>
-												{:else}
-													{#each selectedSlot.puestos as puesto}
-														<tr
-															class="row-action"
-															tabindex="0"
-															role="button"
-															onclick={() => showEditPuestoFromSchedule(puesto, sorteo.id, selectedSlot.id)}
-															onkeydown={(e) => e.key === 'Enter' && showEditPuestoFromSchedule(puesto, sorteo.id, selectedSlot.id)}
-														>
-															<td>{puesto.name}</td>
-															<td>{puesto.commission}%</td>
-														</tr>
-													{/each}
-												{/if}
-											</tbody>
-										</table>
-									</div>
-								{:else}
-									<p class="empty-state">Selecciona un horario para ver sus puestos.</p>
-								{/if}
-							</div>
-						</div>
-					</div>
-				{/if}
-			</div>
+			{@const selectedSlot = getSelectedSchedule(sorteo)}
+			<SorteoCard
+				sorteo={sorteo}
+				expanded={expandedSorteo.includes(sorteo.id)}
+				selectedSlot={selectedSlot}
+				puestosHeadersLength={puestosHeaders.length}
+				onToggle={() => toggleSorteo(sorteo.id)}
+				onSelectSchedule={(scheduleId) => selectSchedule(sorteo.id, scheduleId)}
+				onEditSorteo={() => showEditSorteo(sorteo.id)}
+				onDeleteSorteo={() => showDeleteSorteo(sorteo.id)}
+				onAddSchedule={() => showAddSchedule(sorteo.id)}
+				onEditSchedule={(scheduleId) => showEditSchedule(sorteo.id, scheduleId)}
+				onDeleteSchedule={(scheduleId) => showDeleteSchedule(sorteo.id, scheduleId)}
+				onAddPuesto={(scheduleId) => showAddPuestoToSchedule(sorteo.id, scheduleId)}
+				onEditPuesto={(puesto, scheduleId) =>
+					showEditPuestoFromSchedule(puesto, sorteo.id, scheduleId)
+				}
+			/>
 		{/each}
 	</div>
 	<div class="shortcuts">
@@ -608,113 +593,6 @@
 	.sorteos-page {
 		position: relative;
 		overflow: hidden;
-	}
-	.sorteo-content {
-		gap: 1.25rem;
-	}
-	.schedule-split {
-		display: grid;
-		grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.15fr);
-		gap: 1rem;
-	}
-	.schedule-list-panel {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-		border: 1px solid var(--color-border);
-		border-radius: 0.5rem;
-		background: #fff;
-		padding: 0.75rem;
-	}
-	.schedule-list-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.5rem;
-	}
-	.schedule-list-header h3 {
-		margin: 0;
-		font-size: 1rem;
-	}
-	.schedule-items {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		max-height: 320px;
-		overflow-y: auto;
-		padding-right: 0.25rem;
-	}
-	.schedule-item {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.75rem;
-		border: 1px solid transparent;
-		border-radius: 0.45rem;
-		padding: 0.55rem 0.65rem;
-		background: var(--color-bg-2);
-		cursor: pointer;
-		text-align: left;
-	}
-	.schedule-item:hover {
-		background: #f0f0f0;
-	}
-	.schedule-item--active {
-		border-color: var(--color-theme-1);
-		background: #fff;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-	}
-	.schedule-detail-panel {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-		border: 1px solid var(--color-border);
-		border-radius: 0.5rem;
-		background: #fff;
-		padding: 0.75rem;
-		min-height: 200px;
-	}
-	.schedule-detail-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.75rem;
-		flex-wrap: wrap;
-	}
-	.schedule-detail-header h3 {
-		margin: 0;
-		font-size: 1rem;
-	}
-	.schedule-pill {
-		padding: 0.15rem 0.6rem;
-		border-radius: 999px;
-		background: var(--color-bg-2);
-		font-size: 0.85rem;
-		color: rgba(0, 0, 0, 0.7);
-		font-weight: 600;
-	}
-	.schedule-main {
-		display: flex;
-		flex-direction: column;
-		gap: 0.2rem;
-	}
-	.schedule-name {
-		font-size: 1.1rem;
-		font-weight: 600;
-		color: #000000;
-	}
-	.schedule-time {
-		font-size: 0.8rem;
-		color: rgba(0, 0, 0, 0.6);
-	}
-	.row-action {
-		cursor: pointer;
-	}
-	.row-action:hover {
-		background: var(--color-bg-2);
-	}
-	.empty-state {
-		text-align: center;
 	}
 	.shortcuts {
 		position: absolute;

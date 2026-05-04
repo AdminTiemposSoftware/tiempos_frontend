@@ -30,7 +30,7 @@
 			onclick={(e) => e.stopPropagation()}
 			role="presentation"
 		>
-			<p>{message}</p>
+			<p class="modal-text">{message}</p>
 			<div class="modal-actions">
 				<button type="button" onclick={onClose}>
 					{cancelText}
@@ -42,15 +42,3 @@
 		</div>
 	</div>
 {/if}
-
-<style>
-	.modal-backdrop {
-		z-index: 11;
-	}
-
-
-	.modal p {
-		margin: 0 0 1.5rem;
-		text-align: center;
-	}
-</style>

@@ -101,7 +101,7 @@
 					bind:value={puesto.extraPayment}
 				/>
 
-				<div class="modal-actions modal-actions--form">
+				<div class="modal-actions">
 					<button type="button" onclick={onClose}>Cancelar</button>
 					{#if puesto?.id}
 						<button type="button" class="negative" onclick={handleDelete}>

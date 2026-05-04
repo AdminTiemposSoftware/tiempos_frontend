@@ -90,7 +90,7 @@
         role="presentation"
     >
         <div class="tickets-list">
-            <h2>Tiquetes</h2>
+            <h2 class="modal-title">Tiquetes</h2>
             <div class="search-row">
                 <label for="ticket-search">Buscar:</label>
                 <input
@@ -145,7 +145,7 @@
             <button onclick={onClose}>Cerrar</button>
         </div>
         <div class="ticket-sold-numbers">
-            <h2>
+            <h2 class="modal-title">
                 Numeros vendidos del tiquete
                 {#if selectedTicket}
                     {selectedTicket.id}
@@ -180,14 +180,6 @@
 </div>
 
 <style>
-    h2 {
-        
-        font-size: 1.25rem;
-        font-weight: 600;
-        margin-bottom: 1rem;
-        margin-right: auto;
-    }
-
     .tickets-table {
         margin: 1rem 0;
     }

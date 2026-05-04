@@ -51,32 +51,32 @@
         tabindex="0"
     >
         <div class="modal" onclick={(e) => e.stopPropagation()} role="presentation">
-            <h2>{title}</h2>
-            <form
+            <h2 class="modal-title">{title}</h2>
+            <form class="modal-form"
                 onsubmit={(e) => {
                     e.preventDefault();
                     handleConfirm();
                 }}
             >
-                <div class="field">
-                    <label class="group-title" for="puesto-select">Puesto</label>
+                <div class="modal-field">
+                    <label class="modal-label" for="puesto-select">Puesto</label>
                     {#if puestos.length === 0}
-                        <p class="group-empty">No hay puestos disponibles.</p>
+                        <p class="modal-empty">No hay puestos disponibles.</p>
                     {:else}
-                        <select id="puesto-select" bind:value={selectedPuesto}>
+                        <select class="modal-input" id="puesto-select" bind:value={selectedPuesto}>
                             {#each puestos as puesto}
                                 <option value={puesto}>{puesto}</option>
                             {/each}
                         </select>
                     {/if}
                 </div>
-                <div class="field">
-                    <p class="group-title">Sorteos</p>
+                <div class="modal-field">
+                    <p class="modal-field-title">Sorteos</p>
                     {#if sorteos.length === 0}
-                        <p class="group-empty">No hay sorteos disponibles.</p>
+                        <p class="modal-empty">No hay sorteos disponibles.</p>
                     {:else}
                         {#each sorteos as sorteo}
-                            <label class="radio-option">
+                            <label class="modal-radio-option">
                                 <input
                                     type="radio"
                                     name="sorteo-radio"
@@ -97,34 +97,3 @@
     </div>
 {/if}
 
-<style>
-    form {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .field {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-
-    .group-title {
-        margin: 0;
-        font-weight: 600;
-        color: rgba(0, 0, 0, 0.8);
-    }
-
-    .group-empty {
-        margin: 0;
-        color: rgba(0, 0, 0, 0.6);
-        font-size: 0.9rem;
-    }
-
-    .radio-option {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-</style>

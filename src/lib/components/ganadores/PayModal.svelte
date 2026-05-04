@@ -36,18 +36,21 @@
         tabindex="0"
     >
         <div class="modal pay-modal" onclick={(e) => e.stopPropagation()} role="presentation">
+            <h2 class="modal-title">{title}</h2>
             {#if name && time}
-                <p>Pagando el sorteo {name} que jugo a las {time}</p>
+                <p class="modal-text">Pagando el sorteo {name} que jugo a las {time}</p>
             {/if}
             <form
+                class="modal-form"
                 onsubmit={(e) => {
                     e.preventDefault();
                     handleSubmit();
                 }}
             >
                 <div class="pay-ticket">
-                    <label for="pay-ticket">Numero de tiquete ganador</label>
+                    <label class="modal-label" for="pay-ticket">Numero de tiquete ganador</label>
                     <input
+                        class="modal-input"
                         id="pay-ticket"
                         type="text"
                         inputmode="numeric"
@@ -72,10 +75,6 @@
         flex-direction: column;
         align-items: center;
         justify-content: start;
-    }
-    .pay-modal p {
-        font-size: 1.2rem;
-        font-weight: bold;
     }
     .pay-ticket {
         display: flex;

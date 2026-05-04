@@ -7,7 +7,7 @@
     import { total } from "../../lib/stores/UpdateSellMatrix";
 
     // TODO This is all testing data, replace with actual data from the database
-    prohibitedNumbers.set([3, 7, 13, 17, 23, 27,33,37,40,51,57,61,67,71,73,83,97]); 
+    prohibitedNumbers.set([3, 7, 13, 17, 23, 27, 33, 40, 51, 57, 61, 71, 73, 83]); 
     let selectedDate = new Date().toISOString().split('T')[0];
     let closeTime = 'N/A';
     let message = '';
