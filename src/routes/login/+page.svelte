@@ -15,10 +15,6 @@
 			<h1>Iniciar sesión</h1>
 		</header>
 
-		{#if hasFormError}
-			<div class="form-error" role="alert">{form?.error}</div>
-		{/if}
-
 		<form method="POST" action="/login" use:enhance>
 			<div class="field">
 				<label for="username">Usuario</label>

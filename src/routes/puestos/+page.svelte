@@ -2,69 +2,36 @@
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import PuestoModal from '$lib/components/puestos/PuestoModal.svelte';
 	import { PenSolid, TrashBinSolid } from 'flowbite-svelte-icons';
-
-	type SorteoLink = {
-		id: number;
-		name: string;
-		type: string;
-		days: string;
-	};
-
-	let data = $state([
-		{
-			id: 1,
-			banking_id: 4,
-			name: 'Puesto Central',
-			location: 'Av. Duarte #120',
-			status: 'Activo',
-			prohibited_percentage: 7.5,
-			users: [
-				{ username: 'ana.p', name: 'Ana Pérez', phone: '123-456-7890' },
-				{ username: 'carlosg', name: 'Carlos García', phone: '098-765-4321' },
-				{ username: 'maria.l', name: 'María López', phone: '555-555-5555' }
-			],
-			sorteos: [
-				{ id: 1, name: 'Loteria Nacional', type: 'Tiempos', days: 'Lun, Mie, Vie' },
-				{ id: 1, name: 'Loteria Nacional', type: 'Tiempos', days: 'Lun, Mie, Vie' },
-				{ id: 1, name: 'Loteria Nacional', type: 'Tiempos', days: 'Lun, Mie, Vie' },
-				{ id: 1, name: 'Loteria Nacional', type: 'Tiempos', days: 'Lun, Mie, Vie' },
-				{ id: 1, name: 'Loteria Nacional', type: 'Tiempos', days: 'Lun, Mie, Vie' },
-				{ id: 1, name: 'Loteria Nacional', type: 'Tiempos', days: 'Lun, Mie, Vie' },
-				{ id: 1, name: 'Loteria Nacional', type: 'Tiempos', days: 'Lun, Mie, Vie' },
-				{ id: 2, name: 'Loteria Premium', type: 'Reventado', days: 'Sab, Dom' }
-			]
-		},
-		{
-			id: 2,
-			banking_id: 7,
-			name: 'Puesto Norte',
-			location: 'Sector Naco, Local 3',
-			status: 'Activo',
-			prohibited_percentage: 5,
-			users: [
-				{ username: 'juan.m', name: 'Juan Martínez', phone: '555-123-4567' },
-				{ username: 'rosa.d', name: 'Rosa Díaz', phone: '555-987-6543' }
-			],
-			sorteos: [
-				{ id: 3, name: 'Quiniela Express', type: 'Express', days: 'Mar, Jue, Sab' }]
-		},
-		{
-			id: 3,
-			banking_id: 2,
-			name: 'Puesto Oeste',
-			location: 'Calle 8, Plaza Norte',
-			status: 'Inactivo',
-			prohibited_percentage: 0,
-			users: [],
-			sorteos: []
-		}
-	]);
+	let { data } = $props();
 
 	let showModal = $state(false);
 	let showDeleteModal = $state(false);
-	let selectedPuesto = $state(null);
-	let puestoToDelete = $state(null);
+	let selectedPuesto = $state<Puesto | null>(null);
+	let puestoToDelete = $state<Puesto | null>(null);
 	let expandedPuestos = $state<number[]>([]);
+	let puestos = $state<Puesto[]>([]);
+
+	type Puesto = {
+		id?: number;
+		banking_id: number;
+		name: string;
+		location: string;
+		status: string;
+		prohibited_percentage?: number | string;
+		users?: Array<{ username: string; name: string; phone: string }>;
+		sorteos?: Array<{ id: number; name: string; type: string; days: string }>;
+	};
+
+	$effect(() => {
+		const items: Puesto[] = Array.isArray(data?.items) ? data.items : [];
+		console.log('Loaded items:', items);
+		puestos = items.map((item: Puesto) => ({
+			...item,
+			prohibited_percentage: Number(item.prohibited_percentage ?? 0),
+			users: item.users ?? [],
+			sorteos: item.sorteos ?? []
+		}));
+	});
 
 	function togglePuesto(puestoId: number) {
 		expandedPuestos = expandedPuestos.includes(puestoId)
@@ -85,12 +52,12 @@
 		showModal = true;
 	}
 
-	function handleEdit(puesto) {
+	function handleEdit(puesto: Puesto) {
 		selectedPuesto = { ...puesto };
 		showModal = true;
 	}
 
-	function handleDelete(puesto) {
+	function handleDelete(puesto: Puesto) {
 		puestoToDelete = puesto;
 		showDeleteModal = true;
 	}
@@ -99,13 +66,13 @@
 		if (!puestoToDelete) {
 			return;
 		}
-		data = data.filter((item) => item.id !== puestoToDelete?.id);
+		puestos = puestos.filter((item) => item.id !== puestoToDelete?.id);
 		expandedPuestos = expandedPuestos.filter((id) => id !== puestoToDelete?.id);
 		puestoToDelete = null;
 	}
 
-	function handleAddPuesto(payload) {
-		const nextId = Math.max(0, ...data.map((item) => item.id ?? 0)) + 1;
+	function handleAddPuesto(payload: Partial<Puesto>) {
+		const nextId = Math.max(0, ...puestos.map((item) => item.id ?? 0)) + 1;
 		const nextPuesto = {
 			id: nextId,
 			banking_id: Number(payload.banking_id ?? 1),
@@ -116,11 +83,11 @@
 			users: payload.users ?? [],
 			sorteos: payload.sorteos ?? []
 		};
-		data = [...data, nextPuesto];
+		puestos = [...puestos, nextPuesto];
 	}
 
-	function handleUpdatePuesto(payload) {
-		data = data.map((item) =>
+	function handleUpdatePuesto(payload: Partial<Puesto> & { id: number }) {
+		puestos = puestos.map((item) =>
 			item.id === payload.id
 				? {
 						...item,
@@ -164,7 +131,7 @@
 		</button>
 	</div>
 	<div class="panel-list">
-		{#each data as puesto}
+		{#each puestos as puesto}
 			<div class="panel-card">
 				<button class="panel-toggle" onclick={() => togglePuesto(puesto.id ?? 0)}>
 					<div class="panel-main">
@@ -172,8 +139,8 @@
 						<span class="puesto-location">{puesto.location}</span>
 						<div class="chip-row">
 							<span class="chip">{puesto.status}</span>
-							<span class="chip chip--muted">{puesto.users.length} usuarios</span>
-							<span class="chip chip--muted">{puesto.sorteos.length} sorteos</span>
+							<span class="chip chip--muted">{puesto.users?.length} usuarios</span>
+							<span class="chip chip--muted">{puesto.sorteos?.length} sorteos</span>
 						</div>
 					</div>
 					<span class="panel-count">Banca #{puesto.banking_id}</span>
@@ -198,7 +165,7 @@
 						<div class="subsection column">
 							<div class="sub-subsection">
 								<h3>Usuarios</h3>
-								{#if puesto.users.length === 0}
+								{#if puesto.users?.length === 0}
 									<p class="empty-state">Sin usuarios asignados.</p>
 								{:else}
 									<div class="table-scroll table-scroll--rows">
@@ -226,7 +193,7 @@
 
 							<div class="sub-subsection">
 								<h3>Sorteos asociados</h3>
-								{#if puesto.sorteos.length === 0}
+								{#if puesto.sorteos?.length === 0}
 									<p class="empty-state">Sin sorteos asignados.</p>
 								{:else}
 									<div class="table-scroll table-scroll--rows">

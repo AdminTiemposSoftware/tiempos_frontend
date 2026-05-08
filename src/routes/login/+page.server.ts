@@ -2,12 +2,10 @@ import { fail, redirect } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import type { Actions } from './$types';
 
-const ENV_LOGIN_USERNAME = env.ADMIN_USERNAME ?? '';
-const ENV_LOGIN_PASSWORD = env.ADMIN_PASSWORD ?? '';
-const ENV_LOGIN_TOKEN = env.PRIVATE_AUTH_TOKEN ?? 'env-login';
+const API_URL = env.API_URL ?? '';
 
-export const actions: Actions = {
-	default: async ({ request, cookies }) => {
+	export const actions: Actions = {
+	default: async ({ request, cookies }: import('@sveltejs/kit').RequestEvent) => {
 		try {
 			const data = await request.formData();
 			const username = String(data.get('username') ?? '').trim();
@@ -29,22 +27,45 @@ export const actions: Actions = {
 				});
 			}
 
-			if (username === ENV_LOGIN_USERNAME && password === ENV_LOGIN_PASSWORD) {
-				cookies.set('session', ENV_LOGIN_TOKEN, {
-					path: '/',
-					httpOnly: true,
-					sameSite: 'lax',
-					secure: false
+			if (!API_URL) {
+				return fail(500, {
+					error: 'Error interno del servidor.'
 				});
-
-				throw redirect(303, '/venta');
 			}
 
-			return fail(401, {
-				error: 'Credenciales inválidas.',
-				values: { username },
-				fieldErrors: { password: 'Contraseña incorrecta.' }
+			const response = await fetch(`${API_URL}/auth/login`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ username, password })
 			});
+
+			if (!response.ok) {
+				const payload = await response.json().catch(() => null);
+				return fail(response.status, {
+					error: payload?.detail ?? 'Credenciales inválidas.',
+					values: { username },
+					fieldErrors: { password: 'Contraseña incorrecta.' }
+				});
+			}
+
+			const payload = await response.json().catch(() => null);
+			const token = payload?.token;
+			if (!token) {
+				return fail(500, {
+					error: 'Token de sesión no recibido.'
+				});
+			}
+
+			cookies.set('session', token, {
+				path: '/',
+				httpOnly: true,
+				sameSite: 'lax',
+				secure: request.url.startsWith('https://')
+			});
+
+			throw redirect(303, '/venta');
 		} catch (error) {
 			if (error && typeof error === 'object' && 'status' in error && 'location' in error) {
 				throw error;
