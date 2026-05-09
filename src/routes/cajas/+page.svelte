@@ -1,7 +1,12 @@
+<script>
+    import { auth } from '$lib/stores/auth';
+</script>
+
 <svelte:head>
     <title>En desarrollo</title>
 </svelte:head>
 
+{#if ['branch'].includes($auth.user?.role ?? '')}
 <section class="coming">
     <div class="card">
         <p class="eyebrow">Tiempo</p>
@@ -9,10 +14,11 @@
         <p class="sub">Aun faltan detalles</p>
     </div>
 </section>
+{/if}
 
 <style>
     .coming {
-        min-height: 100svh;
+        height: 100%;
         display: grid;
         place-items: center;
         padding: 3rem 1.5rem;

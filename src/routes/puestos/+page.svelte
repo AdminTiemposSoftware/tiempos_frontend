@@ -1,10 +1,13 @@
 <script lang="ts">
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import PuestoModal from '$lib/components/puestos/PuestoModal.svelte';
+	import UserModal from '../../lib/components/puestos/UserModal.svelte';
 	import { PenSolid, TrashBinSolid } from 'flowbite-svelte-icons';
-	let { data } = $props();
+	import { auth } from '$lib/stores/auth';
 
+	let { data } = $props();
 	let showModal = $state(false);
+	let showUserModal = $state(false);
 	let showDeleteModal = $state(false);
 	let selectedPuesto = $state<Puesto | null>(null);
 	let puestoToDelete = $state<Puesto | null>(null);
@@ -18,16 +21,19 @@
 		location: string;
 		status: string;
 		prohibited_percentage?: number | string;
+		user_count?: number;
+		draw_count?: number;
 		users?: Array<{ username: string; name: string; phone: string }>;
 		sorteos?: Array<{ id: number; name: string; type: string; days: string }>;
 	};
 
 	$effect(() => {
 		const items: Puesto[] = Array.isArray(data?.items) ? data.items : [];
-		console.log('Loaded items:', items);
 		puestos = items.map((item: Puesto) => ({
 			...item,
 			prohibited_percentage: Number(item.prohibited_percentage ?? 0),
+			user_count: Number(item.user_count ?? 0),
+			draw_count: Number(item.draw_count ?? 0),
 			users: item.users ?? [],
 			sorteos: item.sorteos ?? []
 		}));
@@ -80,6 +86,8 @@
 			location: payload.location ?? '-',
 			status: payload.status ?? 'Activo',
 			prohibited_percentage: Number(payload.prohibited_percentage ?? 0),
+			user_count: 0,
+			draw_count: 0,
 			users: payload.users ?? [],
 			sorteos: payload.sorteos ?? []
 		};
@@ -97,6 +105,19 @@
 					}
 				: item
 		);
+	}
+
+	function handleCreateUser(puesto: Puesto) {
+		selectedPuesto = puesto;
+		showUserModal = true;
+	}
+
+	function updateUser() {
+		// TODO
+	}
+
+	function createSorteo() {
+		// TODO
 	}
 </script>
 
@@ -116,10 +137,17 @@
 	confirm={handleConfirmDelete}
 />
 
+<UserModal
+	bind:showModal={showUserModal}
+	updateUser={updateUser}
+/>
+	
+
 <svelte:head>
 	<title>Puestos</title>
 </svelte:head>
 
+{#if ['banking'].includes($auth.user?.role ?? '')}
 <section class="page-stack">
 	<div class="header-contained">
 		<div>
@@ -139,28 +167,15 @@
 						<span class="puesto-location">{puesto.location}</span>
 						<div class="chip-row">
 							<span class="chip">{puesto.status}</span>
-							<span class="chip chip--muted">{puesto.users?.length} usuarios</span>
-							<span class="chip chip--muted">{puesto.sorteos?.length} sorteos</span>
+							<span class="chip chip--muted">{puesto.user_count ?? puesto.users?.length ?? 0} usuarios</span>
+							<span class="chip chip--muted">{puesto.draw_count ?? puesto.sorteos?.length ?? 0} sorteos</span>
+							<span class="chip chip--muted">Prohibidos al {puesto.prohibited_percentage}%</span>
 						</div>
 					</div>
 					<span class="panel-count">Banca #{puesto.banking_id}</span>
 				</button>
 				{#if expandedPuestos.includes(puesto.id ?? 0)}
 					<div class="panel-content panel-content--filled">
-						<div class="info-grid">
-							<div class="info-card">
-								<p class="info-title">Ubicacion</p>
-								<p class="info-value">{puesto.location}</p>
-							</div>
-							<div class="info-card">
-								<p class="info-title">Estado</p>
-								<p class="info-value">{puesto.status}</p>
-							</div>
-							<div class="info-card">
-								<p class="info-title">Prohibido</p>
-								<p class="info-value">{puesto.prohibited_percentage}%</p>
-							</div>
-						</div>
 
 						<div class="subsection column">
 							<div class="sub-subsection">
@@ -189,6 +204,9 @@
 										</table>
 									</div>
 								{/if}
+								<button onclick={() => handleCreateUser(puesto)}>
+									Agregar usuario
+								</button>
 							</div>
 
 							<div class="sub-subsection">
@@ -217,6 +235,9 @@
 										</table>
 									</div>
 								{/if}
+								<button onclick={createSorteo}>
+									Assignar sorteo	
+								</button>
 							</div>
 						</div>
 
@@ -237,6 +258,7 @@
 		{/each}
 	</div>
 </section>
+{/if}
 
 <style>
 	.puesto-location {
@@ -249,32 +271,6 @@
 		border-top: 1px solid var(--color-border);
 		border-bottom-left-radius: 0.5rem;
 		border-bottom-right-radius: 0.5rem;
-	}
-
-	.info-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-		gap: 0.75rem;
-	}
-
-	.info-card {
-		border: 1px solid var(--color-border);
-		border-radius: 0.5rem;
-		padding: 0.75rem;
-		background: var(--color-bg-2);
-	}
-
-	.info-title {
-		margin: 0;
-		font-size: 0.75rem;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: rgba(0, 0, 0, 0.55);
-	}
-
-	.info-value {
-		margin: 0.35rem 0 0;
-		font-weight: 600;
 	}
 
 	.subsection {

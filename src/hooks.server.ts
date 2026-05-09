@@ -45,7 +45,7 @@ async function fetchUser(token: string, fetchFn: typeof fetch): Promise<AuthUser
 
 		return {
 			id: String(user.id),
-			role: String(user.role ?? 'user'),
+			role: String(user.role ?? 'branch'),
 			username: user.username ? String(user.username) : undefined
 		};
 	} catch {

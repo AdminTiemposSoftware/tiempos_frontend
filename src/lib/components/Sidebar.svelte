@@ -1,9 +1,11 @@
 <script lang="ts">
     let isExpanded = $state(true);
     let currentPath = $state('/');
+	let role = $derived($auth.user?.role ?? '');
 
     // Get current path on component mount
-    import { onMount } from 'svelte';
+	import { onMount } from 'svelte';
+	import { auth } from '$lib/stores/auth';
     
     onMount(() => {
         currentPath = window.location.pathname;
@@ -13,9 +15,16 @@
         isExpanded = !isExpanded;
     }
 
-    const navItems = [
-        { label: 'Venta', path: '/venta'},
-        { label: 'Listas', path: '/listas'},
+    async function handleLogout() {
+        const response = await fetch('/logout', { method: 'POST' });
+        if (response.ok) {
+            window.location.href = '/login';
+        }
+    }
+	
+	const navItems = [
+		{ label: 'Venta', path: '/venta', roles: ['branch'] },
+		{ label: 'Listas', path: '/listas', roles: ['banking'] },
 		// TODO : No crucial
         // { label: 'Dashboard', path: '/dashboard'},
 		// TODO : Esta funcionalidad es para cuando el admin quiera tener mas bancas aparte de la suya
@@ -26,13 +35,17 @@
         // { label: 'Sorteos Base', path: '/sorteos-base'},
 		// TODO : Esta funcionalidad es para cuando el admin quiera alquilar el software
         // { label: 'Usuarios', path: '/usuarios'}, 
-        { label: 'Puestos', path: '/puestos'},
-        { label: 'Sorteos', path: '/sorteos'},
-        { label: 'Ganadores', path: '/ganadores'},
-        { label: 'Reportes', path: '/reportes'},
-        { label: 'Cajas', path: '/cajas'},
-        { label: 'Carga Excel', path: '/carga-excel'}
-    ];
+        { label: 'Puestos', path: '/puestos', roles: ['banking'] },
+        { label: 'Sorteos', path: '/sorteos', roles: ['banking'] },
+        { label: 'Ganadores', path: '/ganadores', roles: ['banking'] },
+        { label: 'Reportes', path: '/reportes', roles: ['banking', 'branch'] },
+        { label: 'Cajas', path: '/cajas', roles: ['branch'] },
+		{ label: 'Carga Excel', path: '/carga-excel', roles: ['banking'] }
+	];
+
+	let visibleNavItems = $derived(
+		navItems.filter((item) => !item.roles || item.roles.includes(role))
+	);
 </script>
 
 <aside class="sidebar" class:collapsed={!isExpanded}>
@@ -42,13 +55,22 @@
 
     <nav>
         <ul>
-            {#each navItems as item (item.path)}
+			{#each visibleNavItems as item (item.path)}
                 <li aria-current={currentPath === item.path ? 'page' : undefined}>
                     <a href={item.path} title={item.label}>
                         <span>{item.label}</span>
                     </a>
                 </li>
             {/each}
+			<div 
+				class="logout" 
+				onclick={handleLogout}
+				role="button"
+				onkeydown={(e) => e.key === "Enter" && handleLogout()}
+				tabindex="0"
+			>
+				<span>Cerrar sesión</span>
+			</div>
         </ul>
     </nav>
 </aside>
@@ -137,7 +159,7 @@
 		margin: 0;
 	}
 
-	a {
+	a, .logout{
 		display: flex;
 		align-items: center;
 		gap: 1rem;
@@ -166,5 +188,12 @@
 
 	.sidebar.collapsed a span {
 		display: none;
+	}
+
+	.logout {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		right: 0;
 	}
 </style>

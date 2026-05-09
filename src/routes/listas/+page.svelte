@@ -1,6 +1,7 @@
 <script lang="ts">
     import Matrix from "$lib/components/venta/Matrix.svelte";
     import SelectModal from "$lib/components/SelectModal.svelte";
+    import { auth } from '$lib/stores/auth';
 
     let dateFrom = "02/16/2";
     let dateTo = "02/16/2";
@@ -33,6 +34,8 @@
 <svelte:head>
 	<title>Venta</title>
 </svelte:head>
+
+{#if ['banking', 'branch'].includes($auth.user?.role ?? '')}
 <section class="container">
     <header>
         <div class="filters">
@@ -51,12 +54,10 @@
             <SelectModal title="Sorteos" items={sorteos} bind:selected={selectedSorteos} />
         </div>
         <button onclick={handleConfirm}>Confirmar</button>
-
     </header>
 
     <section class="content">
         {#if !selectedLottery}
-            
             {#if showAdditionalMatrices}
                 <h1>Tabla 1</h1>
                 <div class="matrix-exportable">  
@@ -98,6 +99,7 @@
         {/if}
     </section>
 </section>
+{/if}
 
 <style>
     .container {

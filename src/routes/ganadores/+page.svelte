@@ -1,6 +1,7 @@
 <script lang="ts">
     import ConfirmModal from '$lib/components/ConfirmModal.svelte';
     import PayModal from '$lib/components/ganadores/PayModal.svelte';
+    import { auth } from '$lib/stores/auth';
 
     const rows = [
         {
@@ -111,16 +112,6 @@
         // TODO: Enviar pago a backend con el numero de tiquete ganador.
         pendingPayRow = null;
     };
-
-    const totals = rows.reduce(
-        (acc, row) => ({
-            // sale: acc.sale + row.sale,
-            // commission: acc.commission + row.commission,
-            // prize: acc.prize + row.prize,
-            // net: acc.net + row.net
-        }),
-        { sale: 0, commission: 0, prize: 0, net: 0 }
-    );
 </script>
 
 <ConfirmModal
@@ -148,6 +139,7 @@
 	<title>Ganadores</title>
 </svelte:head>
 
+{#if ['banking'].includes($auth.user?.role ?? '')}
 <section class="ganadores">
     <div class="header-contained">
         <div class="header-title">
@@ -225,6 +217,7 @@
         </table>
     </div>
 </section>
+{/if}
 
 <style>
     .ganadores {

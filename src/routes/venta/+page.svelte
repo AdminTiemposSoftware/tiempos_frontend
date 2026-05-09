@@ -4,6 +4,7 @@
     import SellHeader from "$lib/components/venta/SellHeader.svelte";
     import { prohibitedNumbers } from "../../lib/stores/UpdateSellMatrix";
     import { sellingMatrix } from "../../lib/stores/UpdateSellMatrix";
+    import { auth } from "$lib/stores/auth";
     import { total } from "../../lib/stores/UpdateSellMatrix";
 
     // TODO This is all testing data, replace with actual data from the database
@@ -52,6 +53,8 @@
 <svelte:head>
 	<title>Venta</title>
 </svelte:head>
+
+{#if ['branch'].includes($auth.user?.role ?? '')}
 <section class="sell-container">
     <section class="set-section">
         <SellHeader
@@ -70,6 +73,7 @@
         columns={5}
     />
 </section>
+{/if}
 
 <style>
     .sell-container {

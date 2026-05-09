@@ -8,6 +8,7 @@
 	import AssignPuestoModal from '$lib/components/sorteos/AssignPuestoModal.svelte';
 	import ProhibitedNumberModal from '$lib/components/ProhibitedNumberModal.svelte';
     import { prohibitedNumbers } from "../../lib/stores/UpdateSellMatrix";
+	import { auth } from '$lib/stores/auth';	
 
 	let puestosHeaders = [
 		{ key: 'branch', label: 'Puesto' },
@@ -521,6 +522,8 @@
 <svelte:head>
 	<title>Sorteos</title>
 </svelte:head>
+
+{#if ['banking'].includes($auth.user?.role ?? '')}
 <section class="page-stack sorteos-page">
 	<div class="header-contained">
 		<div>
@@ -588,6 +591,7 @@
 		</div>
 	</div>
 </section>
+{/if}
 
 <style>
 	.sorteos-page {
