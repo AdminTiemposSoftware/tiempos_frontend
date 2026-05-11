@@ -2,7 +2,20 @@
 	import { enhance } from '$app/forms';
 	let { form } = $props();
 
-	let hasFormError = $derived(Boolean(form?.error));
+	let loading = $state(false);
+	let error = $state<string | null>(null);
+		
+	function enhanced (){
+		return async ({ result, update }) => {
+			loading = false;
+
+			if (result.type === 'failure') {
+				error = result.data?.error ?? 'Invalid credentials';
+			}
+
+			await update();
+		};
+	};
 </script>
 
 <svelte:head>
@@ -15,7 +28,12 @@
 			<h1>Iniciar sesión</h1>
 		</header>
 
-		<form method="POST" action="/login" use:enhance>
+		<form method="POST" action="/login" use:enhance={()=>{
+			loading = true;
+			error = null;
+	
+			return enhanced();
+		}}>
 			<div class="field">
 				<label for="username">Usuario</label>
 				<input
@@ -45,12 +63,20 @@
 					aria-invalid={form?.fieldErrors?.password ? 'true' : 'false'}
 					aria-describedby={form?.fieldErrors?.password ? 'password-error' : undefined}
 				/>
-				{#if form?.fieldErrors?.password}
-					<p id="password-error" class="field-error">{form.fieldErrors.password}</p>
-				{/if}
 			</div>
 
-			<button type="submit" class="wide">Iniciar sesión</button>
+			<button type="submit" class="wide" disabled={loading} aria-live="polite">
+				{#if loading}
+					<span>Iniciando...</span>
+					<span class="spinner" aria-hidden="true"></span>
+				{:else}
+					Iniciar sesión
+				{/if}
+			</button>
+
+			{#if error}
+				<p class="field-error" role="alert">{error}</p>
+			{/if}
 		</form>
 	</div>
 </section>
@@ -108,16 +134,23 @@
 		font-size: 0.85rem;
 	}
 
-	.form-error {
-		background: #fdeceb;
-		color: #b42318;
-		padding: 0.75rem 1rem;
-		border-radius: 8px;
-		border: 1px solid #f3b4af;
-		font-size: 0.9rem;
-	}
-
 	.wide {
 		width: 100%;
+	}
+
+	.spinner {
+		display: inline-block;
+		width: 16px;
+		height: 16px;
+		margin-left: 0.6rem;
+		border: 2px solid rgba(255,255,255,0.45);
+		border-top-color: white;
+		border-radius: 50%;
+		animation: spin 700ms linear infinite;
+	}
+
+	@keyframes spin {
+		from { transform: rotate(0deg); }
+		to { transform: rotate(360deg); }
 	}
 </style>

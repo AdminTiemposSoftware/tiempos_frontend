@@ -4,12 +4,23 @@ import type { Actions } from './$types';
 
 const API_URL = env.API_URL ?? '';
 
-	export const actions: Actions = {
+async function readResponsePayload(response: Response) {
+	try {
+		return await response.json();
+	} catch {
+		return null;
+	}
+}
+
+export const actions: Actions = {
 	default: async ({ request, cookies }: import('@sveltejs/kit').RequestEvent) => {
+		let username = '';
+		let password = '';
+
 		try {
 			const data = await request.formData();
-			const username = String(data.get('username') ?? '').trim();
-			const password = String(data.get('password') ?? '').trim();
+			username = String(data.get('username') ?? '').trim();
+			password = String(data.get('password') ?? '').trim();
 
 			const fieldErrors: Record<string, string> = {};
 			if (!username) {
@@ -41,20 +52,37 @@ const API_URL = env.API_URL ?? '';
 				body: JSON.stringify({ username, password })
 			});
 
+			const payload = await readResponsePayload(response);
+
 			if (!response.ok) {
-				const payload = await response.json().catch(() => null);
+				const detail = typeof payload?.detail === 'string' ? payload.detail : null;
+				const messageByStatus: Record<number, string> = {
+					400: detail ?? 'Revisa los datos enviados.',
+					401: detail ?? 'Credenciales inválidas.',
+					403: detail ?? 'Tu usuario está deshabilitado.',
+					500: detail ?? 'No se pudo iniciar sesión en este momento.'
+				};
+
+				const fieldErrors: Record<string, string> = {};
+				if (response.status === 401) {
+					fieldErrors.password = 'Contraseña incorrecta.';
+				}
+				if (response.status === 403) {
+					fieldErrors.username = 'Este usuario no puede iniciar sesión.';
+				}
+
 				return fail(response.status, {
-					error: payload?.detail ?? 'Credenciales inválidas.',
+					error: messageByStatus[response.status] ?? detail ?? 'No se pudo iniciar sesión.',
 					values: { username },
-					fieldErrors: { password: 'Contraseña incorrecta.' }
+					fieldErrors
 				});
 			}
 
-			const payload = await response.json().catch(() => null);
 			const token = payload?.token;
 			if (!token) {
 				return fail(500, {
-					error: 'Token de sesión no recibido.'
+					error: 'La respuesta del servidor no incluyó un token de sesión.',
+					values: { username }
 				});
 			}
 
@@ -70,9 +98,19 @@ const API_URL = env.API_URL ?? '';
 			if (error && typeof error === 'object' && 'status' in error && 'location' in error) {
 				throw error;
 			}
+
+			if (error instanceof TypeError) {
+				console.error('Error de red al iniciar sesión.', error);
+				return fail(503, {
+					error: 'No se pudo conectar con el servidor. Intenta de nuevo mas tarde.',
+					values: { username }
+				});
+			}
+
 			console.error('Error de inicio de sesión.', error);
 			return fail(500, {
-				error: 'Error al iniciar sesión. Intenta de nuevo.'
+				error: 'Error al iniciar sesión. Intenta de nuevo mas tarde.',
+				values: { username }
 			});
 		}
 	}
