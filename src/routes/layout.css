@@ -410,11 +410,6 @@ th {
 	color: rgba(0, 0, 0, 0.85);
 }
 
-.panel-count {
-	color: rgba(0, 0, 0, 0.55);
-	font-weight: 500;
-	margin: 0;
-}
 
 .panel-content {
 	padding: 1rem;

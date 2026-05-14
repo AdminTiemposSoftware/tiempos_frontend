@@ -6,24 +6,16 @@ type AuthUser = {
 	id: string;
 	role: string;
 	username?: string;
+ 	branchId?: string | null;
 } | null;
 
 const publicPrefixes = ['/_app', '/login', '/robots.txt', '/favicon'];
-
-// TODO - Refactor to support multiple auth methods and providers more cleanly
-const ENV_LOGIN_USERNAME = env.ADMIN_USERNAME ?? '';
-const ENV_LOGIN_USER_ID = env.PRIVATE_AUTH_USER_ID ?? 'env-user';
-const ENV_LOGIN_ROLE = env.PRIVATE_AUTH_ROLE ?? 'admin';
 
 const baseUrl = env.API_URL;	
 
 async function fetchUser(token: string, fetchFn: typeof fetch): Promise<AuthUser> {
 	if (!baseUrl) {
-		return {
-			id: ENV_LOGIN_USER_ID,
-			role: ENV_LOGIN_ROLE,
-			username: ENV_LOGIN_USERNAME || undefined
-		};
+		return null;
 	}
 
 	try {
@@ -43,10 +35,21 @@ async function fetchUser(token: string, fetchFn: typeof fetch): Promise<AuthUser
 			return null;
 		}
 
+		if (user.role === 'branch') {
+			const branchResponse = await fetchFn(`${baseUrl}/branch/by-user/${user.id}`, {
+				headers: {
+					Authorization: `Bearer ${token}`
+				}
+			});
+			const branchData = await branchResponse.json().catch(() => null);
+			user.branchId = branchData?.items?.[0]?.id ? String(branchData.items[0].id) : null;
+		}
+
 		return {
 			id: String(user.id),
 			role: String(user.role ?? 'branch'),
-			username: user.username ? String(user.username) : undefined
+			username: user.username ? String(user.username) : undefined,
+			branchId: user.branchId ?? null
 		};
 	} catch {
 		return null;

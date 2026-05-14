@@ -251,14 +251,6 @@
 		margin: 0;
 		font-size: 1rem;
 	}
-	.schedule-pill {
-		padding: 0.15rem 0.6rem;
-		border-radius: 999px;
-		background: var(--color-bg-2);
-		font-size: 0.85rem;
-		color: rgba(0, 0, 0, 0.7);
-		font-weight: 600;
-	}
 	.schedule-main {
 		display: flex;
 		flex-direction: column;

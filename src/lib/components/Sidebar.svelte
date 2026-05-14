@@ -190,10 +190,15 @@
 		display: none;
 	}
 
+	.sidebar.collapsed .logout {
+		display: none;
+	}
+
 	.logout {
 		position: absolute;
 		bottom: 0;
 		left: 0;
 		right: 0;
+		cursor: pointer;
 	}
 </style>

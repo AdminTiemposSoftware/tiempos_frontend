@@ -172,7 +172,6 @@
 							<span class="chip chip--muted">Prohibidos al {puesto.prohibited_percentage}%</span>
 						</div>
 					</div>
-					<span class="panel-count">Banca #{puesto.banking_id}</span>
 				</button>
 				{#if expandedPuestos.includes(puesto.id ?? 0)}
 					<div class="panel-content panel-content--filled">
