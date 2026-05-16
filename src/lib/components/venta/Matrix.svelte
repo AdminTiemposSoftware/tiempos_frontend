@@ -32,7 +32,7 @@
                     <input
                         type="number"
                         class="price"
-                        value={$prohibitedNumbers.includes(colIndex * rows + rowIndex) ? 0 : $sellingMatrix[colIndex * rows + rowIndex] || 0}
+                        value={$sellingMatrix[colIndex * rows + rowIndex] || 0}
                         disabled={true}
                     />
                 </div>

@@ -1,14 +1,14 @@
 <script lang="ts">
     import { total } from "../../stores/UpdateSellMatrix";
-    import { prohibitedNumbers } from "../../stores/UpdateSellMatrix";
+    import SellFooter from "./SellFooter.svelte";
 
     let { 
         selectedDate = $bindable(), 
         message = $bindable(), 
         availableBets = $bindable(),
+        selectedBet = $bindable(),
+        prohibitedPercentage = $bindable()
     } = $props();
-    let selectedBet = $state(availableBets[0]);
-    let showSorteoOptions = $state(false);
 
     function parseCloseTime(value: string) {
         if (!value) {
@@ -37,11 +37,27 @@
         return diff >= 0 ? diff : diff + 24 * 60;
     }
 
-    function getSortedBets(bets) {
+    function getSortedBets(bets: typeof availableBets) {
         return [...bets].sort(
             (a, b) => minutesUntilClose(a.closeTime) - minutesUntilClose(b.closeTime)
         );
     }
+
+    function formatAmount(value: number) {
+        if (!Number.isFinite(value)) {
+            return "0";
+        }
+
+        const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+        const [integerPart, decimalPart] = Math.abs(rounded).toFixed(2).split(".");
+        const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+        const sign = rounded < 0 ? "-" : "";
+
+        return decimalPart === "00"
+            ? `${sign}${groupedInteger}`
+            : `${sign}${groupedInteger},${decimalPart}`;
+    }
+
 </script>
 
 <header>
@@ -53,7 +69,7 @@
             </div>
             <div class="spans">
                 <span class="label">Total:</span> 
-                <span>₡{$total}</span>
+                <span>₡{formatAmount($total)}</span>
             </div>
         </div>
         <div class="header-content right">
@@ -67,7 +83,6 @@
                                 name="sorteo"
                                 bind:group={selectedBet}
                                 value={bet}
-                                onchange={() => (showSorteoOptions = false)}
                             />
                             <span>{bet.draw_name} {bet.schedule_name}</span>
                         </label>
@@ -77,19 +92,6 @@
             <span class="label">Cierre: {selectedBet?.schedule_time}</span>
         </div>
     </div>
-
-    <div class="prohibited">
-        <span class="label">Restringidos:</span>
-        <div class="prohibited-list">
-            {#if $prohibitedNumbers?.length}
-                {#each $prohibitedNumbers as number}
-                    <span class="prohibited-badge">{number}</span>
-                {/each}
-            {:else}
-                <span class="prohibited-empty">-</span>
-            {/if}
-        </div>
-    </div> 
 
 </header>
 
@@ -149,4 +151,5 @@
     .left {
         flex: 1;
     }
+
 </style>

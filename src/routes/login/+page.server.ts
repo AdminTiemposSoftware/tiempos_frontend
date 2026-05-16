@@ -60,7 +60,7 @@ export const actions: Actions = {
 					400: detail ?? 'Revisa los datos enviados.',
 					401: detail ?? 'Credenciales inválidas.',
 					403: detail ?? 'Tu usuario está deshabilitado.',
-					500: detail ?? 'No se pudo iniciar sesión en este momento.'
+					500: detail ?? 'No se pudo iniciar sesión en este momento. Intenta de nuevo'
 				};
 
 				const fieldErrors: Record<string, string> = {};

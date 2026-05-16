@@ -1,5 +1,3 @@
-// +page.server.ts
-
 import { env } from '$env/dynamic/private';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
@@ -49,8 +47,6 @@ export const actions: Actions = {
 			phone: data.get('phone'),
 			password: data.get('password')
 		};
-
-		
 
 		const response = await fetch(`${baseUrl}/user`, {
 			method: 'POST',

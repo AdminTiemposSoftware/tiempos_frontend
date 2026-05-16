@@ -10,84 +10,30 @@
     import { prohibitedNumbers } from "../../lib/stores/UpdateSellMatrix";
 	import { auth } from '$lib/stores/auth';	
 
-	let puestosHeaders = [
-		{ key: 'branch', label: 'Puesto' },
-		{ key: 'commission', label: 'Comision' },
-	];
+	let { data } = $props();
 
-	let sorteos = $state([
-		{
-			id: 1,
-			name: 'Loteria Nacional',
-			is_reventado: true,
-			is_megareventado: true,
-			days: 'Lun, Mar, Mie, Jue, Vie',
-			schedule: [
-				{
-					id: 10,
-					name: 'Manana',
-					time: '12:00',
-					puestos: [
-						{
-							id: 101,
-							name: 'Comercio Central',
-							commission: 10,
-							commission2: 5,
-							normalPayment: 60,
-							extraPayment: 90
-						}
-					]
-				},
-				{
-					id: 12,
-					name: 'Noche',
-					time: '20:00',
-					puestos: [
-						{
-							id: 102,
-							name: 'Punto Norte',
-							commission: 12,
-							commission2: 6,
-							normalPayment: 70,
-							extraPayment: 100
-						}
-					]
-				}
-			]
-		},
-		{
-			id: 2,
-			name: 'Loteria Premium',
-			is_reventado: true,
-			is_megareventado: false,
-			days: 'Sab, Dom',
-			schedule: [
-                {
-                    id: 11,
-                    name: 'Mañana',
-                    time: '18:00',
-                    puestos: [
-                        {
-                            id: 201,
-                            name: 'Sucursal Sur',
-                            commission: 15,
-                            commission2: 7,
-                            normalPayment: 80,
-                            extraPayment: 120,
-                        },
-                        {
-                            id: 201,
-                            name: 'Sucursal Sur',
-                            commission: 15,
-                            commission2: 7,
-                            normalPayment: 80,
-                            extraPayment: 120,
-                        }
-                    ]
-                }            
-            ]
-		}
-	]);
+	type draw = {
+		id: number;
+		name: string;
+		is_reventado: boolean;
+		is_megareventado: boolean;
+		draw_day_id: number;
+		day_name: string;
+	};
+
+	let draws =$state<draw[]>([]);
+
+	$effect(() => {
+		const items = Array.isArray(data?.items) ? (data.items as draw[]) : [];
+		draws = items.map((item) => ({
+			id: item.id,
+			name: item.name,
+			is_reventado: item.is_reventado,
+			is_megareventado: item.is_megareventado,
+			draw_day_id: item.draw_day_id,
+			day_name: item.day_name
+		}));
+	});
 
 	const puestoOptions = [
 		'Comercio Central',
@@ -132,7 +78,7 @@
 			return;
 		}
 		expandedSorteo = [...expandedSorteo, sorteoId];
-		const sorteo = sorteos.find((item) => item.id === sorteoId);
+		const sorteo = draws.find((item) => item.id === sorteoId);
 		if (sorteo && sorteo.schedule.length > 0 && selectedScheduleBySorteo[sorteoId] == null) {
 			selectedScheduleBySorteo = { ...selectedScheduleBySorteo, [sorteoId]: sorteo.schedule[0].id };
 		}
@@ -144,8 +90,8 @@
 
 	function getSelectedSchedule(sorteo) {
 		const selectedId = selectedScheduleBySorteo[sorteo.id];
-		const selected = sorteo.schedule.find((slot) => slot.id === selectedId);
-		return selected ?? sorteo.schedule[0] ?? null;
+		const selected = sorteo?.schedule?.find((slot) => slot.id === selectedId);
+		return selected ?? sorteo?.schedule?.[0] ?? null;
 	}
 
 	// Open modals for create actions
@@ -174,13 +120,13 @@
 
 	// Open modals for edit/view actions
 	function showEditSorteo(sorteoId: number) {
-		selectedSorteo = { ...sorteos.find((s) => s.id === sorteoId) };
+		selectedSorteo = { ...draws.find((s) => s.id === sorteoId) };
 		showSorteoModal = true;
 	}
 
 	function showEditSchedule(sorteoId: number, scheduleId: number) {
 		selectedSchedule = {
-			...sorteos.find((s) => s.id === sorteoId)?.schedule.find((s) => s.id === scheduleId)
+			...draws.find((s) => s.id === sorteoId)?.schedule.find((s) => s.id === scheduleId)
 		};
 		showScheduleModal = true;
 	}
@@ -192,19 +138,13 @@
 		showSchedulePuestoModal = true;
 	}
 
-	// Open modals for delete actions
-	function showDeletePuestoFromSchedule(puesto) {
-		puestoToDelete = puesto;
-		showDeletePuestoModal = true;
-	}
-
 	function showDeleteSchedule(sorteoId: number, scheduleId: number) {
-		scheduleToDelete = sorteos.find((s) => s.id === sorteoId)?.schedule.find((s) => s.id === scheduleId);
+		scheduleToDelete = draws.find((s) => s.id === sorteoId)?.schedule.find((s) => s.id === scheduleId);
 		showDeleteScheduleModal = true;
 	}
 
 	function showDeleteSorteo(sorteoId: number) {
-		sorteoToDelete = sorteos.find((s) => s.id === sorteoId);
+		sorteoToDelete = draws.find((s) => s.id === sorteoId);
 		showDeleteSorteoModal = true;
 	}
 
@@ -216,13 +156,13 @@
 	// Create handlers
 	function handleAddSorteoSubmit(event: CustomEvent) {
 		const newSorteo = event.detail;
-		const nextId = Math.max(0, ...sorteos.map((item) => item.id)) + 1;
-		sorteos = [...sorteos, { ...newSorteo, id: nextId }];
+		const nextId = Math.max(0, ...draws.map((item) => item.id)) + 1;
+		draws = [...draws, { ...newSorteo, id: nextId }];
 	}
 
 	function handleAddScheduleSubmit(payload) {
 		const { sorteoId, name, time } = payload;
-		sorteos = sorteos.map((sorteo) => {
+		draws = draws.map((sorteo) => {
 			if (sorteo.id !== sorteoId) {
 				return sorteo;
 			}
@@ -244,7 +184,7 @@
 			...puesto,
 			name: puesto.merchantName ?? puesto.name
 		};
-		sorteos = sorteos.map((sorteo) => {
+		draws = draws.map((sorteo) => {
 			if (sorteo.id !== sorteoId) {
 				return sorteo;
 			}
@@ -266,14 +206,14 @@
 
 	// Update handlers
 	function updateSorteo(updatedSorteo) {
-		sorteos = sorteos.map((sorteo) =>
+		draws = draws.map((sorteo) =>
 			sorteo.id === updatedSorteo.id ? { ...sorteo, ...updatedSorteo } : sorteo
 		);
 	}
 
 	function updateSchedule(updatedSchedule) {
 		// TODO Send update request to backend
-		sorteos = sorteos.map((sorteo) => ({
+		draws = draws.map((sorteo) => ({
 			...sorteo,
 			schedule: sorteo.schedule.map((slot) =>
 				slot.id === updatedSchedule.id ? { ...slot, ...updatedSchedule } : slot
@@ -292,7 +232,7 @@
 			...updatedPuesto,
 			name: updatedPuesto.merchantName ?? updatedPuesto.name
 		};
-		sorteos = sorteos.map((sorteo) => {
+		draws = draws.map((sorteo) => {
 			if (sorteo.id !== sorteoId) {
 				return sorteo;
 			}
@@ -320,7 +260,7 @@
 		if (!sorteoId || !scheduleId || !puestoId) {
 			return;
 		}
-		sorteos = sorteos.map((sorteo) => {
+		draws = draws.map((sorteo) => {
 			if (sorteo.id !== sorteoId) {
 				return sorteo;
 			}
@@ -341,11 +281,11 @@
 		if (!puestoToDelete) {
 			return;
 		}
-		sorteos = sorteos.map((sorteo) => ({
+		draws = draws.map((sorteo) => ({
 			...sorteo,
 			schedule: sorteo.schedule.map((slot) => ({
 				...slot,
-				puestos: slot.puestos.filter((puesto) => puesto.id !== puestoToDelete?.id) //Asume puesto ids are unique across sorteos and horarios for simplicidad, otherwise also check sorteoId and scheduleId
+				puestos: slot.puestos.filter((puesto) => puesto.id !== puestoToDelete?.id) //Asume puesto ids are unique across draws and horarios for simplicidad, otherwise also check sorteoId and scheduleId
 			}))
 		}));
 		puestoToDelete = null;
@@ -353,16 +293,16 @@
 
 	function handleConfirmDeleteSchedule() {
 		// TODO Send delete request to backend
-		sorteos = sorteos.map((sorteo) => ({
+		draws = draws.map((sorteo) => ({
 			...sorteo,
-			schedule: sorteo.schedule.filter((slot) => slot.id !== scheduleToDelete?.id) //Asume schedule ids are unique across sorteos for simplicity, otherwise also check sorteoId
+			schedule: sorteo.schedule.filter((slot) => slot.id !== scheduleToDelete?.id) //Asume schedule ids are unique across draws for simplicity, otherwise also check sorteoId
 		}));
 		scheduleToDelete = null;
 	}
 
 	function handleConfirmDeleteSorteo() {
 		// TODO Send delete request to backend
-		sorteos = sorteos.filter((sorteo) => sorteo.id !== sorteoToDelete?.id);
+		draws = draws.filter((sorteo) => sorteo.id !== sorteoToDelete?.id);
 		sorteoToDelete = null;
 	}
 
@@ -393,7 +333,7 @@
 	}
 
 	function openAssignSorteoModal() {
-		selectedShortcutSorteoId = sorteos[0]?.id ?? null;
+		selectedShortcutSorteoId = draws[0]?.id ?? null;
 		selectedShortcutPuesto = puestoOptions[0] ?? '';
 		showAssignSorteoModal = true;
 	}
@@ -407,7 +347,7 @@
 
 	function openAssignPuestoModal() {
 		selectedShortcutPuestoForAll = puestoOptions[0] ?? '';
-		selectedShortcutSorteoForAll = sorteos[0]?.id ?? null;
+		selectedShortcutSorteoForAll = draws[0]?.id ?? null;
 		showAssignPuestoModal = true;
 	}
 
@@ -497,7 +437,7 @@
 <!-- TODO send the modal with the selected puestos for this sorteo -->
 <AssignSorteoModal
 	bind:showModal={showAssignSorteoModal}
-	sorteos={sorteos}
+	draws={draws}
 	puestos={puestoOptions}
 	bind:selectedSorteoId={selectedShortcutSorteoId}
 	bind:selectedPuesto={selectedShortcutPuesto}
@@ -509,11 +449,11 @@
 
 <AssignPuestoModal
 	bind:showModal={showAssignPuestoModal}
-	sorteos={sorteos}
+	draws={draws}
 	puestos={puestoOptions}
 	bind:selectedSorteoId={selectedShortcutSorteoForAll}
 	bind:selectedPuesto={selectedShortcutPuestoForAll}
-	title="Agregar puesto en todos los sorteos"
+	title="Agregar puesto en todos los draws"
 	confirmText="Aplicar"
 	cancelText="Cancelar"
 	confirm={handleAssignPuestoToSorteos}
@@ -524,7 +464,7 @@
 </svelte:head>
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
-<section class="page-stack sorteos-page">
+<section class="page-stack draws-page">
 	<div class="header-contained">
 		<div>
 			<h1>Sorteos</h1>
@@ -562,23 +502,22 @@
         </div>
     </div> 
 	<div class="panel-list">
-		{#each sorteos as sorteo}
-			{@const selectedSlot = getSelectedSchedule(sorteo)}
+		{#each draws as draw}
+			{@const selectedSlot = getSelectedSchedule(draw)}
 			<SorteoCard
-				sorteo={sorteo}
-				expanded={expandedSorteo.includes(sorteo.id)}
+				sorteo={draw}
+				expanded={expandedSorteo.includes(draw.id)}
 				selectedSlot={selectedSlot}
-				puestosHeadersLength={puestosHeaders.length}
-				onToggle={() => toggleSorteo(sorteo.id)}
-				onSelectSchedule={(scheduleId) => selectSchedule(sorteo.id, scheduleId)}
-				onEditSorteo={() => showEditSorteo(sorteo.id)}
-				onDeleteSorteo={() => showDeleteSorteo(sorteo.id)}
-				onAddSchedule={() => showAddSchedule(sorteo.id)}
-				onEditSchedule={(scheduleId) => showEditSchedule(sorteo.id, scheduleId)}
-				onDeleteSchedule={(scheduleId) => showDeleteSchedule(sorteo.id, scheduleId)}
-				onAddPuesto={(scheduleId) => showAddPuestoToSchedule(sorteo.id, scheduleId)}
+				onToggle={() => toggleSorteo(draw.id)}
+				onSelectSchedule={(scheduleId) => selectSchedule(draw.id, scheduleId)}
+				onEditSorteo={() => showEditSorteo(draw.id)}
+				onDeleteSorteo={() => showDeleteSorteo(draw.id)}
+				onAddSchedule={() => showAddSchedule(draw.id)}
+				onEditSchedule={(scheduleId) => showEditSchedule(draw.id, scheduleId)}
+				onDeleteSchedule={(scheduleId) => showDeleteSchedule(draw.id, scheduleId)}
+				onAddPuesto={(scheduleId) => showAddPuestoToSchedule(draw.id, scheduleId)}
 				onEditPuesto={(puesto, scheduleId) =>
-					showEditPuestoFromSchedule(puesto, sorteo.id, scheduleId)
+					showEditPuestoFromSchedule(puesto, draw.id, scheduleId)
 				}
 			/>
 		{/each}
@@ -587,14 +526,14 @@
 		<h2>Atajos</h2>
 		<div class="shortcuts-actions">
 			<button onclick={openAssignSorteoModal}>Agregar un sorteo a todos los puestos</button>
-			<button onclick={openAssignPuestoModal}>Agregar un puesto en todos los sorteos</button>
+			<button onclick={openAssignPuestoModal}>Agregar un puesto en todos los draws</button>
 		</div>
 	</div>
 </section>
 {/if}
 
 <style>
-	.sorteos-page {
+	.draws-page {
 		position: relative;
 		overflow: hidden;
 	}

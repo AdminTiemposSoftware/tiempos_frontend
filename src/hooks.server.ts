@@ -7,6 +7,7 @@ type AuthUser = {
 	role: string;
 	username?: string;
  	branchId?: string | null;
+	bankingId?: string | null;
 } | null;
 
 const publicPrefixes = ['/_app', '/login', '/robots.txt', '/favicon'];
@@ -43,13 +44,22 @@ async function fetchUser(token: string, fetchFn: typeof fetch): Promise<AuthUser
 			});
 			const branchData = await branchResponse.json().catch(() => null);
 			user.branchId = branchData?.items?.[0]?.id ? String(branchData.items[0].id) : null;
+		} else if (user.role === 'banking') {
+			const bankResponse = await fetchFn(`${baseUrl}/banking/by-user/${user.id}`, {
+				headers: {
+					Authorization: `Bearer ${token}`
+				}
+			});
+			const bankData = await bankResponse.json().catch(() => null);
+			user.bankingId = bankData?.items?.[0]?.id ? String(bankData.items[0].id) : null;
 		}
 
 		return {
 			id: String(user.id),
 			role: String(user.role ?? 'branch'),
 			username: user.username ? String(user.username) : undefined,
-			branchId: user.branchId ?? null
+			branchId: user.branchId ?? null,
+			bankingId: user.bankingId ?? null
 		};
 	} catch {
 		return null;

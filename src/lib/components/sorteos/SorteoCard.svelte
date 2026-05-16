@@ -5,7 +5,6 @@
 		sorteo,
 		expanded = false,
 		selectedSlot = null,
-		puestosHeadersLength = 0,
 		onToggle,
 		onSelectSchedule,
 		onEditSorteo,
@@ -48,10 +47,7 @@
 			onEditPuesto?.(puesto, selectedSlot.id);
 		}
 	}
-
-    function handleaaa() {
-        alert('aaa');
-    }
+	console.log('SorteoCard props', { sorteo });
 </script>
 
 <div class="panel-card">
@@ -93,7 +89,7 @@
 							Agregar horario
 						</button>
 					</div>
-					{#if sorteo.schedule.length === 0}
+					{#if sorteo.schedule?.length === 0}
 						<p class="empty-state">Sin horarios creados.</p>
 					{:else}
 						<div class="schedule-items scroll-thin">
@@ -142,7 +138,7 @@
 								<tbody>
 									{#if selectedSlot.puestos.length === 0}
 										<tr>
-											<td colspan={puestosHeadersLength} class="empty-state">
+											<td colspan="2" class="empty-state">
 												Sin puestos en este horario
 											</td>
 										</tr>

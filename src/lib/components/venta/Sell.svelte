@@ -8,7 +8,8 @@
     let tickets = $state([]);
     let numberInput: HTMLInputElement;
     let randomCount = $state(1);
-    let {getTickets, getSoldNumbersForTicket} = $props();
+    let detailsJson = $state('');
+    let {getTickets, getSoldNumbersForTicket, selectedBet, prohibitedPercentage} = $props();
 
     import { onMount } from 'svelte';
     import { TrashBinSolid, CubeSolid, QuestionCircleSolid, PrinterSolid, SearchSolid, EyeSolid, ReceiptSolid, CameraPhotoSolid } from "flowbite-svelte-icons";
@@ -17,6 +18,7 @@
     import { total } from '../../stores/UpdateSellMatrix';
     import QrModal from './QrModal.svelte';
     import TicketsModal from './TicketsModal.svelte';
+    import { applyAction, enhance } from '$app/forms';
 
     onMount(() => {
         priceInput?.focus();
@@ -79,7 +81,6 @@
     }
 
     function updateSalesData(numbers: string[], price: number) {
-        // TODO This should also update the database
         const newSelled = { ...sold };
         numbers.forEach((num) => {
             if (newSelled[num]) {
@@ -91,6 +92,36 @@
         sold = newSelled;
         soldAmount = Object.values(sold).reduce((sum, item) => sum + item.price, 0);
     }
+
+    function buildDetailsPayload(values: Record<string, { price: number }>) {
+        return Object.entries(values).map(([number, price]) => ({
+            number: parseInt(number, 10),
+            amount: price.price,
+            is_reventado: 0,
+            is_megareventado: 0
+        }));
+    }
+
+    const enhanceAddTicket = () => {
+        const soldSnapshot = { ...sold };
+
+        return async ({ result }) => {
+            await applyAction(result);
+            if (result.type !== 'success') {
+                return;
+            }
+
+            sellingMatrix.update((matrix) => {
+                for (const [number, price] of Object.entries(soldSnapshot)) {
+                    matrix[number] = (matrix[number] || 0) + price.price;
+                }
+                return matrix;
+            });
+            total.update((n) => n + Object.values(soldSnapshot).reduce((sum, item) => sum + item.price, 0));
+            sold = {};
+            soldAmount = 0;
+        };
+    };
 
     function deleteNumber(number: string) {
         const { [number]: _, ...rest } = sold;
@@ -160,27 +191,11 @@
             addIfValid(parseInt(part, 10));
         });
 
-        // Filter out prohibited numbers
-        const validNumbers = expandedNumbers.filter(
-            (num) => !$prohibitedNumbers.includes(parseInt(num, 10))
-        );
-
-        updateSalesData(validNumbers, parseInt(price, 10));
+        updateSalesData(expandedNumbers, parseInt(price, 10));
 
         (event.target as HTMLFormElement).reset();
         priceInput?.focus();
         priceValue = '';
-    }
-
-    function confirmSale() {
-        sellingMatrix.update(matrix => {
-            for (const [number, price] of Object.entries(sold)) {
-                matrix[number] = (matrix[number] || 0) + price.price;
-            }
-            return matrix;
-        });
-        total.update(n => n + soldAmount);
-        sold = {}; // Clear the local list
     }
 
     function cleanSell() {
@@ -206,7 +221,7 @@
         const requestedCount = Math.min(100, Math.max(1, Number.isFinite(rawCount) ? Math.floor(rawCount) : 1));
         const existingNumbers = new Set(Object.keys(sold).map((num) => parseInt(num, 10)));
         const pool = Array.from({ length: 100 }, (_, i) => i).filter(
-            (num) => !existingNumbers.has(num) && !$prohibitedNumbers.includes(num)
+            (num) => !existingNumbers.has(num)
         );
         if (pool.length === 0) {
             return;
@@ -235,12 +250,11 @@
         }
 
         const pairNumbers = Array.from({ length: 10 }, (_, i) => String(i * 11));
-        const validNumbers = pairNumbers.filter(num => !$prohibitedNumbers.includes(parseInt(num, 10)));
-        if (validNumbers.length === 0) {
+        if (pairNumbers.length === 0) {
             return;
         }
 
-        updateSalesData(validNumbers, price);
+        updateSalesData(pairNumbers, price);
     }
 
     //TODO: Implement functionality for these buttons
@@ -267,6 +281,10 @@
     function closeTicketsModal() {
         showTicketsModal = false;
     }
+
+    $effect(() => {
+        detailsJson = JSON.stringify(buildDetailsPayload(sold));
+    });
 </script>
 
 {#if showQrModal}
@@ -366,19 +384,18 @@
             </table>
         </div>
         <!-- TODO: Implement functionality for these buttons -->
+    <form method="POST" action="?/addTicket" use:enhance={enhanceAddTicket}>
+        <input type="hidden" name="draw_schedule_id" value={selectedBet?.schedule_id} />
+        <input type="hidden" name="details" value={detailsJson} />
         <button
-            onclick={confirmSale}
+            type="submit"
             disabled={Object.keys(sold).length === 0}
         >
             <PrinterSolid class="shrink-0 h-4 w-4" />
             Imprimir
         </button>
-        <div class="buttons-group">
-            <!-- TODO : This function shouldnt be necesary  -->
-            <!-- <button onclick={searchTicket}>
-                <SearchSolid class="shrink-0 h-4 w-4" />
-                Buscar Tiquete
-            </button> -->
+    </form>
+    <div class="buttons-group">
             <button 
                 onclick={viewQR}
                 disabled={Object.keys(sold).length === 0}
