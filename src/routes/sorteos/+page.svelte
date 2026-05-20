@@ -19,6 +19,13 @@
 		is_megareventado: boolean;
 		draw_day_id: number;
 		day_name: string;
+		schedule: {
+			id: number;
+			name: string;
+			time: string;
+			is_reventado: boolean;
+			is_megareventado: boolean;
+		}[];
 	};
 
 	let draws =$state<draw[]>([]);
@@ -31,7 +38,8 @@
 			is_reventado: item.is_reventado,
 			is_megareventado: item.is_megareventado,
 			draw_day_id: item.draw_day_id,
-			day_name: item.day_name
+			day_name: item.day_name,
+			schedule: [] // initialize empty schedule, will be loaded on demand
 		}));
 	});
 
@@ -53,8 +61,8 @@
 	let showAddProhibitedModal = $state(false);
 	let showAssignSorteoModal = $state(false);
 	let showAssignPuestoModal = $state(false);
-	let selectedSorteo = $state(null);
-	let selectedSchedule = $state(null);
+	let selectedSorteo = $state<draw | null>(null);
+	let selectedSchedule = $state<draw['schedule'][0] | null>(null);
 	let selectedSorteoId = $state(0);
 	let selectedScheduleId = $state(0);
 	let selectedSchedulePuesto = $state(null);
@@ -71,24 +79,83 @@
 	let selectedScheduleBySorteo = $state<Record<number, number | null>>({});
 
 	// UI state toggles
-	function toggleSorteo(sorteoId: number) {
+	async function toggleSorteo(sorteoId: number) {
 		const isOpen = expandedSorteo.includes(sorteoId);
 		if (isOpen) {
 			expandedSorteo = expandedSorteo.filter((id) => id !== sorteoId);
 			return;
 		}
+
+		// open immediately
 		expandedSorteo = [...expandedSorteo, sorteoId];
+
 		const sorteo = draws.find((item) => item.id === sorteoId);
-		if (sorteo && sorteo.schedule.length > 0 && selectedScheduleBySorteo[sorteoId] == null) {
-			selectedScheduleBySorteo = { ...selectedScheduleBySorteo, [sorteoId]: sorteo.schedule[0].id };
+		if (!sorteo) return;
+
+		// If there are no schedules yet, fetch them from the backend
+		if (!sorteo.schedule || sorteo.schedule.length === 0) {
+			try {
+				const res = await fetch(`/api/draw-schedule/${sorteoId}`);
+				const payload = await res.json().catch(() => null);
+				const items = Array.isArray(payload?.items) ? payload.items : [];
+				const schedule = items.map((it) => ({ ...it, time: it.time ?? '', puestos: [] }));
+
+				// attach schedules to the draw
+				draws = draws.map((d) => (d.id === sorteoId ? { ...d, schedule } : d));
+
+				if (schedule.length > 0 && selectedScheduleBySorteo[sorteoId] == null) {
+					selectedScheduleBySorteo = { ...selectedScheduleBySorteo, [sorteoId]: schedule[0].id };
+					// load branches for the first schedule
+					await fetchBranchesForSchedule(sorteoId, schedule[0].id);
+				}
+			} catch (e) {
+				// ignore fetch errors for now
+			}
+		} else {
+			if (sorteo.schedule.length > 0 && selectedScheduleBySorteo[sorteoId] == null) {
+				selectedScheduleBySorteo = { ...selectedScheduleBySorteo, [sorteoId]: sorteo.schedule[0].id };
+				await fetchBranchesForSchedule(sorteoId, sorteo.schedule[0].id);
+			}
 		}
 	}
 
-	function selectSchedule(sorteoId: number, scheduleId: number) {
-		selectedScheduleBySorteo = { ...selectedScheduleBySorteo, [sorteoId]: scheduleId };
+	async function fetchBranchesForSchedule(sorteoId: number, scheduleId: number) {
+		try {
+			const res = await fetch(`/api/branch/by-draw-schedule/${scheduleId}`);
+			const payload = await res.json().catch(() => null);
+			const items = Array.isArray(payload?.items) ? payload.items : [];
+
+			const puestos = items.map((it) => ({
+				id: it.branch_id ?? it.branchId ?? it.id,
+				name: it.name,
+				commission: Number(it.comission ?? it.commission ?? 0)
+			}));
+
+			draws = draws.map((d) => {
+				if (d.id !== sorteoId) return d;
+				return {
+					...d,
+					schedule: d.schedule.map((s) => (s.id === scheduleId ? { ...s, puestos } : s))
+				};
+			});
+		} catch (e) {
+			// ignore errors
+		}
 	}
 
-	function getSelectedSchedule(sorteo) {
+	async function selectSchedule(sorteoId: number, scheduleId: number) {
+		selectedScheduleBySorteo = { ...selectedScheduleBySorteo, [sorteoId]: scheduleId };
+
+		const sorteo = draws.find((d) => d.id === sorteoId);
+		const slot = sorteo?.schedule?.find((s) => s.id === scheduleId);
+		if (!slot) return;
+
+		if (!slot.puestos || slot.puestos.length === 0) {
+			await fetchBranchesForSchedule(sorteoId, scheduleId);
+		}
+	}
+
+	function getSelectedSchedule(sorteo: draw) {
 		const selectedId = selectedScheduleBySorteo[sorteo.id];
 		const selected = sorteo?.schedule?.find((slot) => slot.id === selectedId);
 		return selected ?? sorteo?.schedule?.[0] ?? null;
