@@ -20,7 +20,7 @@
 		onToggle?.();
 	}
 
-	function handleSelectSchedule(scheduleId) {
+	function handleSelectSchedule(scheduleId : number) {
 		onSelectSchedule?.(scheduleId);
 	}
 
@@ -42,12 +42,11 @@
 		}
 	}
 
-	function handleEditPuesto(puesto) {
+	function handleEditPuesto(puesto: any) {
 		if (selectedSlot?.id != null) {
 			onEditPuesto?.(puesto, selectedSlot.id);
 		}
 	}
-	console.log('SorteoCard props', { sorteo });
 </script>
 
 <div class="panel-card">
@@ -152,7 +151,7 @@
 												onkeydown={(e) => e.key === 'Enter' && handleEditPuesto(puesto)}
 											>
 												<td>{puesto.name}</td>
-												<td>{puesto.commission}%</td>
+												<td>{puesto.comission}%</td>
 											</tr>
 										{/each}
 									{/if}

@@ -1,13 +1,17 @@
 <script lang="ts">
+	type PuestoOption = {
+		id: number;
+		name: string;
+	};
+
 	let {
 		showModal = $bindable(),
 		puesto = $bindable({
-			merchantName: '',
+			id: -1,
+			name: '',
 			commission: 0,
-			normalPayment: 0,
-			extraPayment: 0
 		}),
-		options = $bindable([]),
+		options = $bindable([] as PuestoOption[]),
 		sorteoId = $bindable(0),
 		scheduleId = $bindable(0),
 		addSchedulePuesto = $bindable(),
@@ -19,22 +23,44 @@
 		showModal = false;
 	}
 
-	function handleSubmit() {
-		const payload = {
-			...puesto,
-			merchantName: puesto.merchantName?.trim()
-		};
+	async function handleSubmit() {
+		const branchId = Number(puesto?.id ?? 0);
+		const commission = Number(puesto?.commission ?? 0);
+		const selectedOption = options.find((option) => option.id === branchId);
 
-		if (!payload.merchantName || !sorteoId || !scheduleId) {
+		if (!branchId || !scheduleId || !sorteoId || !selectedOption?.name) {
 			return;
 		}
 
-		if (payload?.id && updateSchedulePuesto) {
-			updateSchedulePuesto(payload);
-		} else {
-			addSchedulePuesto(payload);
+		const payload = {
+			branch_id: branchId,
+			draw_schedule_id: scheduleId,
+			comission: commission
+		};
+
+		try {
+			const res = await fetch('/sorteos/draw-schedule-branch', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+			const responsePayload = await res.json().catch(() => null);
+			if (!res.ok) {
+				console.error('Failed to assign schedule to branch', responsePayload);
+				return;
+			}
+
+			if (addSchedulePuesto) {
+				addSchedulePuesto({
+					id: branchId,
+					name: selectedOption.name,
+					commission
+				});
+			}
+			onClose();
+		} catch (error) {
+			console.error('Failed to assign schedule to branch', error);
 		}
-		onClose();
 	}
 
 	function handleDelete() {
@@ -67,10 +93,10 @@
 				}}
 			>
 				<label class="modal-label" for="puesto-name">Puesto</label>
-				<select class="modal-input" id="puesto-name" bind:value={puesto.merchantName} required>
+				<select class="modal-input" id="puesto-name" bind:value={puesto.id} required>
 					<option value="" disabled>Selecciona un puesto</option>
 					{#each options as option}
-						<option value={option}>{option}</option>
+						<option value={option.id}>{option.name}</option>
 					{/each}
 				</select>
 
@@ -81,24 +107,6 @@
 					type="number"
 					min="0"
 					bind:value={puesto.commission}
-				/>
-
-				<label class="modal-label" for="puesto-normal">Pago normal</label>
-				<input
-					class="modal-input"
-					id="puesto-normal"
-					type="number"
-					min="0"
-					bind:value={puesto.normalPayment}
-				/>
-
-				<label class="modal-label" for="puesto-extra">Pago extra</label>
-				<input
-					class="modal-input"
-					id="puesto-extra"
-					type="number"
-					min="0"
-					bind:value={puesto.extraPayment}
 				/>
 
 				<div class="modal-actions">

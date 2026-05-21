@@ -1,16 +1,21 @@
 import { env } from '$env/dynamic/private';
 import { fail } from '@sveltejs/kit';
+
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ fetch }) => {
+export const load: PageServerLoad = async ({ fetch, locals }) => {
 	const baseUrl = env.API_URL;
+	const bankingId = locals.user?.bankingId;
 
 	if (!baseUrl) {
 		return { items: [] };
 	}
 
 	try {
-		const response = await fetch(`${baseUrl}/branch`);
+		const response = await fetch(`${baseUrl}/branch/by-banking/${bankingId}`, {
+			method: 'GET',
+			headers: { 'Content-Type': 'application/json' }
+		});
 
 		if (!response.ok) {
 			return { items: [] };

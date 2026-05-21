@@ -13,22 +13,38 @@
 		showModal = false;
 	}
 
-	function handleSubmit() {
+	async function handleSubmit() {
+		const name = schedule.name?.trim();
+		const time = schedule.time?.trim();
 		const payload = {
-			sorteoId,
-			name: schedule.name?.trim(),
-			time: schedule.time?.trim()
+			name,
+			time,
+			draw_id: sorteoId
 		};
 
 		if (!payload.name || !payload.time || !sorteoId) {
 			return;
 		}
 
-		// TODO Send data to backend
-		console.log('Submitting schedule:', payload);
-
-		addSchedule(payload);
-		onClose();
+		try {
+			const res = await fetch('/sorteos/draw-schedule', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+			const responsePayload = await res.json().catch(() => null);
+			if (!res.ok) {
+				console.error('Failed to create schedule', responsePayload);
+				return;
+			}
+			const createdId = Array.isArray(responsePayload?.items)
+				? responsePayload.items[0]?.id
+				: null;
+			addSchedule({ sorteoId, name, time, id: createdId ?? undefined });
+			onClose();
+		} catch (error) {
+			console.error('Failed to create schedule', error);
+		}
 	}
 </script>
 
