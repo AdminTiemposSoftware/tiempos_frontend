@@ -28,7 +28,7 @@
 			<h1>Iniciar sesión</h1>
 		</header>
 
-		<form method="POST" action="/login" use:enhance={()=>{
+		<form method="POST" use:enhance={()=>{
 			loading = true;
 			error = null;
 	

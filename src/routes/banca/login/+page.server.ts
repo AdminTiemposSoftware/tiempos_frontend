@@ -44,7 +44,7 @@ export const actions: Actions = {
 				});
 			}
 
-			const response = await fetch(`${API_URL}/auth/login`, {
+			const response = await fetch(`${API_URL}/auth/banca/login`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
@@ -86,14 +86,14 @@ export const actions: Actions = {
 				});
 			}
 
-			cookies.set('session', token, {
-				path: '/',
+			cookies.set('session_banca', token, {
+				path: '/banca',
 				httpOnly: true,
 				sameSite: 'lax',
 				secure: request.url.startsWith('https://')
 			});
 
-			throw redirect(303, '/venta');
+			throw redirect(303, '/puestos');
 		} catch (error) {
 			if (error && typeof error === 'object' && 'status' in error && 'location' in error) {
 				throw error;

@@ -3,7 +3,6 @@
     let currentPath = $state('/');
 	let role = $derived($auth.user?.role ?? '');
 
-    // Get current path on component mount
 	import { onMount } from 'svelte';
 	import { auth } from '$lib/stores/auth';
     
@@ -16,31 +15,50 @@
     }
 
     async function handleLogout() {
-        const response = await fetch('/logout', { method: 'POST' });
-        if (response.ok) {
-            window.location.href = '/login';
-        }
+		let response;
+		const isPuesto = window.location.pathname.startsWith('/puesto');
+		if (isPuesto) {
+			response = await fetch('/puesto/logout', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				}
+			});
+		} else {
+			response = await fetch('/banca/logout', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				}
+			});
+		}
+		if (response.ok) {
+			window.location.href = isPuesto ? '/puesto/login' : '/banca/login';
+		}
+
     }
 	
 	const navItems = [
-		{ label: 'Venta', path: '/venta', roles: ['branch'] },
-		{ label: 'Listas', path: '/listas', roles: ['banking'] },
+		{ label: 'Venta', path: '/puesto/venta', roles: ['branch'] },
+		{ label: 'Listas', path: '/banca/listas', roles: ['banking'] },
 		// TODO : No crucial
         // { label: 'Dashboard', path: '/dashboard'},
 		// TODO : Esta funcionalidad es para cuando el admin quiera tener mas bancas aparte de la suya
 		// Probablemente sea mejor cambiar el nombre a "Bancas"
         // { label: 'Administradores', path: '/administradores'},
-        // { label: 'Bancas', path: '/bancas'},
+        { label: 'Bancas', path: '/banca/bancas', roles: ['banking'] },
 		// Esta funcionalidad se debio de unir con la de "Sorteos" 
         // { label: 'Sorteos Base', path: '/sorteos-base'},
 		// TODO : Esta funcionalidad es para cuando el admin quiera alquilar el software
         // { label: 'Usuarios', path: '/usuarios'}, 
-        { label: 'Puestos', path: '/puestos', roles: ['banking'] },
-        { label: 'Sorteos', path: '/sorteos', roles: ['banking'] },
-        { label: 'Ganadores', path: '/ganadores', roles: ['banking'] },
-        { label: 'Reportes', path: '/reportes', roles: ['banking', 'branch'] },
-        { label: 'Cajas', path: '/cajas', roles: ['branch'] },
-		{ label: 'Carga Excel', path: '/carga-excel', roles: ['banking'] }
+        { label: 'Puestos', path: '/banca/puestos', roles: ['banking'] },
+        { label: 'Sorteos', path: '/banca/sorteos', roles: ['banking'] },
+        { label: 'Ganadores', path: '/banca/ganadores', roles: ['banking'] },
+        { label: 'Reportes', path: '/banca/reportes', roles: ['banking'] },
+        { label: 'Reportes', path: '/puesto/reportes', roles: ['branch'] },
+
+        { label: 'Cajas', path: '/puesto/cajas', roles: ['branch'] },
+		{ label: 'Carga Excel', path: '/puesto/carga-excel', roles: ['branch'] }
 	];
 
 	let visibleNavItems = $derived(

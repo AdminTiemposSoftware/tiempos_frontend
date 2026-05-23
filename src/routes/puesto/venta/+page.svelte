@@ -4,10 +4,10 @@
     import Sell from "$lib/components/venta/Sell.svelte";
     import SellHeader from "$lib/components/venta/SellHeader.svelte";
     import SellFooter from "$lib/components/venta/SellFooter.svelte";
-    import { prohibitedNumbers } from "../../lib/stores/UpdateSellMatrix";
-    import { sellingMatrix } from "../../lib/stores/UpdateSellMatrix";
+    import { prohibitedNumbers } from "../../../lib/stores/UpdateSellMatrix";
+    import { sellingMatrix } from "../../../lib/stores/UpdateSellMatrix";
     import { auth } from "$lib/stores/auth";
-    import { total } from "../../lib/stores/UpdateSellMatrix";
+    import { total } from "../../../lib/stores/UpdateSellMatrix";
 
     let { data } = $props();
 
@@ -146,7 +146,6 @@
 
 <style>
     .sell-container {
-        display: flex;
         flex-direction: column;
         gap: 0.5rem;
         flex: 1;
@@ -155,6 +154,7 @@
     
     .set-section {
         gap: 1rem;
+        width: 100%;
         display: flex;
         flex-direction: row;
     }

@@ -10,9 +10,16 @@ type AuthUser = {
 	bankingId?: string | null;
 } | null;
 
-const publicPrefixes = ['/_app', '/login', '/robots.txt', '/favicon'];
+const publicPrefixes = ['/_app', '/puesto/login', '/banca/login', '/robots.txt', '/favicon'];
 
 const baseUrl = env.API_URL;	
+
+function resolveApp(pathname: string) {
+	if (pathname.startsWith('/puesto')) {
+		return 'puesto';
+	}
+	return 'banca';
+}
 
 async function fetchUser(token: string, fetchFn: typeof fetch): Promise<AuthUser> {
 	if (!baseUrl) {
@@ -73,9 +80,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	const { pathname } = event.url;
+	const app = resolveApp(pathname);
 
 	// existing auth logic
-	const token = event.cookies.get('session');
+	const token = event.cookies.get(app === 'puesto' ? 'session_puesto' : 'session_banca');
 	const isPublic = publicPrefixes.some((prefix) =>
 		pathname.startsWith(prefix)
 	);
@@ -87,11 +95,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	if (!event.locals.user && !isPublic) {
-		throw redirect(303, '/login');
+		throw redirect(303, app === 'puesto' ? '/puesto/login' : '/banca/login');
 	}
 
-	if (event.locals.user && pathname.startsWith('/login')) {
-		throw redirect(303, '/venta');
+	if (event.locals.user && pathname.startsWith('/puesto/login')) {
+		throw redirect(303, '/puesto/venta');
+	}
+
+	if (event.locals.user && pathname.startsWith('/banca/login')) {
+		throw redirect(303, '/banca/puestos');
 	}
 
 	return resolve(event);

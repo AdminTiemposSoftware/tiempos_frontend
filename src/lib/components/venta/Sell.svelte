@@ -427,10 +427,8 @@
         background: #fff;
         border: 1px dashed var(--color-border);
         box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+        flex: 1;
     }
-
-
-
     .sell::before {
         top: -4px;
     }

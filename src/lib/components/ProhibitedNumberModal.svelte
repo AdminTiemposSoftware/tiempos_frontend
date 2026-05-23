@@ -1,7 +1,8 @@
 <script lang="ts">
 	let {
 		showModal = $bindable(),
-		value = $bindable(''),
+		number = $bindable(''),
+		amount = $bindable(''),
 		title = 'Agregar numero restringido',
 		confirmText = 'Guardar',
 		cancelText = 'Cancelar',
@@ -13,9 +14,7 @@
 	}
 
 	function handleSubmit() {
-		if (onConfirm) {
-			onConfirm(value);
-		}
+		onConfirm?.({ number, amount });
 	}
 </script>
 
@@ -40,10 +39,21 @@
 				<input
 					class="modal-input"
 					id="prohibited-number"
-					type="text"
+					type="number"
 					inputmode="numeric"
 					placeholder="Ej: 12"
-					bind:value={value}
+					bind:value={number}
+				/>
+				<label class="modal-label" for="prohibited-amount">Monto</label>
+				<input
+					class="modal-input"
+					id="prohibited-amount"
+					type="number"
+					inputmode="decimal"
+					min="0"
+					step="0.01"
+					placeholder="Ej: 1000"
+					bind:value={amount}
 				/>
 				<div class="modal-actions modal-actions--form">
 					<button type="button" onclick={onClose}>{cancelText}</button>

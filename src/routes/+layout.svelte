@@ -7,7 +7,7 @@
 
 	let { children } = $props();
 
-	let isLoginRoute = $derived(page.url.pathname.startsWith('/login'));
+	let isLoginRoute = $derived(page.url.pathname.startsWith('/puesto/login') || page.url.pathname.startsWith('/banca/login'));
 
 	$effect(() => {
 		if (browser) {

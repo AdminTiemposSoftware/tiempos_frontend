@@ -43,7 +43,7 @@
 
 <style>
     .matrix-container {
-        flex:1;
+        flex:1.5 ;
     }
 
     .matrix {
@@ -71,7 +71,7 @@
 
 
     .price {
-        width: 80px !important; 
+        width: 100% !important; 
         background-color: #ffffff;
     }
 

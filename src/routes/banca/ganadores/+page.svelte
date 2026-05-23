@@ -141,11 +141,11 @@
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
 <section class="ganadores">
-    <div class="header-contained">
+    <header class="header-banking">
         <div class="header-title">
             <div>
-                <h1>Ganadores</h1>
-                <p>Asigna el numero ganador por sorteo.</p>
+                <h1 class="title">Ganadores</h1>
+                <p class="subtitle">Asigna el numero ganador por sorteo.</p>
             </div>
         </div>
         <div class="filters">
@@ -158,7 +158,7 @@
                 <button class="wide neutral">Sorteos</button>
             </div>
         </div>
-    </div>
+    </header>
 
     <div class="table-wrap">
         <table>
@@ -225,7 +225,6 @@
         align-items: stretch;
         justify-content: start;
         gap: 1rem;
-        padding: 1rem;
         width: 100%;
         box-sizing: border-box;
     }
@@ -237,12 +236,6 @@
         justify-content: space-between;
         flex-wrap: wrap;
     }
-
-    .header-title p {
-        margin: 0.25rem 0 0;
-        color: rgba(0, 0, 0, 0.6);
-    }
-
     .field {
         display: flex;
         flex-direction: column;

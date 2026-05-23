@@ -339,21 +339,6 @@ th {
 	background: #fff;
 	overflow-x: auto;
 }
-.header-contained {
-	width: 100%;
-	display: flex;
-	align-items: flex-end;
-	justify-content: space-between;
-	gap: 1rem;
-}
-.header-contained h1 {
-	margin: 0;
-	text-align: left;
-}
-.header-contained p {
-	color: rgba(0, 0, 0, 0.6);
-	font-size: 0.95rem;
-}
 
 .page-stack {
 	flex-direction: column;
@@ -536,12 +521,25 @@ button.prohibited-badge:focus-visible {
 	outline-offset: 2px;
 }
 
-.prohibited-add {
-	border-style: dashed;
-	color: var(--color-theme-2);
-	border-color: var(--color-theme-2);
-	font-weight: 600;
-}
 .prohibited-empty {
 	color: #666;
+}
+.header-banking {
+	display: flex;
+	flex-direction: row;
+	
+	width: 100%;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: 1rem;
+	
+}
+.title {
+	color: rgba(0, 0, 0, 0.85);
+	font-size: 1.8rem;
+	text-align: left;
+}
+.subtitle {
+	color: rgba(0, 0, 0, 0.6);
+	font-size: 0.95rem;
 }

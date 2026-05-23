@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ConfirmModal from '$lib/components/ConfirmModal.svelte';
 	import PuestoModal from '$lib/components/puestos/PuestoModal.svelte';
-	import UserModal from '../../lib/components/puestos/UserModal.svelte';
+	import UserModal from '../../../lib/components/puestos/UserModal.svelte';
 	import { PenSolid, TrashBinSolid } from 'flowbite-svelte-icons';
 	import { auth } from '$lib/stores/auth';
 
@@ -149,15 +149,15 @@
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
 <section class="page-stack">
-	<div class="header-contained">
+	<header class="header-banking">
 		<div>
-			<h1>Puestos</h1>
-			<p>Gestiona usuarios y sorteos por puesto.</p>
+			<h1 class="title">Puestos</h1>
+			<p class="subtitle">Gestiona usuarios y sorteos por puesto.</p>
 		</div>
 		<button onclick={openNewPuesto}>
 			Agregar nuevo puesto
 		</button>
-	</div>
+	</header>
 	<div class="panel-list">
 		{#each puestos as puesto}
 			<div class="panel-card">
@@ -260,6 +260,9 @@
 {/if}
 
 <style>
+	section {
+		gap: 0;
+	}
 	.puesto-location {
 		color: rgba(0, 0, 0, 0.6);
 		font-size: 0.9rem;

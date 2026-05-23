@@ -7,7 +7,6 @@
 	import AssignSorteoModal from '$lib/components/sorteos/AssignSorteoModal.svelte';
 	import AssignPuestoModal from '$lib/components/sorteos/AssignPuestoModal.svelte';
 	import ProhibitedNumberModal from '$lib/components/ProhibitedNumberModal.svelte';
-    import { prohibitedNumbers } from "../../lib/stores/UpdateSellMatrix";
 	import { auth } from '$lib/stores/auth';	
 
 	let { data } = $props();
@@ -36,6 +35,11 @@
 		comission: number;
 	};
 
+	type prohibitedNumber = {
+		number: number;
+		amount: number;
+	};
+
 	let draws =$state<draw[]>([]);
 
 	$effect(() => {
@@ -49,6 +53,17 @@
 			day_name: item.day_name,
 			schedule: [] // initialize empty schedule, will be loaded on demand
 		}));
+
+		const prohibitedItems = Array.isArray(data?.prohibitedItems)
+			? (data.prohibitedItems as prohibitedNumber[])
+			: [];
+		prohibitedNumbers = prohibitedItems
+			.map((item) => ({
+				number: Number(item.number),
+				amount: Number(item.amount)
+			}))
+			.filter((item) => Number.isFinite(item.number) && Number.isFinite(item.amount))
+			.sort((a, b) => a.number - b.number);
 	});
 
 	let showSchedulePuestoModal = $state(false);
@@ -75,8 +90,10 @@
 	let sorteoToDelete = $state(null);
 	let prohibitedNumberToDelete = $state<number | null>(null);
 	let newProhibitedNumber = $state('');
+	let newProhibitedAmount = $state('');
 	let expandedSorteo = $state<number[]>([]);
 	let selectedScheduleBySorteo = $state<Record<number, number | null>>({});
+	let prohibitedNumbers = $state<prohibitedNumber[]>([]);
 	let puestoOptions = $state<puesto[]>([]);
 	let puestoNames = $state<string[]>([]);
 
@@ -115,7 +132,7 @@
 		// If there are no schedules yet, fetch them from the backend
 		if (!sorteo.schedule || sorteo.schedule.length === 0) {
 			try {
-				const res = await fetch(`/sorteos/draw-schedule/${sorteoId}`);
+				const res = await fetch(`/banca/sorteos/draw-schedule/${sorteoId}`);
 				const payload = await res.json().catch(() => null);
 				const items = Array.isArray(payload?.items) ? payload.items : [];
 				const schedule = items.map((it: { time: any; }) => ({ ...it, time: it.time ?? '', puestos: [] }));
@@ -141,7 +158,7 @@
 
 	async function fetchBranchesForSchedule(sorteoId: number, scheduleId: number) {
 		try {
-			const res = await fetch(`/sorteos/branch/${scheduleId}`);
+			const res = await fetch(`/banca/sorteos/branch/${scheduleId}`);
 			const payload = await res.json().catch(() => null);
 			const items = Array.isArray(payload?.items) ? payload.items : [];
 
@@ -393,25 +410,36 @@
 		if (prohibitedNumberToDelete == null) {
 			return;
 		}
-		prohibitedNumbers.update((items) => items.filter((item) => item !== prohibitedNumberToDelete));
+		prohibitedNumbers = prohibitedNumbers.filter((item) => item.number !== prohibitedNumberToDelete);
 		prohibitedNumberToDelete = null;
 	}
 
 	function openAddProhibitedModal() {
 		newProhibitedNumber = '';
+		newProhibitedAmount = '';
 		showAddProhibitedModal = true;
 	}
 
-	function handleAddProhibitedNumber(newProhibitedNumber: string) {
-		const trimmed = newProhibitedNumber.trim();
-		if (!trimmed || !/^\d+$/.test(trimmed)) {
+	async function handleAddProhibitedNumber(payload: { number: string; amount: string }) {
+		console.log('Adding prohibited number with payload:', payload);
+		const value = Number(payload.number);
+		const amount = Number(payload.amount);
+		if (!Number.isFinite(amount)) {
 			return;
 		}
-		const value = Number(trimmed);
-		prohibitedNumbers.update((items) =>
-			items.includes(value) ? items : [...items, value].sort((a, b) => a - b)
-		);
+		const response = await fetch('/number/prohibited', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ number: value, amount })
+		});
+		if (!response.ok) {
+			return;
+		}
+		prohibitedNumbers = prohibitedNumbers.some((item) => item.number === value)
+			? prohibitedNumbers
+			: [...prohibitedNumbers, { number: value, amount }].sort((a, b) => a.number - b.number);
 		newProhibitedNumber = '';
+		newProhibitedAmount = '';
 		showAddProhibitedModal = false;
 	}
 
@@ -511,7 +539,8 @@
 
 <ProhibitedNumberModal
 	bind:showModal={showAddProhibitedModal}
-	bind:value={newProhibitedNumber}
+	bind:number={newProhibitedNumber}
+	bind:amount={newProhibitedAmount}
 	title="Agregar numero restringido"
 	confirmText="Guardar"
 	cancelText="Cancelar"
@@ -549,42 +578,42 @@
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
 <section class="page-stack draws-page">
-	<div class="header-contained">
-		<div>
-			<h1>Sorteos</h1>
-			<p>Gestiona horarios y puestos por sorteo.</p>
+	<header class="header-banking">
+		<div class="header-top">
+			<div class="header-title">
+				<h1 class="title">Sorteos</h1>
+				<p class="subtitle">Gestiona horarios y puestos por sorteo.</p>
+			</div>
+			<button onclick={handleAddSorteo}>Nuevo sorteo</button>
 		</div>
-		<button onclick={handleAddSorteo}>
-			Nuevo sorteo
-		</button>
-	</div>
-	<div class="prohibited">
-        <span class="label">Restringidos:</span>
-        <div class="prohibited-list">
-            {#if $prohibitedNumbers?.length}
-                {#each $prohibitedNumbers as number}
-					<button
-						type="button"
-						class="prohibited-badge"
-						onclick={() => showDeleteProhibitedNumber(number)}
-						aria-label={`Eliminar numero restringido ${number}`}
-					>
-						{number}
-					</button>
-                {/each}
-            {:else}
-                <span class="prohibited-empty">-</span>
-            {/if}
-			<button
-				type="button"
-				class="prohibited-badge prohibited-add"
-				onclick={openAddProhibitedModal}
-				aria-label="Agregar numero restringido"
-			>
-				+
-			</button>
-        </div>
-    </div> 
+		<div class="prohibited">
+			<span class="label">Restringidos:</span>
+			<div class="prohibited-list">
+				{#if prohibitedNumbers?.length}
+					{#each prohibitedNumbers as prohibitedNumber}
+						<button
+							type="button"
+							class="prohibited-badge"
+							onclick={() => showDeleteProhibitedNumber(prohibitedNumber.number)}
+							aria-label={`Eliminar numero restringido ${prohibitedNumber.number}`}
+						>
+							{prohibitedNumber.number}
+						</button>
+					{/each}
+				{:else}
+					<span class="prohibited-empty">-</span>
+				{/if}
+				<button
+					type="button"
+					class="prohibited-badge prohibited-add"
+					onclick={openAddProhibitedModal}
+					aria-label="Agregar numero restringido"
+				>
+					+
+				</button>
+			</div>
+		</div> 
+	</header>
 	<div class="panel-list">
 		{#each draws as draw}
 			{@const selectedSlot = getSelectedSchedule(draw)}
@@ -617,6 +646,13 @@
 {/if}
 
 <style>
+	section {
+		gap: 0;
+	}
+	.header-banking {
+		flex-direction: column;
+		align-items: flex-start;
+	}
 	.draws-page {
 		position: relative;
 		overflow: hidden;
@@ -645,6 +681,21 @@
 		display: flex;
 		gap: 0.5rem;
 		flex-wrap: wrap;
+	}
+	
+	.prohibited-add {
+		border-style: dashed;
+		color: var(--color-theme-2);
+		border-color: var(--color-theme-2);
+		font-weight: 600;
+	}
+	.header-top {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		width: 100%;
+		align-items: flex-end;
+		gap: 0.25rem;
 	}
 </style>
 
