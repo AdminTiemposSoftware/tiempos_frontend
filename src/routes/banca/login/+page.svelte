@@ -10,7 +10,7 @@
 			loading = false;
 
 			if (result.type === 'failure') {
-				error = result.data?.error ?? 'Invalid credentials';
+				error = result.data?.error ?? 'Usuario o contraseña inválidos';
 			}
 
 			await update();
