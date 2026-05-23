@@ -86,14 +86,14 @@ export const actions: Actions = {
 				});
 			}
 
-			cookies.set('session_banca', token, {
-				path: '/banca',
+			cookies.set('session', token, {
+				path: '/',
 				httpOnly: true,
 				sameSite: 'lax',
 				secure: request.url.startsWith('https://')
 			});
 
-			throw redirect(303, '/puestos');
+			throw redirect(303, '/banca/puestos');
 		} catch (error) {
 			if (error && typeof error === 'object' && 'status' in error && 'location' in error) {
 				throw error;

@@ -5,7 +5,7 @@ import type { RequestHandler } from './$types';
 const API_URL = env.API_URL ?? '';
 
 export const POST: RequestHandler = async ({ cookies, fetch }) => {
-	const token = cookies.get('session_puesto') ?? '';
+	const token = cookies.get('session') ?? '';
 
 	if (API_URL) {
 		try {
@@ -18,6 +18,6 @@ export const POST: RequestHandler = async ({ cookies, fetch }) => {
 		}
 	}
 
-	cookies.delete('session_puesto', { path: '/puesto' });
+	cookies.delete('session', { path: '/' });
 	throw redirect(303, '/puesto/login');
 };

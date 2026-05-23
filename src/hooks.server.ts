@@ -83,7 +83,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const app = resolveApp(pathname);
 
 	// existing auth logic
-	const token = event.cookies.get(app === 'puesto' ? 'session_puesto' : 'session_banca');
+	// const token = event.cookies.get(app === 'puesto' ? 'session_puesto' : 'session_banca');
+	const token = event.cookies.get("session");
 	const isPublic = publicPrefixes.some((prefix) =>
 		pathname.startsWith(prefix)
 	);
