@@ -1,6 +1,5 @@
 <script lang="ts">
     import { total } from "../../stores/UpdateSellMatrix";
-    import SellFooter from "./SellFooter.svelte";
 
     let { 
         selectedDate = $bindable(), 

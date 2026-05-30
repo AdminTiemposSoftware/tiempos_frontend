@@ -8,6 +8,8 @@ declare global {
 				role: string;
 				username?: string;
 				branchId?: string | null;
+				branchName?: string | null;
+				branchLocation?: string | null;
 			} | null;
 		}
 

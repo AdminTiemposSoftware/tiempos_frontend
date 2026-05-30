@@ -8,8 +8,11 @@
     import { sellingMatrix } from "../../../lib/stores/UpdateSellMatrix";
     import { auth } from "$lib/stores/auth";
     import { total } from "../../../lib/stores/UpdateSellMatrix";
+    import { jsPDF } from 'jspdf';
 
     let { data } = $props();
+    
+    type TicketSold = { number: string; price: number };
 
     type AvailableBet = {
         draw_schedule_branch_id: number;
@@ -33,18 +36,43 @@
         is_megareventado: boolean;
     };
 
+    type TicketHeader = {
+        id: number;
+        serial: string;
+        amount: string | number;
+        time: string;
+        date: string;
+        detail: string | null;
+        enabled: boolean;
+    };
+
+    type TicketDetail = {
+        ticket_header_serial: string;
+        number: number;
+        amount: string | number;
+        is_reventado: boolean;
+        is_megareventado: boolean;
+    };
+
+    type TicketRow = {
+        id: number;
+        total: number;
+        details: string;
+        status?: boolean;
+        date?: string;
+        serial?: string;
+        time?: string;
+    };
+
     // TODO This is all testing data, replace with actual data from the database
     prohibitedNumbers.set([3, 7, 13, 17, 23, 27, 33, 40, 51, 57, 61, 71, 73, 83]); 
     let selectedDate = $state(new Date().toISOString().split('T')[0]);
     let selectedBet = $state<AvailableBet | null>(null);
     let prohibitedPercentage = $state(0.03);
     let availableBets = $state<AvailableBet[]>([]);
-    let tickets = $state([
-            { id: 1, total: 150, details: "Ticket 1 details", status: true },
-            { id: 2, total: 50, details: "Ticket 2 details", status: true },
-            { id: 3, total: 75, details: "Ticket 3 details", status: false }
-        ]); // TODO
-    let soldNumbersForTicket = $state([{number: 1, price: 100}, {number: 2, price: 50}]); 
+    let isMatrixLoading = $state(false);
+    let tickets = $state<TicketRow[]>([]);
+    let ticketDetails = $state<TicketDetail[]>([]);
 
     function formatCloseTime(scheduleTime: string) {
         return scheduleTime.slice(0, 5);
@@ -87,6 +115,8 @@
 
         sellingMatrix.set(matrix);
         total.set(Object.values(matrix).reduce((sum, value) => sum + value, 0));
+
+        isMatrixLoading = false;
     });
 
     $effect(() => {
@@ -97,6 +127,8 @@
             return;
         }
 
+        isMatrixLoading = true;
+
         void goto(`?scheduleId=${scheduleId}`, {
             replaceState: true,
             noScroll: true,
@@ -104,14 +136,141 @@
         });
     });
 
-    function getTickets() {
-        // TODO Implement functionality to fetch tickets for the selected date and bet
+    async function handlePDFPrint(ticket: TicketRow, soldNumbers: TicketSold[], position: number | null) {
+        const lineHeight = 6;
+        const estimateHeight = (lines: number, hasAddress: boolean) => {
+            let y = 10;
+            y += 6; // serial
+            y += 6; // nro
+            y += 6; // hora
+            y += 6; // fecha
+            y += 6; // branch name
+            if (hasAddress) {
+                y += 6;
+            }
+            y += 8; // gap before details
+            y += lines * lineHeight; // details
+            y += 2; // gap before sum line
+            y += 6; // total line
+            return y + 8; // bottom padding
+        };
+
+        const branchName = $auth.user?.branchName ? String($auth.user.branchName) : 'Sucursal';
+        const branchAddress = $auth.user?.branchLocation ? String($auth.user.branchLocation) : '';
+        const pageHeight = Math.max(90, estimateHeight(soldNumbers.length, !!branchAddress));
+        const doc = new jsPDF({ unit: 'mm', format: [80, pageHeight] });
+
+        const serial = ticket.serial ?? 'Sin serial';
+        const time = ticket.time ?? 'Sin hora';
+        const date = ticket.date ?? 'Sin fecha';
+        const total = Number.isFinite(ticket.total) ? ticket.total.toFixed(2) : '0.00';
+
+        let y = 10;
+        doc.setFontSize(10);
+        doc.text(`${serial}`, 6, y);
+        y += 6;
+        doc.text(`Nro: ${position ?? '-'} `, 6, y);
+        y += 6;
+        doc.text(`Hora: ${time}`, 6, y);
+        y += 6;
+        doc.text(`Fecha: ${date}`, 6, y);
+        y += 6;
+        doc.text(branchName, 6, y);
+        if (branchAddress) {
+            y += 6;
+            doc.text(branchAddress, 6, y);
+        }
+
+        y += 8;
+        doc.setFontSize(10);
+        const leftX = 6;
+        const rightX = 74;
+        const minDotsStartX = 16;
+        const minDotsEndX = 60;
+        for (const item of soldNumbers) {
+            const numText = String(item.number).padStart(2, '0');
+            const amountText = Number.isFinite(item.price) ? item.price.toFixed(2) : '0.00';
+            doc.text(numText, leftX, y);
+            doc.text(amountText, rightX, y, { align: 'right' });
+            const dotsStartX = Math.max(minDotsStartX, leftX + doc.getTextWidth(numText) + 4);
+            const dotsEndX = Math.min(minDotsEndX, rightX - doc.getTextWidth(amountText) - 4);
+            doc.setLineWidth(0.2);
+            doc.setLineDashPattern([1, 1], 0);
+            if (dotsEndX > dotsStartX) {
+                doc.line(dotsStartX, y - 1, dotsEndX, y - 1);
+            }
+            y += lineHeight;
+        }
+        doc.setLineDashPattern([], 0);
+        y += 2;
+        doc.setLineWidth(0.3);
+        doc.line(leftX, y, rightX, y);
+        y += 6;
+        doc.setLineWidth(0.2);
+        doc.setLineDashPattern([1, 1], 0);
+        doc.text('Total', leftX, y);
+        doc.text(total, rightX, y, { align: 'right' });
+        const totalDotsStartX = Math.max(minDotsStartX, leftX + doc.getTextWidth('Total') + 4);
+        const totalDotsEndX = Math.min(minDotsEndX, rightX - doc.getTextWidth(total) - 4);
+        if (totalDotsEndX > totalDotsStartX) {
+            doc.line(totalDotsStartX, y - 1, totalDotsEndX, y - 1);
+        }
+        doc.setLineDashPattern([], 0);
+
+        const safeSerial = serial.replace(/[^A-Za-z0-9_-]/g, '_');
+        doc.save(`ticket-${safeSerial}.pdf`);
+    }
+
+
+    async function getTickets() {
+        const scheduleId = selectedBet?.schedule_id ?? null;
+        if (!scheduleId || !selectedDate) {
+            tickets = [];
+            ticketDetails = [];
+            return tickets;
+        }
+
+        const url = new URL('/puesto/venta/tickets', window.location.origin);
+        url.searchParams.set('scheduleId', String(scheduleId));
+        url.searchParams.set('date', selectedDate);
+
+        const response = await fetch(url.toString(), { method: 'GET' });
+        if (!response.ok) {
+            tickets = [];
+            ticketDetails = [];
+            return tickets;
+        }
+
+        const payload = await response.json().catch(() => null);
+        const items = Array.isArray(payload?.items) ? (payload.items as TicketHeader[]) : [];
+        const details = Array.isArray(payload?.details) ? (payload.details as TicketDetail[]) : [];
+
+        tickets = items.map((item) => ({
+            id: item.id,
+            serial: item.serial,
+            total: Number(item.amount) || 0,
+            details: item.detail ?? '',
+            time: item.time ?? '',
+            date: item.date ?? '',
+            status: item.enabled
+        }));
+        ticketDetails = details;
+
         return tickets;
     }
 
     function getSoldNumbersForTicket(ticketId: number) {
-        // TODO Implement functionality to get sold numbers for a ticket
-        return soldNumbersForTicket;
+        const ticket = tickets.find((item) => item.id === ticketId);
+        if (!ticket) {
+            return [];
+        }
+
+        return ticketDetails
+            .filter((detail) => detail.ticket_header_serial === ticket.serial)
+            .map((detail) => ({
+                number: String(detail.number).padStart(2, '0'),
+                price: Number(detail.amount) || 0
+            }));
     }
 </script>
 
@@ -131,13 +290,17 @@
     <section class="set-section">
         <Sell 
             getTickets={getTickets}
+            selectedDate={selectedDate}
             getSoldNumbersForTicket={getSoldNumbersForTicket}
             selectedBet={selectedBet}
             prohibitedPercentage={prohibitedPercentage}
+            handlePDFPrint={handlePDFPrint}
         />
         <Matrix 
             rows={20}
             columns={5}
+            animateKey={selectedBet?.schedule_id ?? "none"}
+            isLoading={isMatrixLoading}
             prohibitedPercentage={prohibitedPercentage}
         />
     </section>

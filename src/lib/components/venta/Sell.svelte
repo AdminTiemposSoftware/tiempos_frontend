@@ -8,17 +8,16 @@
     let tickets = $state([]);
     let numberInput: HTMLInputElement;
     let randomCount = $state(1);
-    let detailsJson = $state('');
-    let {getTickets, getSoldNumbersForTicket, selectedBet, prohibitedPercentage} = $props();
+    let isSubmitting = $state(false);
+    let submitError = $state('');
+    let {getTickets, getSoldNumbersForTicket, selectedBet, handlePDFPrint, selectedDate} = $props();
 
     import { onMount } from 'svelte';
     import { TrashBinSolid, CubeSolid, QuestionCircleSolid, PrinterSolid, SearchSolid, EyeSolid, ReceiptSolid, CameraPhotoSolid } from "flowbite-svelte-icons";
     import { sellingMatrix } from '../../stores/UpdateSellMatrix';
-    import { prohibitedNumbers } from '../../stores/UpdateSellMatrix';
     import { total } from '../../stores/UpdateSellMatrix';
     import QrModal from './QrModal.svelte';
     import TicketsModal from './TicketsModal.svelte';
-    import { applyAction, enhance } from '$app/forms';
 
     onMount(() => {
         priceInput?.focus();
@@ -102,26 +101,65 @@
         }));
     }
 
-    const enhanceAddTicket = () => {
+    async function submitTicket(event: Event) {
+        event.preventDefault();
+        submitError = '';
+
+        const drawScheduleId = selectedBet?.schedule_id ?? null;
+        if (!drawScheduleId || Object.keys(sold).length === 0) {
+            return;
+        }
+
         const soldSnapshot = { ...sold };
+        isSubmitting = true;
 
-        return async ({ result }) => {
-            await applyAction(result);
-            if (result.type !== 'success') {
-                return;
+        const response = await fetch('/puesto/venta', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                draw_schedule_id: drawScheduleId,
+                details: buildDetailsPayload(soldSnapshot)
+            })
+        });
+
+        isSubmitting = false;
+
+        if (!response.ok) {
+            submitError = 'No se pudo crear el tiquete.';
+            return;
+        }
+
+        const responseBody = await response.json().catch(() => null);
+        const createdTicket = Array.isArray(responseBody?.items) ? responseBody.items[0] : null;
+        if (createdTicket) {
+            const ticketRow = {
+                id: 0,
+                serial: createdTicket.ticket_serial,
+                total: Number(createdTicket.ticket_amount) || 0,
+                details: '',
+                time: createdTicket.printed_at ?? '',
+                date: selectedDate ?? '',
+                status: true
+            };
+            const soldNumbers = Object.entries(soldSnapshot).map(([number, price]) => ({
+                number: String(number).padStart(2, '0'),
+                price: price.price
+            }));
+            await handlePDFPrint(ticketRow, soldNumbers, createdTicket.ticket_number ?? null);
+        }
+
+        sellingMatrix.update((matrix) => {
+            for (const [number, price] of Object.entries(soldSnapshot)) {
+                matrix[number] = (matrix[number] || 0) + price.price;
             }
-
-            sellingMatrix.update((matrix) => {
-                for (const [number, price] of Object.entries(soldSnapshot)) {
-                    matrix[number] = (matrix[number] || 0) + price.price;
-                }
-                return matrix;
-            });
-            total.update((n) => n + Object.values(soldSnapshot).reduce((sum, item) => sum + item.price, 0));
-            sold = {};
-            soldAmount = 0;
-        };
-    };
+            return matrix;
+        });
+        total.update((n) => n + Object.values(soldSnapshot).reduce((sum, item) => sum + item.price, 0));
+        sold = {};
+        soldAmount = 0;
+    }
 
     function deleteNumber(number: string) {
         const { [number]: _, ...rest } = sold;
@@ -273,8 +311,8 @@
     function scanQR() {
     }
 
-    function viewTickets() {
-        tickets = getTickets(); // TODO: Use the selected bet
+    async function viewTickets() {
+        tickets = await getTickets();
         showTicketsModal = true;
     }
 
@@ -282,9 +320,6 @@
         showTicketsModal = false;
     }
 
-    $effect(() => {
-        detailsJson = JSON.stringify(buildDetailsPayload(sold));
-    });
 </script>
 
 {#if showQrModal}
@@ -297,6 +332,7 @@
         bind:numbersSold={sold}
         onClose={closeTicketsModal} 
         getSoldNumbersForTicket={getSoldNumbersForTicket}
+        onPDFPrint={handlePDFPrint}
     />
 {/if}
 
@@ -384,17 +420,18 @@
             </table>
         </div>
         <!-- TODO: Implement functionality for these buttons -->
-    <form method="POST" action="?/addTicket" use:enhance={enhanceAddTicket}>
-        <input type="hidden" name="draw_schedule_id" value={selectedBet?.schedule_id} />
-        <input type="hidden" name="details" value={detailsJson} />
+    <form onsubmit={submitTicket}>
         <button
             type="submit"
-            disabled={Object.keys(sold).length === 0}
+            disabled={Object.keys(sold).length === 0 || isSubmitting}
         >
             <PrinterSolid class="shrink-0 h-4 w-4" />
             Imprimir
         </button>
     </form>
+    {#if submitError}
+        <div class="form-error">{submitError}</div>
+    {/if}
     <div class="buttons-group">
             <button 
                 onclick={viewQR}
@@ -546,6 +583,12 @@
         width: 2rem;
         padding: 0rem;
         text-align: center;
+    }
+
+    .form-error {
+        margin: 0.5rem 0 0;
+        color: #b91c1c;
+        font-size: 0.9rem;
     }
 
 </style>

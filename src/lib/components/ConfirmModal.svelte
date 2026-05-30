@@ -42,3 +42,9 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	.modal-backdrop {
+		z-index: 10;
+	}
+</style>

@@ -4,6 +4,10 @@ type AuthUser = {
 	id: string;
 	role: string;
 	username?: string;
+	branchId?: string | null;
+	branchName?: string | null;
+	branchLocation?: string | null;
+	bankingId?: string | null;
 } | null;
 
 type AuthState = {
