@@ -66,7 +66,8 @@
 
     // TODO This is all testing data, replace with actual data from the database
     prohibitedNumbers.set([3, 7, 13, 17, 23, 27, 33, 40, 51, 57, 61, 71, 73, 83]); 
-    let selectedDate = $state(new Date().toISOString().split('T')[0]);
+    const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    let selectedDate = $state(utcMinus6Date.toISOString().split('T')[0]);
     let selectedBet = $state<AvailableBet | null>(null);
     let prohibitedPercentage = $state(0.03);
     let availableBets = $state<AvailableBet[]>([]);

@@ -82,8 +82,9 @@
                                 name="sorteo"
                                 bind:group={selectedBet}
                                 value={bet}
+                                class="sorteo-input"
                             />
-                            <span>{bet.draw_name} {bet.schedule_name}</span>
+                            <span class="sorteo-pill">{bet.draw_name} {bet.schedule_name}</span>
                         </label>
                     {/each}
                 </div>
@@ -111,17 +112,34 @@
     .sorteo-label {
         font-weight: 600;
         white-space: nowrap;
+        align-self: center;
     }
     .sorteo-option {
         display: inline-flex;
         align-items: center;
         gap: 0.35rem;
-        padding: 0.25rem 0.5rem;
-        border: 1px solid var(--color-border);
-        background: var(--color-bg-2);
+        cursor: pointer;
     }
-    .sorteo-option span {
-        font-size: 0.9rem;
+    .sorteo-input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+    .sorteo-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.35rem 0.75rem;
+        border: 1px solid var(--color-border);
+        transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        font-size: 1rem;
+        user-select: none;
+    }
+    .sorteo-input:checked + .sorteo-pill {
+        background: var(--color-theme-1);
+        color: #fff;
+    }
+    .sorteo-option:hover .sorteo-pill {
+        border-color: var(--color-theme-2);
     }
     .header-top {
         display: flex;

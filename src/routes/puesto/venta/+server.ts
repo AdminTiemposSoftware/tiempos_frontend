@@ -14,7 +14,8 @@ type TicketRequest = {
 	details: TicketDetail[];
 };
 
-export const POST: RequestHandler = async ({ request, fetch, locals }) => {
+export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) => {
+    const token = cookies.get('session') ?? '';
 	const baseUrl = env.API_URL;
 	const branchId = locals.user?.branchId;
 
@@ -44,7 +45,9 @@ export const POST: RequestHandler = async ({ request, fetch, locals }) => {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json'
+
 		},
+        Authorization: `Bearer ${token}`,
 		body: JSON.stringify({
 			draw_schedule_id,
 			branch_id: branchId,
