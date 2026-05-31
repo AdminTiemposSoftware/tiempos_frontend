@@ -44,10 +44,9 @@ export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) 
 	const response = await fetch(`${baseUrl}/ticket`, {
 		method: 'POST',
 		headers: {
-			'Content-Type': 'application/json'
-
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`
 		},
-        Authorization: `Bearer ${token}`,
 		body: JSON.stringify({
 			draw_schedule_id,
 			branch_id: branchId,
