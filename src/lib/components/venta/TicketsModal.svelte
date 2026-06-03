@@ -47,6 +47,24 @@
         soldNumbersForSelectedTicket.reduce((sum, sold) => sum + (Number(sold.price) || 0), 0)
     );
 
+    let groupedSoldNumbers = $derived(() => {
+        const groups = new Map<number, string[]>();
+        for (const sold of soldNumbersForSelectedTicket) {
+            const price = Number(sold.price) || 0;
+            if (!groups.has(price)) {
+                groups.set(price, []);
+            }
+            groups.get(price)?.push(String(sold.number));
+        }
+
+        return Array.from(groups.entries())
+            .sort((a, b) => a[0] - b[0])
+            .map(([price, numbers]) => ({
+                price,
+                numbersText: numbers.join(" x ") + " x"
+            }));
+    });
+
     function formatMoney(value: number) {
         if (!Number.isFinite(value)) {
             return '0.00';
@@ -248,11 +266,11 @@
                 </div>
                 <ul class="sold-list" aria-label="Numeros vendidos">
                     {#if selectedTicket}
-                        {#each soldNumbersForSelectedTicket as sold}
+                        {#each groupedSoldNumbers() as group}
                             <li class="sold-row">
-                                <span class="sold-number">{sold.number}</span>
+                                <span class="sold-number">{group.numbersText}</span>
                                 <span class="sold-dots" aria-hidden="true"></span>
-                                <span class="sold-price">₡{formatMoney(Number(sold.price) || 0)}</span>
+                                <span class="sold-price">₡{formatMoney(group.price)}</span>
                             </li>
                         {/each}
                     {/if}

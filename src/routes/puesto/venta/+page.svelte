@@ -139,6 +139,58 @@
 
     async function handlePDFPrint(ticket: TicketRow, soldNumbers: TicketSold[], position: number | null) {
         const lineHeight = 6;
+        const leftX = 6;
+        const rightX = 74;
+        const minDotsStartX = 16;
+        const minDotsEndX = 60;
+
+        const groupedSoldNumbers = (() => {
+            const groups = new Map<number, string[]>();
+            for (const sold of soldNumbers) {
+                const price = Number(sold.price) || 0;
+                if (!groups.has(price)) {
+                    groups.set(price, []);
+                }
+                groups.get(price)?.push(String(sold.number).padStart(2, '0'));
+            }
+
+            return Array.from(groups.entries())
+                .sort((a, b) => a[0] - b[0])
+                .map(([price, numbers]) => ({ price, numbers }));
+        })();
+
+        const buildNumberLines = (doc: jsPDF, numbers: string[]) => {
+            if (numbers.length === 0) {
+                return [''];
+            }
+
+            const maxTextWidth = minDotsEndX - leftX - 2;
+            const lines: string[] = [];
+            let current = '';
+
+            for (const num of numbers) {
+                const next = current ? `${current} x ${num}` : num;
+                if (doc.getTextWidth(next) > maxTextWidth && current) {
+                    lines.push(current);
+                    current = num;
+                    continue;
+                }
+                current = next;
+            }
+
+            if (current) {
+                lines.push(current);
+            }
+
+            return lines;
+        };
+
+        const groupedSoldLines = (doc: jsPDF) =>
+            groupedSoldNumbers.map((group) => ({
+                price: group.price,
+                lines: buildNumberLines(doc, group.numbers)
+            }));
+
         const estimateHeight = (lines: number, hasAddress: boolean) => {
             let y = 10;
             y += 6; // serial
@@ -158,7 +210,11 @@
 
         const branchName = $auth.user?.branchName ? String($auth.user.branchName) : 'Sucursal';
         const branchAddress = $auth.user?.branchLocation ? String($auth.user.branchLocation) : '';
-        const pageHeight = Math.max(90, estimateHeight(soldNumbers.length, !!branchAddress));
+
+        const tempDoc = new jsPDF({ unit: 'mm', format: [80, 300] });
+        const measuredGroups = groupedSoldLines(tempDoc);
+        const totalDetailLines = measuredGroups.reduce((sum, group) => sum + group.lines.length, 0);
+        const pageHeight = Math.max(90, estimateHeight(totalDetailLines, !!branchAddress));
         const doc = new jsPDF({ unit: 'mm', format: [80, pageHeight] });
 
         const serial = ticket.serial ?? 'Sin serial';
@@ -184,23 +240,22 @@
 
         y += 8;
         doc.setFontSize(10);
-        const leftX = 6;
-        const rightX = 74;
-        const minDotsStartX = 16;
-        const minDotsEndX = 60;
-        for (const item of soldNumbers) {
-            const numText = String(item.number).padStart(2, '0');
+        for (const item of groupedSoldLines(doc)) {
             const amountText = Number.isFinite(item.price) ? item.price.toFixed(2) : '0.00';
-            doc.text(numText, leftX, y);
-            doc.text(amountText, rightX, y, { align: 'right' });
-            const dotsStartX = Math.max(minDotsStartX, leftX + doc.getTextWidth(numText) + 4);
-            const dotsEndX = Math.min(minDotsEndX, rightX - doc.getTextWidth(amountText) - 4);
-            doc.setLineWidth(0.2);
-            doc.setLineDashPattern([1, 1], 0);
-            if (dotsEndX > dotsStartX) {
-                doc.line(dotsStartX, y - 1, dotsEndX, y - 1);
-            }
-            y += lineHeight;
+            item.lines.forEach((line, index) => {
+                doc.text(line, leftX, y);
+                if (index === 0) {
+                    doc.text(amountText, rightX, y, { align: 'right' });
+                    const dotsStartX = Math.max(minDotsStartX, leftX + doc.getTextWidth(line) + 4);
+                    const dotsEndX = Math.min(minDotsEndX, rightX - doc.getTextWidth(amountText) - 4);
+                    doc.setLineWidth(0.2);
+                    doc.setLineDashPattern([1, 1], 0);
+                    if (dotsEndX > dotsStartX) {
+                        doc.line(dotsStartX, y - 1, dotsEndX, y - 1);
+                    }
+                }
+                y += lineHeight;
+            });
         }
         doc.setLineDashPattern([], 0);
         y += 2;
