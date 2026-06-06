@@ -453,6 +453,7 @@
 		}
 		// TODO Send request to backend
 	}
+	
 </script>
 
 <ScheduleModal
@@ -605,7 +606,7 @@
 		<h2>Atajos</h2>
 		<div class="shortcuts-actions">
 			<button onclick={openAssignSorteoModal}>Agregar un sorteo a todos los puestos</button>
-			<button onclick={openAssignPuestoModal}>Agregar un puesto en todos los draws</button>
+			<button onclick={() => {}}>Agregar un puesto en todos los draws</button>
 		</div>
 	</div>
 </section>
