@@ -58,7 +58,7 @@
 		puesto = { ...puesto, users: puesto.users.filter((user) => user !== value) };
 	}
 
-	function handleSubmit() {
+	async function handleSubmit() {
 		if (!puesto) {
 			return;
 		}
@@ -78,12 +78,16 @@
 			return;
 		}
 
-		if (payload.id) {
-			updatePuesto(payload);
-		} else {
-			addPuesto(payload);
+		try {
+			if (payload.id) {
+				await updatePuesto(payload);
+			} else {
+				await addPuesto(payload);
+			}
+			onClose();
+		} catch (error) {
+			console.error('Failed to save puesto', error);
 		}
-		onClose();
 	}
 </script>
 

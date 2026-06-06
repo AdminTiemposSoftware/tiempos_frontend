@@ -47,7 +47,7 @@
 
 	function openNewPuesto() {
 		selectedPuesto = {
-			banking_id: 1,
+			banking_id: Number(data?.bankingId ?? 1),
 			name: '',
 			location: '',
 			status: 'Activo',
@@ -77,21 +77,41 @@
 		puestoToDelete = null;
 	}
 
-	function handleAddPuesto(payload: Partial<Puesto>) {
-		const nextId = Math.max(0, ...puestos.map((item) => item.id ?? 0)) + 1;
-		const nextPuesto = {
-			id: nextId,
-			banking_id: Number(payload.banking_id ?? 1),
-			name: payload.name ?? 'Nuevo puesto',
-			location: payload.location ?? '-',
-			status: payload.status ?? 'Activo',
-			prohibited_percentage: Number(payload.prohibited_percentage ?? 0),
-			user_count: 0,
-			draw_count: 0,
-			users: payload.users ?? [],
-			sorteos: payload.sorteos ?? []
-		};
-		puestos = [...puestos, nextPuesto];
+	async function handleAddPuesto(payload: Partial<Puesto>) {
+		const response = await fetch('/banca/puestos', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				banking_id: Number(payload.banking_id ?? data?.bankingId ?? 1),
+				name: payload.name ?? 'Nuevo puesto',
+				location: payload.location ?? '-',
+				prohibited_percentage: Number(payload.prohibited_percentage ?? 0)
+			})
+		});
+
+		if (!response.ok) {
+			throw new Error('Failed to create puesto');
+		}
+
+		const result = await response.json().catch(() => null);
+		const createdPuesto = Array.isArray(result?.items) && result.items.length > 0
+			? result.items[0]
+			: {
+				id: Math.max(0, ...puestos.map((item) => item.id ?? 0)) + 1,
+				banking_id: Number(payload.banking_id ?? data?.bankingId ?? 1),
+				name: payload.name ?? 'Nuevo puesto',
+				location: payload.location ?? '-',
+				status: payload.status ?? 'Activo',
+				prohibited_percentage: Number(payload.prohibited_percentage ?? 0),
+				user_count: 0,
+				draw_count: 0,
+				users: payload.users ?? [],
+				sorteos: payload.sorteos ?? []
+			};
+
+		puestos = [...puestos, createdPuesto];
 	}
 
 	function handleUpdatePuesto(payload: Partial<Puesto> & { id: number }) {

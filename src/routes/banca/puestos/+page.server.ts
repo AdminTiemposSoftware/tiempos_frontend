@@ -27,9 +27,9 @@ export const load: PageServerLoad = async ({ fetch, locals }) => {
 			? payload.items
 			: [];
 
-		return { items };
+		return { items, bankingId };
 	} catch {
-		return { items: [] };
+		return { items: [], bankingId };
 	}
 };
 
