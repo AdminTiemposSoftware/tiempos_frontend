@@ -44,7 +44,7 @@ export const PUT : RequestHandler = async ({ params, request, fetch, cookies }) 
             method: 'PUT',
             headers: { 
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}` // Assuming you need to pass an API token for authentication
+                Authorization: `Bearer ${token}`
             },
             body: JSON.stringify(body ?? {})
         });

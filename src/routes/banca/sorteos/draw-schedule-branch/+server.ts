@@ -1,8 +1,9 @@
 import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async ({ request, fetch }) => {
+export const POST: RequestHandler = async ({ request, fetch, cookies }) => {
     const baseUrl = env.API_URL;
+    const token = cookies.get('session') ?? '';
 
     if (!baseUrl) {
         return new Response(JSON.stringify({ items: [] }), {
@@ -15,7 +16,10 @@ export const POST: RequestHandler = async ({ request, fetch }) => {
         const body = await request.json().catch(() => null);
         const response = await fetch(`${baseUrl}/draw-schedule-branch`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+            },
             body: JSON.stringify(body ?? {})
         });
         const payload = await response.json().catch(() => null);
