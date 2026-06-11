@@ -1,5 +1,6 @@
 <script lang="ts">
     import { total } from "../../stores/UpdateSellMatrix";
+    import { onMount, onDestroy } from "svelte";
 
     let { 
         selectedDate = $bindable(), 
@@ -8,6 +9,19 @@
         selectedBet = $bindable(),
         prohibitedPercentage = $bindable()
     } = $props();
+
+    let now = $state(new Date());
+    let intervalId: NodeJS.Timeout;
+
+    onMount(() => {
+        intervalId = setInterval(() => {
+            now = new Date();
+        }, 1000);
+    });
+
+    onDestroy(() => {
+        clearInterval(intervalId);
+    });
 
     function parseCloseTime(value: string) {
         if (!value) {
@@ -30,16 +44,56 @@
         if (closeMinutes === null) {
             return Number.MAX_SAFE_INTEGER;
         }
-        const now = new Date();
         const nowMinutes = now.getHours() * 60 + now.getMinutes();
         const diff = closeMinutes - nowMinutes;
         return diff >= 0 ? diff : diff + 24 * 60;
     }
 
+    function secondsUntilClose(closeTime: string) {
+        const closeMinutes = parseCloseTime(closeTime);
+        if (closeMinutes === null) {
+            return Number.MAX_SAFE_INTEGER;
+        }
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        const nowSeconds = now.getSeconds();
+        const closeSeconds = closeMinutes * 60;
+        const nowTotalSeconds = nowMinutes * 60 + nowSeconds;
+        let diff = closeSeconds - nowTotalSeconds;
+        if (diff < 0) {
+            diff = diff + 24 * 60 * 60;
+        }
+        return diff;
+    }
+
+    function formatTimeRemaining(seconds: number) {
+        if (seconds === Number.MAX_SAFE_INTEGER) {
+            return "N/A";
+        }
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = Math.floor(seconds % 60);
+        if (hours === 0 && minutes === 0) {
+            return `${secs}s`;
+        } else if (hours === 0) {
+            return `${minutes}m ${secs}s`;
+        }
+        return `${hours}h ${minutes}m ${secs}s`;
+    }
+
     function getSortedBets(bets: typeof availableBets) {
-        return [...bets].sort(
-            (a, b) => minutesUntilClose(a.closeTime) - minutesUntilClose(b.closeTime)
-        );
+        return [...bets]
+            .filter(bet => {
+                const closeMinutes = parseCloseTime(bet.schedule_time || bet.closeTime);
+                if (closeMinutes === null) {
+                    return false;
+                }
+                const nowMinutes = now.getHours() * 60 + now.getMinutes();
+                // Only show bets where the close time hasn't passed yet
+                return closeMinutes >= nowMinutes;
+            })
+            .sort(
+                (a, b) => minutesUntilClose(a.schedule_time || a.closeTime) - minutesUntilClose(b.schedule_time || b.closeTime)
+            );
     }
 
     function formatAmount(value: number) {
@@ -89,7 +143,9 @@
                     {/each}
                 </div>
             </div>
-            <span class="label">Cierre: {selectedBet?.schedule_time}</span>
+                <span class="label">Cierre: {selectedBet?.schedule_time}</span>
+                <span class="label">Tiempo restante: {formatTimeRemaining(secondsUntilClose(selectedBet?.schedule_time))}</span>
+            
         </div>
     </div>
 
@@ -149,7 +205,7 @@
     .header-content {
         display: flex;
         flex-direction: column;
-        gap: 1rem;
+        gap: 0.5rem;
         flex: 1;
         border: 1px solid var(--color-border);
         padding: 0.75rem;

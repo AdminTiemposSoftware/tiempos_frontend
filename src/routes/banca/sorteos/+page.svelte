@@ -32,6 +32,7 @@
 		id: number;
 		name: string;
 		comission: number;
+		enabled?: boolean;
 	};
 
 	type prohibitedNumber = {
@@ -147,10 +148,11 @@
 			const payload = await res.json().catch(() => null);
 			const items = Array.isArray(payload?.items) ? payload.items : [];
 
-			const puestos = items.map((it: { branch_id: number; name: string; comission: string }) => ({
+			const puestos = items.map((it: { branch_id: number; name: string; comission: string; enabled?: boolean }) => ({
 				id: it.branch_id,
 				name: it.name,
-				comission: Number(it.comission)
+				comission: Number(it.comission),
+				enabled: it.enabled ?? true
 			}));
 			
 			puestoBySchedule = puestos;
@@ -160,14 +162,11 @@
 	}
 
 	async function toggleSchedule(sorteoId: number, scheduleId: number) {
+		await fetchBranchesForSchedule(scheduleId);
 		selectedScheduleBySorteo = { ...selectedScheduleBySorteo, [sorteoId]: scheduleId };
-
 		const sorteo = draws.find((d) => d.id === sorteoId);
 		const slot = sorteo?.schedule?.find((s) => s.id === scheduleId);
 		if (!slot) return;
-		// console.log('Selected schedule', scheduleId);
-		await fetchBranchesForSchedule(scheduleId);
-		// console.log(puestosBySchedule);
 	}
 
 	function getSelectedSchedule(sorteo: draw) {
@@ -237,36 +236,6 @@
 		});
 	}
 
-	function handleAddSchedulePuestoSubmit(puesto: { name: any; }) {
-		const sorteoId = selectedSorteoId;
-		const scheduleId = selectedScheduleId;
-		if (!sorteoId || !scheduleId) {
-			return;
-		}
-		const nextPuesto = {
-			...puesto,
-			name: puesto.name
-		};
-		draws = draws.map((sorteo) => {
-			if (sorteo.id !== sorteoId) {
-				return sorteo;
-			}
-			return {
-				...sorteo,
-				schedule: sorteo.schedule.map((slot) => {
-					if (slot.id !== scheduleId) {
-						return slot;
-					}
-					const nextId = nextPuesto.id ?? Math.max(0, ...slot.puestos.map((item: { id: any; }) => item.id)) + 1;
-					return {
-						...slot,
-						puestos: [...slot.puestos, { ...nextPuesto, id: nextId }]
-					};
-				})
-			};
-		});
-	}
-
 	// Update handlers
 	function updateSorteo(updatedSorteo: { id: number; }) {
 		draws = draws.map((sorteo) =>
@@ -284,94 +253,50 @@
 		}));
 	}
 
-	function updateSchedulePuesto(updatedPuesto: { id: any; name: any; }) {
-		// TODO Send update request to backend
-		const sorteoId = selectedSorteoId;
-		const scheduleId = selectedScheduleId;
-		if (!sorteoId || !scheduleId || !updatedPuesto?.id) {
-			return;
-		}
-		const normalized = {
-			...updatedPuesto,
-			name: updatedPuesto.name
-		};
-		draws = draws.map((sorteo) => {
-			if (sorteo.id !== sorteoId) {
-				return sorteo;
-			}
-			return {
-				...sorteo,
-				schedule: sorteo.schedule.map((slot) =>
-					slot.id === scheduleId
-						? {
-							...slot,
-							puestos: slot.puestos.map((puesto: { id: any; }) =>
-								puesto.id === normalized.id ? { ...puesto, ...normalized } : puesto
-							)
-						}
-						: slot
-				)
-			};
-		});
-	}
-
-	function saveScheduleSettings(
-		sorteoId: number,
+	async function saveScheduleSettings(
 		scheduleId: number,
 		settings: {
+			name: string;
 			is_reventado: boolean;
 			is_megareventado: boolean;
-			puestos: Record<number, { enabled: boolean; comission: number }>;
-		}
+			time: string;
+			puestos: puesto[];
+		},
+		change: 'flags' | 'puestos'
 	) {
-		draws = draws.map((sorteo) => {
-			if (sorteo.id !== sorteoId) {
-				return sorteo;
-			}
 
-			return {
-				...sorteo,
-				schedule: sorteo.schedule.map((slot) =>
-					slot.id !== scheduleId
-						? slot
-						: {
-							...slot,
-							is_reventado: settings.is_reventado,
-							is_megareventado: settings.is_megareventado,
-							puestos: puestoOptions
-								.filter((puesto) => settings.puestos[puesto.id]?.enabled)
-								.map((puesto) => ({
-									id: puesto.id,
-									name: puesto.name,
-									comission: Number(settings.puestos[puesto.id]?.comission ?? puesto.comission ?? 0)
-								}))
-						}
-				)
-			};
+		// if (change === 'flags') {
+		const response = await fetch(`/banca/sorteos/draw-schedule/${scheduleId}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ 
+				name: settings.name,
+				time: settings.time,
+				is_reventado: settings.is_reventado,
+				is_megareventado: settings.is_megareventado
+			})
 		});
-	}
-
-	function deleteSchedulePuesto(payload: { sorteoId: number; scheduleId: number; puestoId: any; }) {
-		// TODO Send delete request to backend
-		const sorteoId = payload?.sorteoId ?? selectedSorteoId;
-		const scheduleId = payload?.scheduleId ?? selectedScheduleId;
-		const puestoId = payload?.puestoId;
-		if (!sorteoId || !scheduleId || !puestoId) {
-			return;
+		if (!response.ok) {
+			console.error('Error saving schedule settings', await response.text());
 		}
-		draws = draws.map((sorteo) => {
-			if (sorteo.id !== sorteoId) {
-				return sorteo;
+		// } else if (change === 'puestos') {
+		for (const puesto of settings.puestos) {
+			console.log(puesto);
+			const response = await fetch(`/banca/sorteos/draw-schedule-branch`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ 
+					branch_id: puesto.id,
+					draw_schedule_id: scheduleId,
+					comission: puesto.comission,
+					enabled: puesto.enabled
+				})
+			});
+			if (!response.ok) {
+				console.error('Error saving puesto settings', await response.text());
 			}
-			return {
-				...sorteo,
-				schedule: sorteo.schedule.map((slot) =>
-					slot.id === scheduleId
-						? { ...slot, puestos: slot.puestos.filter((puesto: { id: any; }) => puesto.id !== puestoId) }
-						: slot
-				)
-			};
-		});
+		}
+
 	}
 
 	// Delete handlers
@@ -576,15 +501,15 @@
 	</header>
 	<div class="panel-list">
 		{#each draws as draw}
-			{@const selectedSlot = getSelectedSchedule(draw)}
+			{@const selectedSchedule = getSelectedSchedule(draw)}
 			<SorteoCard
 				sorteo={draw}
 				expanded={expandedSorteo.includes(draw.id)}
-				selectedSlot={selectedSlot}
+				selectedSchedule={selectedSchedule}
 				puestoOptions={puestoOptions}
 				puestoBySchedule={puestoBySchedule}
 				onToggle={() => toggleSorteo(draw.id)}
-				onToggleSchedule={(scheduleId: number) => toggleSchedule(draw.id, scheduleId)}
+				onToggleSchedule={async (scheduleId: number) => await toggleSchedule(draw.id, scheduleId)}
 				onEditSorteo={() => showEditSorteo(draw.id)}
 				onDeleteSorteo={() => showDeleteSorteo(draw.id)}
 				onAddSchedule={() => showAddSchedule(draw.id)}
@@ -593,11 +518,14 @@
 				onSaveScheduleSettings={(
 					scheduleId: number,
 					settings: {
+						name: string;
+						time: string;
 						is_reventado: boolean;
 						is_megareventado: boolean;
-						puestos: Record<number, { enabled: boolean; comission: number }>;
-					}
-				) => saveScheduleSettings(draw.id, scheduleId, settings)
+						puestos: puesto[];
+					},
+					change: 'flags' | 'puestos'
+				) => saveScheduleSettings(scheduleId, settings, change)
 				}
 			/>
 		{/each}

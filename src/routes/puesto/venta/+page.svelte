@@ -74,12 +74,14 @@
     let isMatrixLoading = $state(false);
     let tickets = $state<TicketRow[]>([]);
     let ticketDetails = $state<TicketDetail[]>([]);
+    let now = $state(new Date());
 
     function formatCloseTime(scheduleTime: string) {
         return scheduleTime.slice(0, 5);
     }
 
     $effect(() => {
+        now;
         const items = Array.isArray(data?.items) ? (data.items as AvailableBet[]) : [];
         const mappedBets = items.map((item) => ({
             draw_schedule_branch_id: item.draw_schedule_branch_id,
@@ -95,12 +97,28 @@
             day_name: item.day_name
         }));
 
-        availableBets = mappedBets;
+        
+        const filteredBets = mappedBets.filter((bet) =>
+            isBetOpen(bet.schedule_time, now)
+        );
+        console.log('filter effect ran', now);
 
-        const selectedScheduleId = Number(data?.selectedScheduleId ?? null);
-        selectedBet = mappedBets.find((bet) => bet.schedule_id === selectedScheduleId)
-            ?? mappedBets[0]
-            ?? null;
+        availableBets = filteredBets;
+
+        const selectedScheduleId =
+            selectedBet?.schedule_id ??
+            Number(data?.selectedScheduleId ?? null);
+            
+        const nextSelectedBet =
+            filteredBets.find(
+                (bet) => bet.schedule_id === selectedScheduleId
+            ) ??
+            filteredBets[0] ??
+            null;
+
+        if (selectedBet?.schedule_id !== nextSelectedBet?.schedule_id) {
+            selectedBet = nextSelectedBet;
+        }
     });
 
     $effect(() => {
@@ -136,6 +154,41 @@
             keepFocus: true
         });
     });
+
+    $effect(() => {
+        const intervalId = setInterval(() => {now = new Date(); }, 1000);        
+        return () => clearInterval(intervalId);
+    });
+
+    function parseScheduleTime(value: string) {
+        if (!value) return null;
+
+        const match = value.match(/^(\d{1,2}):(\d{2})$/);
+        if (!match) return null;
+
+        const hours = Number(match[1]);
+        const minutes = Number(match[2]);
+
+        if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+            return null;
+        }
+
+        return hours * 60 + minutes;
+    }
+
+    function isBetOpen(scheduleTime: string, currentTime: Date) {
+        const scheduleMinutes = parseScheduleTime(scheduleTime);
+
+        if (scheduleMinutes === null) {
+            return false;
+        }
+
+        const currentMinutes =
+            currentTime.getHours() * 60 +
+            currentTime.getMinutes();
+
+        return scheduleMinutes > currentMinutes;
+    }
 
     async function handlePDFPrint(ticket: TicketRow, soldNumbers: TicketSold[], position: number | null) {
         const lineHeight = 6;

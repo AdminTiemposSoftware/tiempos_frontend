@@ -26,3 +26,37 @@ export const GET: RequestHandler = async ({ params, fetch }) => {
         });
     }
 };
+
+export const PUT : RequestHandler = async ({ params, request, fetch, cookies }) => {
+    const baseUrl = env.API_URL;
+	const token = cookies.get('session') ?? '';
+
+    if (!baseUrl) {
+        return new Response(JSON.stringify({ success: false, message: 'API URL not configured' }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+
+    try {
+        const body = await request.json().catch(() => null);
+        const response = await fetch(`${baseUrl}/draw-schedule/${params.id}`, {
+            method: 'PUT',
+            headers: { 
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}` // Assuming you need to pass an API token for authentication
+            },
+            body: JSON.stringify(body ?? {})
+        });
+        const payload = await response.json().catch(() => null);
+        return new Response(JSON.stringify(payload ?? { success: false, message: 'Failed to update schedule' }), {
+            status: response.ok ? 200 : response.status,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    } catch {
+        return new Response(JSON.stringify({ success: false, message: 'Internal server error' }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+};

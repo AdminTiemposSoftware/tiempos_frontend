@@ -6,7 +6,7 @@
 		puestoOptions = [],
 		puestoBySchedule = [],
 		expanded = false,
-		selectedSlot = null,
+		selectedSchedule = null,
 		onToggle,
 		onToggleSchedule,
 		onEditSorteo,
@@ -22,60 +22,76 @@
 	type Puesto = {
 		id: number;
 		name: string;
-		comission: number;
-	};
-
-	type DraftPuesto = {
 		enabled: boolean;
 		comission: number;
 	};
 
 	type ScheduleSettingsDraft = {
-		is_reventado: boolean;
-		is_megareventado: boolean;
-		puestos: Record<number, DraftPuesto>;
+		name: string;
+		time: string;
+		is_reventado: boolean | null;
+		is_megareventado: boolean | null;
+		puestos: Puesto[];
 	};
 
-	const emptyDraft = (): ScheduleSettingsDraft => ({
-		is_reventado: false,
-		is_megareventado: false,
-		puestos: {}
+	let draft = $state<ScheduleSettingsDraft>({
+		name: '',
+		time : '',
+		is_reventado: null,
+		is_megareventado: null,
+		puestos: []
 	});
-
-	let draft = $state<ScheduleSettingsDraft>(emptyDraft());
 	let draftScheduleId = $state<number | null>(null);
 	let isDirty = $state(false);
 
-	function buildDraftFromSelectedSlot() {
-		const puestos = (selectedSlot?.puestos ?? []) as Puesto[];
-		const nextDraft: ScheduleSettingsDraft = {
-			is_reventado: Boolean(selectedSlot?.is_reventado),
-			is_megareventado: Boolean(selectedSlot?.is_megareventado),
-			puestos: {}
-		};
-
-		for (const puesto of puestoOptions) {
-			const existing = puestos.find((item) => item.id === puesto.id);
-			nextDraft.puestos[puesto.id] = {
-				enabled: Boolean(existing),
-				comission: Number(existing?.comission ?? puesto.comission ?? 0)
-			};
+	function buildDraftFromSelectedSchedule() {
+		function normalizeTime(value: string | null | undefined) {
+			if (!value) return '';
+			const m = String(value).match(/^(\d{2}:\d{2})/);
+			return m ? m[1] : String(value);
 		}
 
+		let nextDraft: ScheduleSettingsDraft = {
+			name: selectedSchedule?.name || '',
+			time: normalizeTime(selectedSchedule?.time),
+			is_reventado: Boolean(selectedSchedule?.is_reventado),
+			is_megareventado: Boolean(selectedSchedule?.is_megareventado),
+			puestos: []
+		};
+		console.log('Building draft for schedule', puestoBySchedule);
+		for (const puesto of puestoOptions) {
+			const existing = puestoBySchedule.find((item) => item.id === puesto.id);
+			nextDraft =  {
+					...nextDraft,
+					puestos: [...nextDraft.puestos, {
+						...puesto,
+						enabled: Boolean(existing),
+						comission: existing ? existing.comission : 0
+					}]
+				};
+		}
+
+		console.log(nextDraft);
 		return nextDraft;
 	}
 
 	$effect(() => {
-		if (selectedSlot?.id == null) {
+		if (selectedSchedule?.id == null) {
 			draftScheduleId = null;
-			draft = emptyDraft();
+			draft = {
+				name: '',
+				time: '',
+				is_reventado: null,
+				is_megareventado: null,
+				puestos: []
+			};
 			isDirty = false;
 			return;
 		}
 
-		if (draftScheduleId !== selectedSlot.id) {
-			draftScheduleId = selectedSlot.id;
-			draft = buildDraftFromSelectedSlot();
+		if (draftScheduleId !== selectedSchedule.id) {
+			draftScheduleId = selectedSchedule.id;
+			draft = buildDraftFromSelectedSchedule();
 			isDirty = false;
 		}
 	});
@@ -85,89 +101,83 @@
 	}
 
 	function handleToggleSchedule(scheduleId : number) {
-		console.log(puestoOptions);
-		console.log(puestoBySchedule);
 		onToggleSchedule?.(scheduleId);
 	}
 
-	function handleEditSchedule() {
-		if (selectedSlot?.id != null) {
-			onEditSchedule?.(selectedSlot.id);
-		}
-	}
-
 	function handleDeleteSchedule() {
-		if (selectedSlot?.id != null) {
-			onDeleteSchedule?.(selectedSlot.id);
+		if (selectedSchedule?.id != null) {
+			onDeleteSchedule?.(selectedSchedule.id);
 		}
 	}
 
-	function handleAddPuesto() {
-		if (selectedSlot?.id != null) {
-			onAddPuesto?.(selectedSlot.id);
+	function puestosAreTheSame(puesto: Puesto) {// TODO 
+		const existing = puestoBySchedule.find((p: { id: number; comission: number }) => p.id === puesto.id);
+		const draftPuesto = draft.puestos.find((p) => p.id === puesto.id);
+		const draftComission = draftPuesto ? draftPuesto.comission : 0;
+		const draftEnabled = Boolean(draftPuesto ? draftPuesto.enabled : false);
+
+		return Boolean(existing) === draftEnabled && (existing ? existing.comission : 0) === draftComission;
+	}
+
+	function flagIsTheSame(flag: 'is_reventado' | 'is_megareventado', value: boolean) {
+		return selectedSchedule?.[flag] === value;
+	}
+
+	function timeIsTheSame(value: string) {
+		function normalizeTime(value: string | null | undefined) {
+			if (!value) return '';
+			const m = String(value).match(/^(\d{2}:\d{2})/);
+			return m ? m[1] : String(value);
+		}
+		const a = normalizeTime(selectedSchedule?.time);
+		const b = normalizeTime(value);
+		return a === b;
+	}
+
+	function handlePuestoChange(field: 'enabled' | 'comission', puesto: Puesto, event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+
+		if (field === 'enabled') {
+			const enabled = input.checked;
+			const exists = draft.puestos.some((p) => p.id === puesto.id);
+			if (exists) {
+				draft = {
+					...draft,
+					puestos: draft.puestos.map((p) => p.id === puesto.id ? { ...p, enabled } : p)
+				};
+			} else {
+				draft = {
+					...draft,
+					puestos: [...draft.puestos, { ...puesto, enabled, comission: 0 }]
+				};
+			}
+			isDirty = true;
+			return;
+		} else if (field === 'comission') {
+			const value = input.value === '' ? 0 : Number(input.value);
+			const exists = draft.puestos.some((p) => p.id === puesto.id);
+			if (exists) {
+				draft = {
+					...draft,
+					puestos: draft.puestos.map((p) => p.id === puesto.id ? { ...p, comission: value } : p)
+				};
+			} else {
+				draft = {
+					...draft,
+					puestos: [...draft.puestos, { ...puesto, enabled: true, comission: value }]
+				};
+			}
+			isDirty = true;
+			return;
 		}
 	}
 
-	function handleEditPuesto(puesto: any) {
-		if (selectedSlot?.id != null) {
-			onEditPuesto?.(puesto, selectedSlot.id);
-		}
-	}
-
-	function getSelectedPuesto(puestoId: number): Puesto | null {
-		if (!selectedSlot?.id) return null;
-		const current = draft.puestos[puestoId];
-		if (!current?.enabled) return null;
-		const base = (sorteo.puestos as Puesto[]).find((item) => item.id === puestoId);
-		return base
-			? {
-				id: base.id,
-				name: base.name,
-				comission: current.comission
-			}
-			: null;
-	}
-
-	function isPuestoEnabled(puestoId: number) {
-		return Boolean(draft.puestos[puestoId]?.enabled);
-	}
-
-	function getPuestoCommission(puesto: Puesto) {
-		return draft.puestos[puesto.id]?.comission ?? puesto.comission ?? 0;
-	}
-
-	function handleTogglePuestoEnabled(puesto: Puesto, event: Event) {
+	function handleReventadosFlagChange(flag: 'is_reventado' | 'is_megareventado', event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
-		draft = {
-			...draft,
-			puestos: {
-				...draft.puestos,
-				[puesto.id]: {
-					enabled: input.checked,
-					comission: draft.puestos[puesto.id]?.comission ?? Number(puesto.comission ?? 0)
-				}
-			}
-		};
-		isDirty = true;
-	}
-
-	function handleCommissionChange(puesto: Puesto, event: Event) {
-		const input = event.currentTarget as HTMLInputElement;
-		draft = {
-			...draft,
-			puestos: {
-				...draft.puestos,
-				[puesto.id]: {
-					enabled: true,
-					comission: Number(input.value || 0)
-				}
-			}
-		};
-		isDirty = true;
-	}
-
-	function handleToggleScheduleFlag(flag: 'is_reventado' | 'is_megareventado', event: Event) {
-		const input = event.currentTarget as HTMLInputElement;
+		// if (flagIsTheSame(flag, input.checked)) { // TODO
+		// 	isDirty = false;
+		// 	return;
+		// }
 		draft = {
 			...draft,
 			[flag]: input.checked
@@ -175,11 +185,42 @@
 		isDirty = true;
 	}
 
+	const handleScheduleTimeChange = (event: Event) => {
+		const input = event.currentTarget as HTMLInputElement;
+		// if (timeIsTheSame(input.value)) { // TODO
+		// 	// isDirty = false; TO
+		// 	return;
+		// }
+		
+		draft = {
+			...draft,
+			time: input.value
+		};
+		
+		isDirty = true;
+	};
+
+	const handleNameChange = (event: Event) => {
+		const input = event.currentTarget as HTMLInputElement;
+		// if (selectedSchedule && selectedSchedule.name === input.value) { // TODO
+		// 	isDirty = false;
+		// 	return;
+		// }
+		
+		draft = {
+			...draft,
+			name: input.value
+		};
+		
+		isDirty = true;
+	};
+
 	const hasPuestoOptions = () => Array.isArray(puestoOptions) && puestoOptions.length > 0;
 
 	function handleSaveSettings() {
-		if (selectedSlot?.id == null || !isDirty) return;
-		onSaveScheduleSettings?.(selectedSlot.id, draft);
+		if (selectedSchedule?.id == null || !isDirty) return;
+		console.log(draft);
+		onSaveScheduleSettings(selectedSchedule.id, draft);
 		isDirty = false;
 	}
 
@@ -228,18 +269,18 @@
 						<p class="empty-state">Sin horarios creados.</p>
 					{:else}
 						<div class="schedule-items scroll-thin">
-							{#each sorteo.schedule as slot}
+							{#each sorteo.schedule as schedule}
 								<div
 									class="schedule-item"
-									class:schedule-item--active={selectedSlot && selectedSlot.id === slot.id}
-									onkeydown={(e) => e.key === "Enter" && handleToggleSchedule(slot.id)}
-									onclick={() => handleToggleSchedule(slot.id)}
+									class:schedule-item--active={selectedSchedule && selectedSchedule.id === schedule.id}
+									onkeydown={(e) => e.key === "Enter" && handleToggleSchedule(schedule.id)}
+									onclick={() => handleToggleSchedule(schedule.id)}
 									role="button"
 									tabindex="0"
 								>
 									<div class="schedule-main">
-										<span class="schedule-name">{slot.name}</span>
-										<span class="schedule-time">{slot.time}</span>
+										<span class="schedule-name">{schedule.name}</span>
+										<span class="schedule-time">{schedule.time}</span>
 									</div>
 									<div class="options-buttons">
 										<button class="negative" onclick={handleDeleteSchedule}>
@@ -252,25 +293,40 @@
 					{/if}
 				</div>
 				<div class="schedule-detail-panel">
-					{#if selectedSlot}
+					{#if selectedSchedule}
 						<div class="schedule-detail-configuration">
 							<div class="schedule-detail-title">
-								<label for="schedule-time">Hora de cierre</label>
-								<input
-									class="modal-input"
-									id="schedule-time"
-									type="time"
-									bind:value={selectedSlot.time}
-									required
-								/>
+								<div class="question">
+									<label for="schedule-name">Nombre del horario</label>
+									<input
+										class="modal-input"
+										id="schedule-name"
+										type="text"
+										value={selectedSchedule.name}
+										oninput={handleNameChange}
+										required
+									/>
+								</div>
+								<div class="question">
+									<label for="schedule-time">Hora de cierre</label>
+									<input
+										class="modal-input"
+										id="schedule-time"
+										type="time"
+										value={selectedSchedule.time}
+										oninput={handleScheduleTimeChange}
+										required
+									/>
+								</div>
+
 								<div class="schedule-flag-group">
 									<label class="flag-switch">
 										<span>Reventado</span>
 										<input
 											class="switch-input"
 											type="checkbox"
-											checked={Boolean(selectedSlot.is_reventado)}
-											onchange={(e) => handleToggleScheduleFlag('is_reventado', e)}
+											checked={Boolean(selectedSchedule.is_reventado)}
+											onchange={(e) => handleReventadosFlagChange('is_reventado', e)}
 										/>
 									</label>
 									<label class="flag-switch">
@@ -278,8 +334,8 @@
 										<input
 											class="switch-input"
 											type="checkbox"
-											checked={Boolean(selectedSlot.is_megareventado)}
-											onchange={(e) => handleToggleScheduleFlag('is_megareventado', e)}
+											checked={Boolean(selectedSchedule.is_megareventado)}
+											onchange={(e) => handleReventadosFlagChange('is_megareventado', e)}
 										/>
 									</label>
 								</div>
@@ -288,13 +344,12 @@
 								<div class="puesto-list scroll-thin">
 									<h3>Puestos del horario</h3>
 									{#each puestoOptions as puesto}
-										{@const enabled = isPuestoEnabled(puesto.id)}
 										<div class="puesto-item" >
 											<label class="puesto-check">
 												<input
 													type="checkbox"
 													checked={puestoBySchedule.some((p : { id: number }) => p.id === puesto.id)}
-													onchange={(e) => handleTogglePuestoEnabled(puesto, e)}
+													onchange={(e) => handlePuestoChange("enabled", puesto, e)}
 												/>
 												<span>{puesto.name}</span>
 											</label>
@@ -304,9 +359,8 @@
 													type="number"
 													min="0"
 													step="0.01"
-													value={puestoBySchedule.find((p) => p.id === puesto.id)?.comission ?? '0'}
-													disabled={!enabled}
-													oninput={(e) => handleCommissionChange(puesto, e)}
+													value={puestoBySchedule.find((p) => p.id === puesto.id)?.comission ?? ''}
+													oninput={(e) => handlePuestoChange("comission", puesto, e)}
 												/>
 											</label>
 										</div>
@@ -506,5 +560,10 @@
 	}
 	.save-button {
 		margin-top: auto;
+	}
+	.question {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
 	}
 </style>
