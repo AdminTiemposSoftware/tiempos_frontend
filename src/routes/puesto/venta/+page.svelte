@@ -3,7 +3,6 @@
     import Matrix from "$lib/components/venta/Matrix.svelte";
     import Sell from "$lib/components/venta/Sell.svelte";
     import SellHeader from "$lib/components/venta/SellHeader.svelte";
-    import SellFooter from "$lib/components/venta/SellFooter.svelte";
     import { prohibitedNumbers } from "../../../lib/stores/UpdateSellMatrix";
     import { sellingMatrix } from "../../../lib/stores/UpdateSellMatrix";
     import { auth } from "$lib/stores/auth";
@@ -101,7 +100,6 @@
         const filteredBets = mappedBets.filter((bet) =>
             isBetOpen(bet.schedule_time, now)
         );
-        console.log('filter effect ran', now);
 
         availableBets = filteredBets;
 
@@ -395,7 +393,6 @@
             bind:selectedBet={selectedBet}
             bind:prohibitedPercentage={prohibitedPercentage}
         />
-    <SellFooter prohibitedPercentage={prohibitedPercentage} />
     <section class="set-section">
         <Sell 
             getTickets={getTickets}

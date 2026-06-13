@@ -2,6 +2,7 @@
     let sold= $state<Record<string, { price: number }>>({});
     let soldAmount = $state(0);
     let priceInput: HTMLInputElement;
+    let randomCountInput: HTMLInputElement;
     let priceValue = $state('');
     let showQrModal = $state(false);
     let showTicketsModal = $state(false);
@@ -11,8 +12,10 @@
     let isSubmitting = $state(false);
     let submitError = $state('');
     let {getTickets, getSoldNumbersForTicket, selectedBet, handlePDFPrint, selectedDate} = $props();
+    let selectedRowIndex = $state(0);
+    let rowRefs: Array<HTMLTableRowElement | null> = [];
 
-    import { onMount } from 'svelte';
+    import { onMount, tick } from 'svelte';
     import { TrashBinSolid, CubeSolid, QuestionCircleSolid, PrinterSolid, SearchSolid, EyeSolid, ReceiptSolid, CameraPhotoSolid } from "flowbite-svelte-icons";
     import { sellingMatrix } from '../../stores/UpdateSellMatrix';
     import { total } from '../../stores/UpdateSellMatrix';
@@ -22,13 +25,7 @@
     onMount(() => {
         priceInput?.focus();
     });
-
-    function handlePriceKeydown(event: KeyboardEvent) {
-        if (event.key === "Enter") {
-            event.preventDefault();
-            numberInput?.focus();
-        }
-    }
+    let formElement: HTMLFormElement;
 
     function formatThousands(value: string) {
         const digitsOnly = value.replace(/\D/g, '');
@@ -103,6 +100,10 @@
 
     async function submitTicket(event: Event) {
         event.preventDefault();
+        await processTicket();
+    }
+
+    async function processTicket() {
         submitError = '';
 
         const drawScheduleId = selectedBet?.schedule_id ?? null;
@@ -168,7 +169,12 @@
 
     function onSubmit(event: Event) {
         event.preventDefault();
-        const formData = new FormData(event.target as HTMLFormElement);
+        processForm();
+    }
+
+    function processForm() {
+        // const formData = new FormData(event.target as HTMLFormElement);
+	    const formData = new FormData(formElement);
         const numberInput = formData.get("number") as string;
         const price = (formData.get("price") as string).replace(/\./g, '');
         
@@ -231,7 +237,7 @@
 
         updateSalesData(expandedNumbers, parseInt(price, 10));
 
-        (event.target as HTMLFormElement).reset();
+        formElement.reset();
         priceInput?.focus();
         priceValue = '';
     }
@@ -245,7 +251,8 @@
 
     function generateRandomNumbers() {
         if (!priceValue.trim()) {
-            priceInput?.focus();
+            randomCountInput?.focus();
+            randomCountInput?.select();
             return;
         }
 
@@ -295,10 +302,6 @@
         updateSalesData(pairNumbers, price);
     }
 
-    //TODO: Implement functionality for these buttons
-    function printTicket() {
-    }
-
     // TODO: Implement functionality for these buttons
     function viewQR() {
         if (Object.keys(sold).length === 0) {
@@ -320,6 +323,92 @@
         showTicketsModal = false;
     }
 
+    function handlekeyinput(event: KeyboardEvent) {
+        const target = event.target;
+        const isTyping = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || (target instanceof HTMLElement && target.isContentEditable);
+
+        if (event.repeat) {
+            return;
+        }
+        
+        switch (event.key) {
+            case "Enter":
+                event.preventDefault();
+                if (isTyping && target instanceof HTMLInputElement && target.id === 'random-count') {
+                    processForm();
+                    priceInput?.focus();
+                } else if (target instanceof HTMLInputElement && target.id === 'number') {
+                    if (priceValue.trim()) {
+                        processForm();
+                        priceInput?.focus();
+                    } else {
+                        target.blur();
+                        priceInput?.focus();
+                    }
+                } else if (target instanceof HTMLInputElement && target.id === 'price') {
+                    numberInput?.focus();
+                }
+                else {
+                    event.preventDefault();
+                    priceInput?.focus();
+                }
+                break;
+            case "a":
+            case "A":
+                // Agregar button
+                processForm();
+                break;
+            case "r":
+            case "R":
+                // Imprimir button
+                processTicket();
+                break;
+            case "t":
+            case "T":
+                // Ver Tiquetes button
+                viewTickets();
+                break;
+            case "e":
+            case "E":
+                //TODO : Escanear QR button
+                break;
+            case "v":
+            case "V":
+                //TODO : Ver QR button
+                break;
+            case "p":
+            case "P":
+                //TODO : Pares button
+                break;
+            case "l":
+            case "L":
+                // Limpiar button
+                cleanSell();
+                break;
+            case "i":
+            case "I":
+                generateRandomNumbers();
+                break;
+            case "ArrowDown":
+                event.preventDefault();
+                selectedRowIndex = Math.min(selectedRowIndex + 1, Object.keys(sold).length - 1);
+                break;
+            case "ArrowUp":
+                event.preventDefault();
+                selectedRowIndex = Math.max(selectedRowIndex - 1, 0);
+                break;
+            case "x":
+            case "X":
+                if (selectedRowIndex >= 0) {
+                    const numberToDelete = Object.keys(sold)[selectedRowIndex];
+                    if (numberToDelete) {
+                        deleteNumber(numberToDelete);
+                        selectedRowIndex = Math.min(selectedRowIndex, Object.keys(sold).length - 1);
+                    }
+                }
+                break;
+        }
+    }
 </script>
 
 {#if showQrModal}
@@ -335,11 +424,11 @@
         onPDFPrint={handlePDFPrint}
     />
 {/if}
-
+<svelte:window onkeydown={handlekeyinput} />
 <section class="sell">
     <span class="sold-amount">Tiquete: ₡{soldAmount}</span>
 
-    <form onsubmit={onSubmit}>
+    <form onsubmit={onSubmit} bind:this={formElement}>
         <div class="question monto">
             <label for="price">Monto:</label>
             <input
@@ -351,7 +440,6 @@
                 bind:this={priceInput}
                 bind:value={priceValue}
                 oninput={handlePriceInput}
-                onkeydown={handlePriceKeydown}
             />
         </div>
         <div class="question numero">
@@ -367,7 +455,7 @@
                 oninput={handleNumberInput}
             />
         </div>
-        <button type="submit">Agregar</button>
+        <button type="submit"><div class="button-name"><p>A</p>gregar</div></button>
     </form>
     <div class="buttons-group">
         <button 
@@ -375,24 +463,26 @@
             disabled={Object.keys(sold).length === 0}
         >
             <TrashBinSolid class="shrink-0 h-4 w-4" />
-            Limpiar
+            <div class="button-name"><p>L</p>impiar</div>
         </button>
         <button onclick={generatePairs}>
             <CubeSolid class="shrink-0 h-4 w-4" />
-            Pares
+            <div class="button-name">Pa<p>r</p>es</div>
         </button>
         <div class="random-controls">
             <button onclick={generateRandomNumbers}>
                 <QuestionCircleSolid class="shrink-0 h-4 w-4" />
-                Aleatorio
+                <div class="button-name">Aleator<p>i</p>o</div>
             </button>
             <input
                 class="random-count"
+                id="random-count"
                 type="number"
                 min="1"
                 max="100"
                 step="1"
                 bind:value={randomCount}
+                bind:this={randomCountInput}
                 aria-label="Cantidad de aleatorios"
             />
         </div>
@@ -407,8 +497,14 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {#each Object.entries(sold) as [number, price]}
-                        <tr>
+                    {#each Object.entries(sold) as [number, price], index}
+                        <tr
+                            bind:this={rowRefs[index]}
+                            class:selected-row = {index === selectedRowIndex}
+                            onclick={() => {
+                                selectedRowIndex = index;
+                            }}
+                        >
                             <td>{number}</td>
                             <td>₡{price.price}</td>
                             <td>
@@ -426,7 +522,7 @@
             disabled={Object.keys(sold).length === 0 || isSubmitting}
         >
             <PrinterSolid class="shrink-0 h-4 w-4" />
-            Imprimir
+            <div class="button-name">Imp<p>r</p>imir</div>
         </button>
     </form>
     {#if submitError}
@@ -438,15 +534,15 @@
                 disabled={Object.keys(sold).length === 0}
             >
                 <EyeSolid class="shrink-0 h-4 w-4" />
-                Ver QR
+                <div class="button-name"><p>V</p>er QR</div>
             </button>
             <button onclick={scanQR}>
                 <CameraPhotoSolid class="shrink-0 h-4 w-4" />
-                Escanear QR
+                <div class="button-name"><p>E</p>scanear QR</div>
             </button>
             <button onclick={viewTickets}>
                 <ReceiptSolid class="shrink-0 h-4 w-4" />
-                Tiquetes
+                <div class="button-name"><p>T</p>iquetes</div>
             </button>
 
         </div>
@@ -514,7 +610,7 @@
         flex:1;
     }
     .sold-table {
-        max-height: 240px;
+        max-height: 330px;
         overflow-y: auto;
     }
     
@@ -562,6 +658,7 @@
 
     .buttons-group button {
         flex: 1;
+        padding: 0.5rem 0.5rem;
     }
 
     .random-controls {
@@ -589,6 +686,26 @@
         margin: 0.5rem 0 0;
         color: #b91c1c;
         font-size: 0.9rem;
+    }
+
+    .button-name {
+        font-size: 0.9rem;
+        display: inline-flex;
+        margin-left: 0.5rem;
+    }
+
+    .button-name p {
+        padding: 0 1.5px 0 1.5px;
+        display: inline;
+        vertical-align: super;
+        text-decoration: underline;
+        font-weight: 550;
+    }
+
+    
+    .selected-row {
+        outline: 2px solid var(--color-theme-1);
+        outline-offset: -2px;
     }
 
 </style>

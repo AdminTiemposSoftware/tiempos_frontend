@@ -281,7 +281,6 @@
 		}
 		// } else if (change === 'puestos') {
 		for (const puesto of settings.puestos) {
-			console.log(puesto);
 			const response = await fetch(`/banca/sorteos/draw-schedule-branch`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -345,7 +344,6 @@
 	}
 
 	async function handleAddProhibitedNumber(payload: { number: string; amount: string }) {
-		console.log('Adding prohibited number with payload:', payload);
 		const value = Number(payload.number);
 		const amount = Number(payload.amount);
 		if (!Number.isFinite(amount)) {

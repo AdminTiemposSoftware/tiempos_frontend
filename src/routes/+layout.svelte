@@ -33,7 +33,7 @@
 
 	main {
 		display: flex;
-		padding: 2rem;
+		padding: 1rem;
 		width: 100%;
 		font-size: 1.1rem;
 		box-sizing: border-box;

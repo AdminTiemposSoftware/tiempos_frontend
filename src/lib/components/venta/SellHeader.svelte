@@ -1,6 +1,7 @@
 <script lang="ts">
     import { total } from "../../stores/UpdateSellMatrix";
     import { onMount, onDestroy } from "svelte";
+    import SellFooter from "$lib/components/venta/SellFooter.svelte";
 
     let { 
         selectedDate = $bindable(), 
@@ -124,9 +125,11 @@
                 <span class="label">Total:</span> 
                 <span>₡{formatAmount($total)}</span>
             </div>
+                <span class="label">Cierre: {selectedBet?.schedule_time}</span>
+                <span class="label">Tiempo restante: {formatTimeRemaining(secondsUntilClose(selectedBet?.schedule_time))}</span>
         </div>
         <div class="header-content right">
-            <div class="spans">
+            <div class="header-content sorteo">
                 <span class="sorteo-label">Sorteo:</span>
                 <div class="sorteo-radio">
                     {#each getSortedBets(availableBets) as bet}
@@ -134,8 +137,8 @@
                             <input
                                 type="radio"
                                 name="sorteo"
-                                bind:group={selectedBet}
-                                value={bet}
+                                checked={selectedBet?.schedule_id === bet.schedule_id}
+                                onchange={() => selectedBet = bet}
                                 class="sorteo-input"
                             />
                             <span class="sorteo-pill">{bet.draw_name} {bet.schedule_name}</span>
@@ -143,9 +146,7 @@
                     {/each}
                 </div>
             </div>
-                <span class="label">Cierre: {selectedBet?.schedule_time}</span>
-                <span class="label">Tiempo restante: {formatTimeRemaining(secondsUntilClose(selectedBet?.schedule_time))}</span>
-            
+            <SellFooter prohibitedPercentage={prohibitedPercentage} />
         </div>
     </div>
 
@@ -219,7 +220,14 @@
         gap: 1rem;
     }
     .right {
-        flex:5;   
+        flex:3;   
+        padding: 0;
+        border: none;
+    }
+    .sorteo {
+        align-items: flex-start;
+        text-align: left;
+        flex-direction: row;
     }
     .left {
         flex: 1;

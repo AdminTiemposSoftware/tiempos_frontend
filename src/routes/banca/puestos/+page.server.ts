@@ -44,7 +44,6 @@ export const actions: Actions = {
 		}
 
 		const data = await request.formData();
-		console.log('Form data received:', Object.fromEntries(data.entries()));
 
 		const payload = {
 			username: data.get('username'),

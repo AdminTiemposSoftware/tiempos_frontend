@@ -58,7 +58,6 @@
 			is_megareventado: Boolean(selectedSchedule?.is_megareventado),
 			puestos: []
 		};
-		console.log('Building draft for schedule', puestoBySchedule);
 		for (const puesto of puestoOptions) {
 			const existing = puestoBySchedule.find((item) => item.id === puesto.id);
 			nextDraft =  {
@@ -71,7 +70,6 @@
 				};
 		}
 
-		console.log(nextDraft);
 		return nextDraft;
 	}
 
@@ -219,7 +217,6 @@
 
 	function handleSaveSettings() {
 		if (selectedSchedule?.id == null || !isDirty) return;
-		console.log(draft);
 		onSaveScheduleSettings(selectedSchedule.id, draft);
 		isDirty = false;
 	}
