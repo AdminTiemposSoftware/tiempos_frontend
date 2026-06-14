@@ -5,7 +5,6 @@
 	import SorteoCard from '$lib/components/sorteos/SorteoCard.svelte';
 	import AssignSorteoModal from '$lib/components/sorteos/AssignSorteoModal.svelte';
 	import AssignPuestoModal from '$lib/components/sorteos/AssignPuestoModal.svelte';
-	import ProhibitedNumberModal from '$lib/components/ProhibitedNumberModal.svelte';
 	import { auth } from '$lib/stores/auth';	
 
 	let { data } = $props();
@@ -35,11 +34,6 @@
 		enabled?: boolean;
 	};
 
-	type prohibitedNumber = {
-		number: number;
-		amount: number;
-	};
-
 	let draws =$state<draw[]>([]);
 
 	$effect(() => {
@@ -53,17 +47,6 @@
 			day_name: item.day_name,
 			schedule: [] // initialize empty schedule, will be loaded on demand
 		}));
-
-		const prohibitedItems = Array.isArray(data?.prohibitedItems)
-			? (data.prohibitedItems as prohibitedNumber[])
-			: [];
-		prohibitedNumbers = prohibitedItems
-			.map((item) => ({
-				number: Number(item.number),
-				amount: Number(item.amount)
-			}))
-			.filter((item) => Number.isFinite(item.number) && Number.isFinite(item.amount))
-			.sort((a, b) => a.number - b.number);
 
 		const branchItems = Array.isArray(data?.branchItems)
 			? (data.branchItems as { id: number; name: string; }[])
@@ -81,8 +64,6 @@
 	let showDeleteScheduleModal = $state(false);
 	let showDeletePuestoModal = $state(false);
 	let showDeleteSorteoModal = $state(false);
-	let showDeleteProhibitedModal = $state(false);
-	let showAddProhibitedModal = $state(false);
 	let showAssignSorteoModal = $state(false);
 	let showAssignPuestoModal = $state(false);
 	let selectedSorteo = $state<draw | null>(null);
@@ -95,12 +76,8 @@
 	let puestoToDelete = $state(null);
 	let scheduleToDelete = $state(null);
 	let sorteoToDelete = $state(null);
-	let prohibitedNumberToDelete = $state<number | null>(null);
-	let newProhibitedNumber = $state('');
-	let newProhibitedAmount = $state('');
 	let expandedSorteo = $state<number[]>([]);
 	let selectedScheduleBySorteo = $state<Record<number, number | null>>({});
-	let prohibitedNumbers = $state<prohibitedNumber[]>([]);
 	let puestoOptions = $state<puesto[]>([]);
 	let puestoBySchedule = $state<puesto[]>([]);
 	let schedule: schedule[] = [];
@@ -210,10 +187,6 @@
 		showDeleteSorteoModal = true;
 	}
 
-	function showDeleteProhibitedNumber(value: number) {
-		prohibitedNumberToDelete = value;
-		showDeleteProhibitedModal = true;
-	}
 
 	// Create handlers
 	function handleAddSorteoSubmit(event: CustomEvent) {
@@ -329,42 +302,6 @@
 		sorteoToDelete = null;
 	}
 
-	function handleConfirmDeleteProhibitedNumber() {
-		if (prohibitedNumberToDelete == null) {
-			return;
-		}
-		prohibitedNumbers = prohibitedNumbers.filter((item) => item.number !== prohibitedNumberToDelete);
-		prohibitedNumberToDelete = null;
-	}
-
-	function openAddProhibitedModal() {
-		newProhibitedNumber = '';
-		newProhibitedAmount = '';
-		showAddProhibitedModal = true;
-	}
-
-	async function handleAddProhibitedNumber(payload: { number: string; amount: string }) {
-		const value = Number(payload.number);
-		const amount = Number(payload.amount);
-		if (!Number.isFinite(amount)) {
-			return;
-		}
-		const response = await fetch('/number/prohibited', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ number: value, amount })
-		});
-		if (!response.ok) {
-			return;
-		}
-		prohibitedNumbers = prohibitedNumbers.some((item) => item.number === value)
-			? prohibitedNumbers
-			: [...prohibitedNumbers, { number: value, amount }].sort((a, b) => a.number - b.number);
-		newProhibitedNumber = '';
-		newProhibitedAmount = '';
-		showAddProhibitedModal = false;
-	}
-
 	function openAssignSorteoModal() {
 		selectedShortcutSorteoId = draws[0]?.id ?? null;
 		showAssignSorteoModal = true;
@@ -421,28 +358,6 @@
 	confirm={handleConfirmDeleteSorteo}
 />
 
-<ConfirmModal
-	bind:showModal={showDeleteProhibitedModal}
-	message={
-		prohibitedNumberToDelete == null
-			? 'Eliminar numero restringido?'
-			: `Eliminar el numero ${prohibitedNumberToDelete}?`
-	}
-	confirmText="Eliminar"
-	cancelText="Cancelar"
-	confirm={handleConfirmDeleteProhibitedNumber}
-/>
-
-<ProhibitedNumberModal
-	bind:showModal={showAddProhibitedModal}
-	bind:number={newProhibitedNumber}
-	bind:amount={newProhibitedAmount}
-	title="Agregar numero restringido"
-	confirmText="Guardar"
-	cancelText="Cancelar"
-	onConfirm={handleAddProhibitedNumber}
-/>
-
 <!-- TODO send the modal with the selected puestos for this sorteo -->
 <AssignSorteoModal
 	bind:showModal={showAssignSorteoModal}
@@ -469,33 +384,6 @@
 			</div>
 			<button onclick={handleAddSorteo}>Nuevo sorteo</button>
 		</div>
-		<div class="prohibited">
-			<span class="label">Restringidos:</span>
-			<div class="prohibited-list">
-				{#if prohibitedNumbers?.length}
-					{#each prohibitedNumbers as prohibitedNumber}
-						<button
-							type="button"
-							class="prohibited-badge"
-							onclick={() => showDeleteProhibitedNumber(prohibitedNumber.number)}
-							aria-label={`Eliminar numero restringido ${prohibitedNumber.number}`}
-						>
-							{prohibitedNumber.number}
-						</button>
-					{/each}
-				{:else}
-					<span class="prohibited-empty">-</span>
-				{/if}
-				<button
-					type="button"
-					class="prohibited-badge prohibited-add"
-					onclick={openAddProhibitedModal}
-					aria-label="Agregar numero restringido"
-				>
-					+
-				</button>
-			</div>
-		</div> 
 	</header>
 	<div class="panel-list">
 		{#each draws as draw}
@@ -576,12 +464,6 @@
 		flex-wrap: wrap;
 	}
 	
-	.prohibited-add {
-		border-style: dashed;
-		color: var(--color-theme-2);
-		border-color: var(--color-theme-2);
-		font-weight: 600;
-	}
 	.header-top {
 		display: flex;
 		flex-direction: row;

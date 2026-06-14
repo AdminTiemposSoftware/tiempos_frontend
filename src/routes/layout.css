@@ -543,3 +543,47 @@ button.prohibited-badge:focus-visible {
 	color: rgba(0, 0, 0, 0.6);
 	font-size: 0.95rem;
 }
+.flag-switch {
+	display: inline-flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	padding: 0.45rem 0.65rem;
+	border-radius: 0.6rem;
+	background: var(--color-bg-2);
+	font-size: 0.9rem;
+	font-weight: 500;
+}
+.switch-input {
+	appearance: none;
+	width: 44px;
+	height: 24px;
+	border-radius: 999px;
+	background: #d1d5db;
+	position: relative;
+	cursor: pointer;
+	transition: background 160ms ease;
+	border: 1px solid #cbd5f5;
+}
+.switch-input::after {
+	content: '';
+	position: absolute;
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	background: #fff;
+	top: 2px;
+	left: 2px;
+	transition: transform 160ms ease;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+.switch-input:checked {
+	background: var(--color-theme-1);
+}
+.switch-input:checked::after {
+	transform: translateX(20px);
+}
+.switch-input:focus-visible {
+	outline: 2px solid var(--color-theme-1);
+	outline-offset: 2px;
+}

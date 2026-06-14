@@ -81,7 +81,7 @@
 
     $effect(() => {
         now;
-        const items = Array.isArray(data?.items) ? (data.items as AvailableBet[]) : [];
+        const items = Array.isArray(data?.drawItems) ? (data.drawItems as AvailableBet[]) : [];
         const mappedBets = items.map((item) => ({
             draw_schedule_branch_id: item.draw_schedule_branch_id,
             comission: item.comission,
@@ -151,6 +151,11 @@
             noScroll: true,
             keepFocus: true
         });
+    });
+
+    $effect(() => {
+        const items = Array.isArray(data?.prohibitedItems) ? (data.prohibitedItems as NumberTotal[]) : [];
+        prohibitedNumbers.set(items.map((item) => item.number));
     });
 
     $effect(() => {

@@ -40,9 +40,9 @@
 	
 	const navItems = [
 		{ label: 'Venta', path: '/puesto/venta', roles: ['branch'] },
+        { label: 'Inicio', path: '/banca/inicio', roles: ['banking']},
 		{ label: 'Listas', path: '/banca/listas', roles: ['banking'] },
 		// TODO : No crucial
-        // { label: 'Dashboard', path: '/dashboard'},
 		// TODO : Esta funcionalidad es para cuando el admin quiera tener mas bancas aparte de la suya
 		// Probablemente sea mejor cambiar el nombre a "Bancas"
         // { label: 'Administradores', path: '/administradores'},

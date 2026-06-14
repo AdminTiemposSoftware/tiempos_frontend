@@ -32,7 +32,7 @@
 		"flowbite-svelte-icons": "^3.1.0",
 		"jspdf": "^4.2.1",
 		"svelte-adapter-azure-swa": "^0.22.1",
-		"svelte-notifications": "^0.9.98",
-		"svelte-qrcode": "^1.0.1"
+		"svelte-qrcode": "^1.0.1",
+		"svelte-select": "^5.8.3"
 	}
 }

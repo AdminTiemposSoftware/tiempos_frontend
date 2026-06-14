@@ -108,6 +108,7 @@
     }
 
     function handleRowKeydown(event: KeyboardEvent) {
+        console.log('Selected ticket on Enter:');
         if (filteredTickets.length === 0) {
             return;
         }
@@ -125,6 +126,7 @@
         if (event.key === "Enter") {
             event.preventDefault();
             const ticket = filteredTickets[selectedRowIndex];
+            console.log('Selected ticket on Enter:');
             if (ticket) {
                 handleView(ticket);
             }
@@ -167,7 +169,7 @@
     confirmText="Eliminar"
     confirm={confirmDelete}
 />
-
+<svelte:window on:keydown={handleRowKeydown} />
 <div
     class="modal-backdrop"
     role="button"
@@ -202,7 +204,6 @@
                 {:else}
                     <div 
                         class="table-wrap table-scroll table-scroll--rows" 
-                        onkeydown={handleRowKeydown} 
                         tabindex="0"
                         role="button"
                     >

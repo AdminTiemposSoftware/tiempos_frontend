@@ -14,23 +14,34 @@ export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
 	}
 
 	try {
-		const response = await fetch(`${baseUrl}/draw/by-branch/${branchId}`,{
-			method: 'GET',
-			headers: {
-				Authorization: `Bearer ${token}`
-			}
-		});
 
-		if (!response.ok) {
-			return { items: [], numbers: [], selectedScheduleId: null };
-		}
+        const [drawResponse, prohibitedResponse] = await Promise.all([
+			fetch(`${baseUrl}/draw/by-branch/${branchId}`, {
+				method: 'GET',
+				headers: {
+					Authorization: `Bearer ${token}`
+				}
+			}),
+			fetch(`${baseUrl}/number/prohibited/by-branch/${branchId}`, {
+				method: 'GET',
+				headers: {
+					Authorization: `Bearer ${token}`
+				}
+			})
+		]);
 
-		const payload = await response.json().catch(() => null);
-		const items = Array.isArray(payload?.items)
-			? payload.items
+
+		const drawPayload = await drawResponse.json().catch(() => null);
+		const drawItems = Array.isArray(drawPayload?.items)
+			? drawPayload.items
 			: [];
 
-		const fallbackScheduleId = items[0]?.schedule_id ?? null;
+		const prohibitedPayload = await prohibitedResponse.json().catch(() => null);
+		const prohibitedItems = Array.isArray(prohibitedPayload?.items)
+			? prohibitedPayload.items
+			: [];
+
+		const fallbackScheduleId = drawItems[0]?.schedule_id ?? null;
 		const parsedScheduleId = selectedScheduleIdParam ? Number(selectedScheduleIdParam) : null;
 		const selectedScheduleId = Number.isFinite(parsedScheduleId) && parsedScheduleId
 			? parsedScheduleId
@@ -48,9 +59,9 @@ export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
 			}
 		}
 
-		return { items, numbers, selectedScheduleId };
+		return { drawItems, prohibitedItems, numbers, selectedScheduleId };
 	} catch {
-		return { items: [], numbers: [], selectedScheduleId: null };
+		return { drawItems: [], prohibitedItems: [], numbers: [], selectedScheduleId: null };
 	}
 };
 

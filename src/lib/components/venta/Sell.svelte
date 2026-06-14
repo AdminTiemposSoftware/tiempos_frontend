@@ -15,7 +15,7 @@
     let selectedRowIndex = $state(0);
     let rowRefs: Array<HTMLTableRowElement | null> = [];
 
-    import { onMount, tick } from 'svelte';
+    import { onMount } from 'svelte';
     import { TrashBinSolid, CubeSolid, QuestionCircleSolid, PrinterSolid, SearchSolid, EyeSolid, ReceiptSolid, CameraPhotoSolid } from "flowbite-svelte-icons";
     import { sellingMatrix } from '../../stores/UpdateSellMatrix';
     import { total } from '../../stores/UpdateSellMatrix';
@@ -286,6 +286,7 @@
 
     function generatePairs() {
         if (!priceValue.trim()) {
+            priceInput?.focus();
             return;
         }
 
@@ -379,6 +380,7 @@
             case "p":
             case "P":
                 //TODO : Pares button
+                generatePairs();
                 break;
             case "l":
             case "L":
@@ -388,9 +390,12 @@
             case "i":
             case "I":
                 generateRandomNumbers();
+                // Limpiar inputs 
+                // 
                 break;
             case "ArrowDown":
                 event.preventDefault();
+                console.log('Current sold keys:');
                 selectedRowIndex = Math.min(selectedRowIndex + 1, Object.keys(sold).length - 1);
                 break;
             case "ArrowUp":
@@ -467,7 +472,7 @@
         </button>
         <button onclick={generatePairs}>
             <CubeSolid class="shrink-0 h-4 w-4" />
-            <div class="button-name">Pa<p>r</p>es</div>
+            <div class="button-name"><p>P</p>ares</div>
         </button>
         <div class="random-controls">
             <button onclick={generateRandomNumbers}>

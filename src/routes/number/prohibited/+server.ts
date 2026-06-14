@@ -15,6 +15,8 @@ export const POST: RequestHandler = async ({ request, fetch, locals }) => {
 	const payload = await request.json().catch(() => null);
 	const number = payload?.number;
 	const amount = payload?.amount;
+	const starter = payload?.starter;
+	const canSellAfterAmount = payload?.canSellAfterAmount;
 
 	if (number == null || amount == null) {
 		return new Response(JSON.stringify({ error: 'Payload must include number and amount.' }), {
@@ -29,6 +31,8 @@ export const POST: RequestHandler = async ({ request, fetch, locals }) => {
 		body: JSON.stringify({
 			number,
 			amount,
+			starter,
+			canSellAfterAmount,
 			banking_id: Number(bankingId)
 		})
 	});
