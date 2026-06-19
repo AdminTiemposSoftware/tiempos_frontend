@@ -18,6 +18,6 @@ export const POST: RequestHandler = async ({ cookies, fetch }) => {
 		}
 	}
 
-	cookies.delete('session_banca', { path: '/banca' });
+	cookies.delete('session_banca', { path: '/' });
 	throw redirect(303, '/banca/login');
 };

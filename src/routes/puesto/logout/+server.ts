@@ -18,6 +18,6 @@ export const POST: RequestHandler = async ({ cookies, fetch }) => {
 		}
 	}
 
-	cookies.delete('session_puesto', { path: '/puesto' });
+	cookies.delete('session_puesto', { path: '/' });
 	throw redirect(303, '/puesto/login');
 };
