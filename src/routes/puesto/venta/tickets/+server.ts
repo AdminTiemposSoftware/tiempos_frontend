@@ -6,7 +6,7 @@ export const GET: RequestHandler = async ({ fetch, locals, url, cookies }) => {
     const branchId = locals.user?.branchId;
     const scheduleId = url.searchParams.get('scheduleId');
     const date = url.searchParams.get('date');
-    const token = cookies.get('session') ?? '';
+    const token = cookies.get('session_puesto') ?? '';
 
     if (!baseUrl || !branchId || !scheduleId || !date) {
         return new Response(JSON.stringify({ items: [], details: [] }), {
@@ -18,7 +18,7 @@ export const GET: RequestHandler = async ({ fetch, locals, url, cookies }) => {
     const response = await fetch(
         `${baseUrl}/ticket/by-schedule/${scheduleId}/${branchId}/${date}`,
         {
-            headers: token ? { Authorization: `Bearer ${token}` } : undefined
+            headers: token ? { Authorization: `Bearer ${token}`, 'X-Auth-App': 'puesto' } : undefined
         }
     );
     const payload = await response.json().catch(() => null);

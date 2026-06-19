@@ -29,7 +29,7 @@ export const GET: RequestHandler = async ({ params, fetch }) => {
 
 export const PUT : RequestHandler = async ({ params, request, fetch, cookies }) => {
     const baseUrl = env.API_URL;
-	const token = cookies.get('session') ?? '';
+	const token = cookies.get('session_banca') ?? '';
 
     if (!baseUrl) {
         return new Response(JSON.stringify({ success: false, message: 'API URL not configured' }), {
@@ -44,7 +44,8 @@ export const PUT : RequestHandler = async ({ params, request, fetch, cookies }) 
             method: 'PUT',
             headers: { 
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`
+                Authorization: `Bearer ${token}`,
+                'X-Auth-App': 'banca'
             },
             body: JSON.stringify(body ?? {})
         });

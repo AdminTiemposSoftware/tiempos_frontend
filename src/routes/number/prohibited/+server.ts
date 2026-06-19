@@ -4,7 +4,7 @@ import type { RequestHandler } from './$types';
 export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) => {
 	const baseUrl = env.API_URL;
 	const bankingId = locals.user?.bankingId;
-	const token = cookies.get('session') ?? null;
+	const token = cookies.get('session_banca') ?? null;
 
 	if (!baseUrl || !bankingId) {
 		return new Response(JSON.stringify({ error: 'Missing API_URL or bankingId.' }), {
@@ -32,7 +32,9 @@ export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) 
 
 	const response = await fetch(`${baseUrl}/number/prohibited`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+		headers: { 'Content-Type': 'application/json', 
+			Authorization: `Bearer ${token}`, 
+			'X-Auth-App': 'banca' },
 		body: JSON.stringify({
 			number,
 			amount,

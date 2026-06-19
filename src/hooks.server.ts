@@ -48,7 +48,8 @@ async function fetchUser(token: string, fetchFn: typeof fetch): Promise<AuthUser
 		if (user.role === 'branch') {
 			const branchResponse = await fetchFn(`${baseUrl}/branch/by-user/${user.id}`, {
 				headers: {
-					Authorization: `Bearer ${token}`
+					Authorization: `Bearer ${token}`,
+					'X-Auth-App': 'puesto'
 				}
 			});
 			const branchData = await branchResponse.json().catch(() => null);
@@ -58,7 +59,8 @@ async function fetchUser(token: string, fetchFn: typeof fetch): Promise<AuthUser
 		} else if (user.role === 'banking') {
 			const bankResponse = await fetchFn(`${baseUrl}/banking/by-user/${user.id}`, {
 				headers: {
-					Authorization: `Bearer ${token}`
+					Authorization: `Bearer ${token}`,
+					'X-Auth-App': 'banca'
 				}
 			});
 			const bankData = await bankResponse.json().catch(() => null);
@@ -89,8 +91,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const app = resolveApp(pathname);
 
 	// existing auth logic
-	// const token = event.cookies.get(app === 'puesto' ? 'session_puesto' : 'session_banca');
-	const token = event.cookies.get("session");
+	const token = event.cookies.get(app === 'puesto' ? 'session_puesto' : 'session_banca');
+	// const token = event.cookies.get("session");
 	const isPublic = publicPrefixes.some((prefix) =>
 		pathname.startsWith(prefix)
 	);
@@ -110,7 +112,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	if (event.locals.user && pathname.startsWith('/banca/login')) {
-		throw redirect(303, '/banca/puestos');
+		throw redirect(303, '/banca/inicio');
 	}
 
 	return resolve(event);

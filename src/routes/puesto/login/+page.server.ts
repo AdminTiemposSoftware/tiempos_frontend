@@ -86,8 +86,8 @@ export const actions: Actions = {
 				});
 			}
 
-			cookies.set('session', token, {
-				path: '/',
+			cookies.set('session_puesto', token, {
+				path: '/puesto',
 				httpOnly: true,
 				sameSite: 'lax',
 				secure: request.url.startsWith('https://')

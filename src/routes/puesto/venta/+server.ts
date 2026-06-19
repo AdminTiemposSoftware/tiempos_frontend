@@ -15,7 +15,7 @@ type TicketRequest = {
 };
 
 export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) => {
-    const token = cookies.get('session') ?? '';
+    const token = cookies.get('session_puesto') ?? '';
 	const baseUrl = env.API_URL;
 	const branchId = locals.user?.branchId;
 
@@ -45,7 +45,8 @@ export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) 
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
-			Authorization: `Bearer ${token}`
+			Authorization: `Bearer ${token}`,
+			'X-Auth-App': 'puesto'
 		},
 		body: JSON.stringify({
 			draw_schedule_id,

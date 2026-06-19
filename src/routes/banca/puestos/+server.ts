@@ -11,7 +11,7 @@ type BranchRequest = {
 
 export const POST: RequestHandler = async ({ request, fetch, cookies }) => {
 	const baseUrl = env.API_URL;
-	const token = cookies.get('session') ?? '';
+	const token = cookies.get('session_banca') ?? '';
 
 	if (!baseUrl) {
 		return json({ error: 'Missing API_URL' }, { status: 500 });
@@ -45,7 +45,8 @@ export const POST: RequestHandler = async ({ request, fetch, cookies }) => {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}` 
+            Authorization: `Bearer ${token}`,
+            'X-Auth-App': 'banca'
 		},
 		body: JSON.stringify({
 			banking_id,

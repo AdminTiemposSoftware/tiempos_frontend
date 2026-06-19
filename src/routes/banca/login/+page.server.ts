@@ -47,7 +47,8 @@ export const actions: Actions = {
 			const response = await fetch(`${API_URL}/auth/banca/login`, {
 				method: 'POST',
 				headers: {
-					'Content-Type': 'application/json'
+					'Content-Type': 'application/json',
+					'X-Auth-App': 'banca'
 				},
 				body: JSON.stringify({ username, password })
 			});
@@ -86,14 +87,14 @@ export const actions: Actions = {
 				});
 			}
 
-			cookies.set('session', token, {
-				path: '/',
+			cookies.set('session_banca', token, {
+				path: '/banca',
 				httpOnly: true,
 				sameSite: 'lax',
 				secure: request.url.startsWith('https://')
 			});
 
-			throw redirect(303, '/banca/puestos');
+			throw redirect(303, '/banca/inicio');
 		} catch (error) {
 			if (error && typeof error === 'object' && 'status' in error && 'location' in error) {
 				throw error;

@@ -5,7 +5,7 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
 	const baseUrl = env.API_URL;
 	const branchId = locals.user?.branchId;
-	const token = cookies.get('session') ?? '';
+	const token = cookies.get('session_puesto') ?? '';
 
 	const selectedScheduleIdParam = url.searchParams.get('scheduleId');
 
@@ -13,19 +13,22 @@ export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
 		return { items: [], numbers: [], selectedScheduleId: null };
 	}
 
+	console.log('Fetching draw schedules and prohibited numbers for branch:', token);
 	try {
 
         const [drawResponse, prohibitedResponse] = await Promise.all([
 			fetch(`${baseUrl}/draw/by-branch/${branchId}`, {
 				method: 'GET',
 				headers: {
-					Authorization: `Bearer ${token}`
+					Authorization: `Bearer ${token}`,
+					'X-Auth-App': 'puesto'
 				}
 			}),
 			fetch(`${baseUrl}/number/prohibited/by-branch/${branchId}`, {
 				method: 'GET',
 				headers: {
-					Authorization: `Bearer ${token}`
+					Authorization: `Bearer ${token}`,
+					'X-Auth-App': 'puesto'
 				}
 			})
 		]);
@@ -50,7 +53,13 @@ export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
 		let numbers: unknown[] = [];
 		if (selectedScheduleId) {
 			const numbersResponse = await fetch(
-				`${baseUrl}/number/by-draw-schedule/${selectedScheduleId}/${branchId}`
+				`${baseUrl}/number/by-draw-schedule/${selectedScheduleId}/${branchId}`,{
+					method: 'GET',
+					headers: {
+						Authorization: `Bearer ${token}`,
+						'X-Auth-App': 'puesto'
+					}
+				}
 			);
 
 			if (numbersResponse.ok) {
