@@ -90,7 +90,14 @@ export const actions: Actions = {
 				path: '/puesto',
 				httpOnly: true,
 				sameSite: 'lax',
-				secure: request.url.startsWith('https://')
+				secure: false
+			});
+
+			cookies.set('app', 'puesto', {
+				path: '/',
+				httpOnly: true,
+				sameSite: 'lax',
+				secure: false
 			});
 
 			throw redirect(303, '/puesto/venta');
