@@ -88,7 +88,7 @@ export const actions: Actions = {
 			}
 
 			cookies.set('session_banca', token, {
-				path: '/banca',
+				path: '/',
 				httpOnly: true,
 				sameSite: 'lax',
 				secure: request.url.startsWith('https://')

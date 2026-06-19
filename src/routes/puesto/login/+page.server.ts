@@ -87,19 +87,11 @@ export const actions: Actions = {
 			}
 
 			cookies.set('session_puesto', token, {
-				path: '/puesto',
-				httpOnly: true,
-				sameSite: 'lax',
-				secure: false
-			});
-
-			cookies.set('app', 'puesto', {
 				path: '/',
 				httpOnly: true,
 				sameSite: 'lax',
 				secure: false
 			});
-
 			throw redirect(303, '/puesto/venta');
 		} catch (error) {
 			if (error && typeof error === 'object' && 'status' in error && 'location' in error) {
