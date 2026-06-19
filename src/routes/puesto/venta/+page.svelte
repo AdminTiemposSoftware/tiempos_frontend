@@ -63,8 +63,6 @@
         time?: string;
     };
 
-    // TODO This is all testing data, replace with actual data from the database
-    prohibitedNumbers.set([3, 7, 13, 17, 23, 27, 33, 40, 51, 57, 61, 71, 73, 83]); 
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
     let selectedDate = $state(utcMinus6Date.toISOString().split('T')[0]);
     let selectedBet = $state<AvailableBet | null>(null);
@@ -155,7 +153,15 @@
 
     $effect(() => {
         const items = Array.isArray(data?.prohibitedItems) ? (data.prohibitedItems as NumberTotal[]) : [];
-        prohibitedNumbers.set(items.map((item) => item.number));
+        prohibitedNumbers.set(
+            items.map((item) => ({
+                id: item.id,
+                number: Number(item.number),
+                amount: Number(item.amount),
+                starter: Number(item.amount),
+                can_sell_after_amount: Boolean(item.amount)
+            }))
+        );
     });
 
     $effect(() => {

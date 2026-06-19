@@ -1,7 +1,7 @@
 import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) => {
+export const PUT: RequestHandler = async ({ params, request, fetch, locals, cookies }) => {
 	const baseUrl = env.API_URL;
 	const bankingId = locals.user?.bankingId;
 	const token = cookies.get('session') ?? null;
@@ -12,37 +12,33 @@ export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) 
 			headers: { 'Content-Type': 'application/json' }
 		});
 	}
-
-	console.log('Received POST request with payload:', await request.clone().text());
-
 	const payload = await request.json().catch(() => null);
-	const number = payload?.number;
 	const amount = payload?.amount;
 	const starter = payload?.starter;
-	const canSellAfterAmount = payload?.can_sell_after_amount;
-	const byAmount = payload?.by_amount;
-	const byPercentage = payload?.by_percentage;
-
-	if (number == null || amount == null || starter == null || canSellAfterAmount == null || byAmount == null || byPercentage == null) {
+	const can_sell_after_amount = payload?.can_sell_after_amount;
+	const by_amount = payload?.by_amount;
+	const by_percentage = payload?.by_percentage;
+	
+    console.log(payload);
+	if (amount == null || starter == null || can_sell_after_amount == null || by_amount == null || by_percentage == null) {
 		return new Response(JSON.stringify({ error: 'Payload must include all required fields.' }), {
 			status: 400,
 			headers: { 'Content-Type': 'application/json' }
 		});
 	}
 
-	const response = await fetch(`${baseUrl}/number/prohibited`, {
-		method: 'POST',
+	const response = await fetch(`${baseUrl}/number/prohibited/${params.id || ''}`, {
+		method: 'PUT',
 		headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
 		body: JSON.stringify({
-			number,
 			amount,
 			starter,
-			canSellAfterAmount,
-			banking_id: Number(bankingId),
-			by_amount: byAmount,
-			by_percentage: byPercentage
+			can_sell_after_amount,
+			by_amount: by_amount,
+			by_percentage: by_percentage
 		})
 	});
+
 	const responsePayload = await response.json().catch(() => null);
 
 	return new Response(JSON.stringify(responsePayload ?? { items: [] }), {

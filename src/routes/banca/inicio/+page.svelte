@@ -6,22 +6,23 @@
 	import Select from 'svelte-select';
 
 	let prohibitedNumberToDelete = $state<number | null>(null);
-	let newProhibitedNumber = $state('');
-	let newProhibitedAmount = $state('');
-	let newProhibitedStarter = $state('');
-	let newProhibitedCanSellAfterAmount = $state(true);
 	let prohibitedNumbers = $state<prohibitedNumber[]>([]);
 	let showDeleteProhibitedModal = $state(false);
 	let showAddProhibitedModal = $state(false);
+	let showUpdateProhibitedModal = $state(false);
+	let selectedProhibitedNumber = $state<prohibitedNumber | null>(null);
 	let puestoOptions = $state<string[]>([]);
 	
     let { data } = $props();
 
 	type prohibitedNumber = {
+		id?: number;
 		number: number;
 		amount: number;
 		starter: number;
-		canSellAfterAmount: boolean;
+		can_sell_after_amount: boolean;
+		by_amount: boolean;
+		by_percentage: boolean;
 	};
 
     function handleConfirmDeleteProhibitedNumber() {
@@ -33,15 +34,10 @@
 	}
 
 	function openAddProhibitedModal() {
-		newProhibitedNumber = '';
-		newProhibitedAmount = '';
-		newProhibitedStarter = '';
-		newProhibitedCanSellAfterAmount = true;
 		showAddProhibitedModal = true;
 	}
 
-    
-	async function handleAddProhibitedNumber(payload: { number: string; amount: string, starter: string, canSellAfterAmount: boolean }) {
+	async function handleAddProhibitedNumber(payload: { number: string; amount: string, starter: string, canSellAfterAmount: boolean, byAmount: boolean, byPercentage: boolean }) {
 		if (prohibitedNumbers.some((item) => item.number === Number(payload.number))) {
 			// TODO el numero ya esta en la lista, mostrar mensaje de error
 			return;
@@ -51,37 +47,82 @@
 		const amount = Number(payload.amount);
 		const starter = Number(payload.starter);
 		const canSellAfterAmount = payload.canSellAfterAmount;
+		const byAmount = payload.byAmount;
+		const byPercentage = payload.byPercentage;
 		if (!Number.isFinite(amount)) {
 			return;
 		}
 		const response = await fetch('/number/prohibited', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ number: value, amount, starter, canSellAfterAmount })
+			body: JSON.stringify({ 
+				number: value, 
+				amount, starter, 
+				can_sell_after_amount: canSellAfterAmount, 
+				by_amount: byAmount,
+				by_percentage: byPercentage })
 		});
 		if (!response.ok) {
 			return;
 		}
 		prohibitedNumbers = prohibitedNumbers.some((item) => item.number === value)
 			? prohibitedNumbers
-			: [...prohibitedNumbers, { number: value, amount, starter, canSellAfterAmount }].sort((a, b) => a.number - b.number);
-		newProhibitedNumber = '';
-		newProhibitedAmount = '';
-		newProhibitedStarter = '';
-		newProhibitedCanSellAfterAmount = true;
+			: [...prohibitedNumbers, { 
+				number: value, 
+				amount, 
+				starter, 
+				can_sell_after_amount: canSellAfterAmount, 
+				by_amount: byAmount, 
+				by_percentage: byPercentage }].sort((a, b) => a.number - b.number);
 		showAddProhibitedModal = false;
 	}
 
+	const handleUpdateProhibitedNumber = async (payload: 
+	{ 
+		id: number; 
+		number: string; 
+		amount: string, 
+		starter: string, 
+		can_sell_after_amount: boolean, 
+		by_amount: boolean, 
+		by_percentage: boolean 
+	}) => {
+
+		const response = await fetch(`/number/prohibited/${payload.id}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+		if (!response.ok) {
+			//TODO send notification of error
+			return;
+		}
+		prohibitedNumbers = prohibitedNumbers.map((item) => 
+			item.id === payload.id 
+			? { 
+				...item, 
+				amount: Number(payload.amount), 
+				starter: Number(payload.starter), 
+				can_sell_after_amount: Boolean(payload.can_sell_after_amount), 
+				by_amount: Boolean(payload.by_amount), 
+				by_percentage: Boolean(payload.by_percentage) 
+			} : item
+		);
+		showUpdateProhibitedModal = false;
+	}
 
     const prohibitedItems = Array.isArray(data?.prohibitedItems)
-			? (data.prohibitedItems as prohibitedNumber[])
-			: [];
+		? (data.prohibitedItems as prohibitedNumber[])
+		: [];
 		prohibitedNumbers = prohibitedItems
 			.map((item) => ({
+				id: item.id,
 				number: Number(item.number),
 				amount: Number(item.amount),
 				starter: Number(item.starter),
-				canSellAfterAmount: Boolean(item.canSellAfterAmount)
+				can_sell_after_amount: Boolean(item.can_sell_after_amount),
+				by_amount: Boolean(item.by_amount),
+				by_percentage: Boolean(item.by_percentage)
 			}))
 			.filter((item) => Number.isFinite(item.number) && Number.isFinite(item.amount))
 			.sort((a, b) => a.number - b.number);
@@ -90,6 +131,11 @@
 	function showDeleteProhibitedNumber(value: number) {
 		prohibitedNumberToDelete = value;
 		showDeleteProhibitedModal = true;
+	}
+
+	function openUpdateProhibitedModal(prohibitedNumber: prohibitedNumber) {
+		selectedProhibitedNumber = prohibitedNumber;
+		showUpdateProhibitedModal = true;
 	}
 </script>
 
@@ -110,15 +156,20 @@
 />
 
 <ProhibitedNumberModal
+	bind:showModal={showUpdateProhibitedModal}
+	bind:prohibited={selectedProhibitedNumber}
+	title="Actualizar numero restringido"
+	confirmText="Guardar"
+	cancelText="Cancelar"
+	handleUpdateProhibitedNumber={handleUpdateProhibitedNumber}
+/>
+
+<ProhibitedNumberModal
 	bind:showModal={showAddProhibitedModal}
-	bind:number={newProhibitedNumber}
-	bind:amount={newProhibitedAmount}
-	bind:starter={newProhibitedStarter}
-	bind:canSellAfterAmount={newProhibitedCanSellAfterAmount}
 	title="Agregar numero restringido"
 	confirmText="Guardar"
 	cancelText="Cancelar"
-	onConfirm={handleAddProhibitedNumber}
+	handleAddProhibitedNumber={handleAddProhibitedNumber}
 />
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
@@ -161,19 +212,30 @@
         <div class="prohibited">
             <span class="label">Restringidos:</span>
             <div class="prohibited-list">
+				<button
+					class={`prohibited-badge`}
+					onclick={() => {}}
+					aria-label={`Actualizar numero restringido}`}
+				>
+					<span class="prohibited-number">Numero</span>
+					
+					<span class="prohibited-amount">Monto</span>
+					<span class="prohibited-starter">Arranque</span>
+
+				</button>
                 {#if prohibitedNumbers?.length}
                     {#each prohibitedNumbers as prohibitedNumber}
-                        <div
-                            class={`prohibited-badge test ${prohibitedNumber.canSellAfterAmount ? 'can-sell-after-amount' : ''}`}
-                            onclick={() => showDeleteProhibitedNumber(prohibitedNumber.number)}
-                            aria-label={`Eliminar numero restringido ${prohibitedNumber.number}`}
+                        <button
+                            class={`prohibited-badge ${!prohibitedNumber.can_sell_after_amount ? 'can-sell-after-amount' : ''}`}
+                            onclick={() => {openUpdateProhibitedModal(prohibitedNumber);}}
+                            aria-label={`Actualizar numero restringido ${prohibitedNumber.number}`}
                         >
 							<span class="prohibited-number">{prohibitedNumber.number}</span>
+							
 							<span class="prohibited-amount">{prohibitedNumber.amount}</span>
 							<span class="prohibited-starter">{prohibitedNumber.starter}</span>
 
-                        </div>
-
+						</button>
                     {/each}
                 {:else}
                     <span class="prohibited-empty">-</span>
@@ -236,24 +298,56 @@
 		display: flex;
 		width: 100%;
 	}
-
-	.test {
+	.prohibited {
 		display: flex;
 		flex-direction: column;
-		font-size: 0.75rem;
-		border-radius: 0.5rem;
-		padding: 0.25rem 0.5rem;
-		height: fit-content;
+		gap: 0.5rem;
+		align-items: start;
+	}
+	.prohibited-badge {
+		display: flex;
+		flex-direction: column;
+		font-size: 1.1rem;
+		border-radius: 0;
+		padding: 0rem;
+		min-width: 50px;
+		border: 2px solid var(--color-border);
+		color: var(--color-text);
+		width: fit-content;
+		height: 100%;
+		gap: 0;
+	}
+	
+	.prohibited-badge *{
+		padding: 0.35rem;
 	}
 
+	.prohibited-badge:hover {
+		background-color: white;
+		color: var(--color-theme-1);
+	}
+/* 
 	.can-sell-after-amount {
 		background-color: black;
 	}
-   
+    */
 	.prohibited-add {
 		border-style: dashed;
 		color: var(--color-theme-2);
 		border-color: var(--color-theme-2);
 		font-weight: 600;
+	}
+
+	.prohibited-list{
+		gap: 0;
+		display: flex;
+		flex-direction: row;
+	}
+
+	.prohibited-amount, .prohibited-starter {
+		font-size: 0.85rem;
+		border-top: 2px solid var(--color-border);
+		width: 100%;
+		font-weight: 500;
 	}
 </style>

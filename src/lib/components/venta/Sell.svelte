@@ -16,11 +16,13 @@
     let rowRefs: Array<HTMLTableRowElement | null> = [];
 
     import { onMount } from 'svelte';
-    import { TrashBinSolid, CubeSolid, QuestionCircleSolid, PrinterSolid, SearchSolid, EyeSolid, ReceiptSolid, CameraPhotoSolid } from "flowbite-svelte-icons";
+    import { TrashBinSolid, CubeSolid, QuestionCircleSolid, PrinterSolid, EyeSolid, ReceiptSolid, CameraPhotoSolid } from "flowbite-svelte-icons";
     import { sellingMatrix } from '../../stores/UpdateSellMatrix';
     import { total } from '../../stores/UpdateSellMatrix';
     import QrModal from './QrModal.svelte';
     import TicketsModal from './TicketsModal.svelte';
+    import { prohibitedNumbers } from "../../stores/UpdateSellMatrix";
+
 
     onMount(() => {
         priceInput?.focus();
@@ -87,6 +89,9 @@
         });
         sold = newSelled;
         soldAmount = Object.values(sold).reduce((sum, item) => sum + item.price, 0);
+        formElement.reset();
+        priceInput?.focus();
+        priceValue = '';
     }
 
     function buildDetailsPayload(values: Record<string, { price: number }>) {
@@ -101,6 +106,17 @@
     async function submitTicket(event: Event) {
         event.preventDefault();
         await processTicket();
+    }
+
+    function hasProhibitedNumbers(numbers: Record<string, { price: number }>) {
+
+        console.log($prohibitedNumbers);
+        console.log($sellingMatrix);
+        console.log($sellingMatrix?.[70]);
+        // return Object.keys(numbers).some((num) => {
+        //     // Assuming you have a list of prohibited numbers
+        //     return prohibitedNumbers.includes(num);
+        // });
     }
 
     async function processTicket() {
@@ -236,10 +252,6 @@
         });
 
         updateSalesData(expandedNumbers, parseInt(price, 10));
-
-        formElement.reset();
-        priceInput?.focus();
-        priceValue = '';
     }
 
     function cleanSell() {
@@ -282,6 +294,9 @@
         }
 
         updateSalesData(numbers, price);
+        priceInput?.focus();
+        priceValue = '';
+        randomCount = 1;
     }
 
     function generatePairs() {
@@ -411,6 +426,10 @@
                         selectedRowIndex = Math.min(selectedRowIndex, Object.keys(sold).length - 1);
                     }
                 }
+                break;
+            case "q":
+            case "Q":
+                hasProhibitedNumbers(sold);
                 break;
         }
     }

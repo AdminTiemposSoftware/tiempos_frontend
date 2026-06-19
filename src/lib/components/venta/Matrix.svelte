@@ -32,7 +32,7 @@
                         {@const index = colIndex * rows + rowIndex}
 
                         <div 
-                            class={`matrix-cell ${$prohibitedNumbers.includes(index) ? "prohibited-number" : ""}`}
+                            class={`matrix-cell ${$prohibitedNumbers.some((n) => n.number === index) ? "prohibited-number" : ""}`}
                         >
                             <input
                                 type="number"

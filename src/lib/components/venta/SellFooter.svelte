@@ -35,12 +35,11 @@
             {#if $prohibitedNumbers?.length}
                 {#each $prohibitedNumbers as number}
                     <div class="prohibited-badge">
-                        <span>{number}</span>
+                        <span>{number.number}</span>
                         <span>
                             ₡{formatAmount(
-                                $sellingMatrix?.[number]
-                                && ($total * prohibitedPercentage) < $sellingMatrix?.[number]
-                                    ? $sellingMatrix?.[number] - ($total * prohibitedPercentage)
+                                $sellingMatrix?.[number.number] && ($total * prohibitedPercentage) < $sellingMatrix?.[number.number]
+                                    ? $sellingMatrix?.[number.number] - ($total * prohibitedPercentage)
                                     : 0
                             )}
                         </span>

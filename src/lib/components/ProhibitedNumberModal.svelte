@@ -1,21 +1,37 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	type ProhibitedNumber = {
+		id: number;
+		number: number;
+		amount: number;
+		starter: number;
+		can_sell_after_amount: boolean;
+		by_amount: boolean;
+		by_percentage: boolean;
+	}
+	const defaultProhibitedNumber: ProhibitedNumber = {
+		id: -1,
+		number: 0,
+		amount: 0,
+		starter: 0,
+		can_sell_after_amount: false,
+		by_amount: false,
+		by_percentage: true
+	};
+	
 	let {
 		showModal = $bindable(),
-		number = $bindable(''),
-		amount = $bindable(''),
-		starter = $bindable(''),
-		canSellAfterAmount = $bindable(true),
-
+		prohibited = $bindable<ProhibitedNumber>(defaultProhibitedNumber),
 		title = 'Agregar numero restringido',
 		confirmText = 'Guardar',
 		cancelText = 'Cancelar',
-		onConfirm
+		handleAddProhibitedNumber = $bindable(),
+		handleUpdateProhibitedNumber = $bindable(),
 	} = $props();
 
 	let numberInput: HTMLInputElement;
 	let amountInput: HTMLInputElement;
-	let starterInput: HTMLInputElement;
+	let starterInput: HTMLInputElement;	
 
 	onMount(() => {
 		numberInput?.focus();
@@ -26,7 +42,23 @@
 	}
 
 	function handleSubmit() {
-		onConfirm?.({ number, amount, starter, canSellAfterAmount });
+		if (prohibited.number === undefined || 
+			prohibited.amount === undefined || 
+			prohibited.starter === undefined
+		) {
+			console.log('Número, monto y monto de arranque son requeridos');
+			return;
+		}
+
+		try {
+			if (prohibited.id === -1) {
+				handleAddProhibitedNumber?.(prohibited);
+			} else {
+				handleUpdateProhibitedNumber?.(prohibited);
+			}
+		} catch (error) {
+			console.error('Error al confirmar número restringido:', error);
+		}
 	}
 	function handlekeyinput(event: KeyboardEvent) {
 		const target = event.target;
@@ -73,7 +105,7 @@
 							type="number"
 							inputmode="numeric"
 							bind:this={numberInput}
-							bind:value={number}
+							bind:value={prohibited.number}
 							required
 						/>
 					</div>
@@ -87,7 +119,7 @@
 							min="0"
 							step="0.01"
 							bind:this={amountInput}
-							bind:value={amount}
+							bind:value={prohibited.amount}
 							required
 						/>
 					</div>
@@ -101,7 +133,7 @@
 							min="0"
 							step="0.01"
 							bind:this={starterInput}
-							bind:value={starter}
+							bind:value={prohibited.starter}
 							required
 						/>
 					</div>
@@ -111,8 +143,26 @@
 					<input
 						class="switch-input"
 						type="checkbox"
-						checked={canSellAfterAmount}
-						onchange={(e) => (canSellAfterAmount = e.currentTarget.checked)}
+						checked={prohibited.can_sell_after_amount}
+						onchange={(e) => (prohibited.can_sell_after_amount = e.currentTarget.checked)}
+					/>
+				</div>
+				<div class="checkbox-field">
+					<label class="modal-label" for="prohibited-by-amount">Por monto</label>
+					<input
+						class="switch-input"
+						type="checkbox"
+						checked={prohibited.by_amount}
+						onchange={(e) => (prohibited.by_amount = e.currentTarget.checked)}
+					/>
+				</div>
+				<div class="checkbox-field">
+					<label class="modal-label" for="prohibited-by-percentage">Porcentaje</label>
+					<input
+						class="switch-input"
+						type="checkbox"
+						checked={prohibited.by_percentage}
+						onchange={(e) => (prohibited.by_percentage = e.currentTarget.checked)}
 					/>
 				</div>
 				<div class="modal-actions modal-actions--form">
