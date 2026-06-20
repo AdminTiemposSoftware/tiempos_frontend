@@ -37,7 +37,7 @@
 		showAddProhibitedModal = true;
 	}
 
-	async function handleAddProhibitedNumber(payload: { number: string; amount: string, starter: string, canSellAfterAmount: boolean, byAmount: boolean, byPercentage: boolean }) {
+	async function handleAddProhibitedNumber(payload: { number: string; amount: string, starter: string, can_sell_after_amount: boolean, by_amount: boolean, by_percentage: boolean }) {
 		if (prohibitedNumbers.some((item) => item.number === Number(payload.number))) {
 			// TODO el numero ya esta en la lista, mostrar mensaje de error
 			return;
@@ -46,9 +46,9 @@
 		const value = Number(payload.number);
 		const amount = Number(payload.amount);
 		const starter = Number(payload.starter);
-		const canSellAfterAmount = payload.canSellAfterAmount;
-		const byAmount = payload.byAmount;
-		const byPercentage = payload.byPercentage;
+		const can_sell_after_amount = payload.can_sell_after_amount;
+		const by_amount = payload.by_amount;
+		const by_percentage = payload.by_percentage;
 		if (!Number.isFinite(amount)) {
 			return;
 		}
@@ -58,9 +58,9 @@
 			body: JSON.stringify({ 
 				number: value, 
 				amount, starter, 
-				can_sell_after_amount: canSellAfterAmount, 
-				by_amount: byAmount,
-				by_percentage: byPercentage })
+				can_sell_after_amount: can_sell_after_amount, 
+				by_amount: by_amount,
+				by_percentage: by_percentage })
 		});
 		if (!response.ok) {
 			return;
@@ -71,9 +71,9 @@
 				number: value, 
 				amount, 
 				starter, 
-				can_sell_after_amount: canSellAfterAmount, 
-				by_amount: byAmount, 
-				by_percentage: byPercentage }].sort((a, b) => a.number - b.number);
+				can_sell_after_amount: can_sell_after_amount, 
+				by_amount: by_amount, 
+				by_percentage: by_percentage }].sort((a, b) => a.number - b.number);
 		showAddProhibitedModal = false;
 	}
 
