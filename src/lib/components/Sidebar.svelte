@@ -54,7 +54,6 @@
         { label: 'Puestos', path: '/banca/puestos', roles: ['banking'] },
         { label: 'Sorteos', path: '/banca/sorteos', roles: ['banking'] },
         { label: 'Ganadores', path: '/banca/ganadores', roles: ['banking'] },
-        { label: 'Reportes', path: '/banca/reportes', roles: ['banking'] },
         { label: 'Reportes', path: '/puesto/reportes', roles: ['branch'] },
 
         { label: 'Cajas', path: '/puesto/cajas', roles: ['branch'] },

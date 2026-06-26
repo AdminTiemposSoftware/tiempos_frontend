@@ -13,7 +13,6 @@ export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
 		return { items: [], numbers: [], selectedScheduleId: null };
 	}
 
-	console.log('Fetching draw schedules and prohibited numbers for branch:', token);
 	try {
 
         const [drawResponse, prohibitedResponse] = await Promise.all([

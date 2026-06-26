@@ -1,21 +1,35 @@
 <script lang="ts">
-    export let rows: number = 10;
-    export let columns: number = 10;
-    export let data: number[][] = [];
-    export let animateKey: string | number | null = null;
-    export let isLoading: boolean = false;
+    let {
+        rows = $bindable(10),
+        columns = $bindable(10),
+        animateKey = $bindable<string | number | null>(null),
+        isLoading = $bindable<boolean>(false),
+        report = $bindable<numberReportItem[]>([])
+    } = $props();
 
     import { sellingMatrix } from '../../stores/UpdateSellMatrix';
     import { prohibitedNumbers } from '../../stores/UpdateSellMatrix';
 
-    if (data.length > 0) {
-        for (let i = 0; i < rows; i++) {
-            for (let j = 0; j < columns; j++) {
-                const index = j * rows + i;
-                sellingMatrix.update(prev => ({ ...prev, [index]: data[i][j] }));
-            }
-        }
-    }
+    const groupedNumbers = report.reduce<Record<number, numberReportItem[]>>((acc, item) => {
+        (acc[item.number] ??= []).push(item);
+        return acc;
+    }, {});
+    
+	type numberReportItem = {
+		branch_id: number;
+		branch_name: string;
+		draw_schedule_id: number;
+		draw_schedule_name: string;
+		draw_id: number;
+		draw_name: string;
+		number: number;
+		amount: number;
+		is_reventado: boolean;
+		is_megareventado: boolean;
+	};
+
+
+    console.log(groupedNumbers);
 </script>
 
 <section class="matrix-container">
@@ -32,19 +46,23 @@
                         {@const index = colIndex * rows + rowIndex}
 
                         <div 
-                            class={`matrix-cell ${$prohibitedNumbers.some((n) => n.number === index) ? "prohibited-number" : ""}`}
+                            class={`matrix-cell 
+                                ${$prohibitedNumbers.some((n) => n.number === index) ? "prohibited-number" : ""} 
+                                ${groupedNumbers[index]?.length > 0 ? "has-report" : ""
+                            }`}
                         >
                             <input
                                 type="number"
                                 value={index}
                                 disabled={true}
+                                class={``}
                             />
                             <input
                                 type="number"
                                 class="price price-animated"
                                 class:price-loading={isLoading}
                                 style={`--delay: ${index * 4}ms;`}
-                                value={$sellingMatrix[index] || 0}
+                                value={groupedNumbers[index]?.reduce((sum, item) => sum + item.amount, 0) || $sellingMatrix[index] || 0}
                                 disabled={true}
                             />
                         </div>
@@ -106,7 +124,11 @@
         background-color: #f8c3c7;
         border-color: #f5c6cb;
     }
-
+    .has-report input[type="number"]:first-child {
+        width: 32px;
+        padding: 0.1rem !important;
+        font-size: 0.95rem;
+    }
 
     .price {
         width: 100% !important; 

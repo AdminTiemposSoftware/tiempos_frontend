@@ -23,6 +23,7 @@
 	--column-margin-top: 4rem;
 	font-family: var(--font-body);
 	color: var(--color-text);
+	--tadashi_svelte_notifications_width: 300px;
 }
 
 body {
@@ -504,9 +505,8 @@ th {
 	width: 2.5rem;
 	height: 2.5rem;
 	border-radius: 50%;
-	border: 2px solid var(--color-theme-3);
+	border: 2px solid var(--color-theme-1);
 	background: #fff;
-	color: var(--color-theme-3);
 }
 
 button.prohibited-badge {

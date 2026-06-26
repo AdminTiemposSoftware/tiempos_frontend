@@ -4,6 +4,7 @@
     import Sell from "$lib/components/venta/Sell.svelte";
     import SellHeader from "$lib/components/venta/SellHeader.svelte";
     import { prohibitedNumbers } from "../../../lib/stores/UpdateSellMatrix";
+	import {Notifications, acts} from '@tadashi/svelte-notification'
     import { sellingMatrix } from "../../../lib/stores/UpdateSellMatrix";
     import { auth } from "$lib/stores/auth";
     import { total } from "../../../lib/stores/UpdateSellMatrix";
@@ -33,6 +34,16 @@
         amount: string | number;
         is_reventado: boolean;
         is_megareventado: boolean;
+    };
+
+    type ProhibitedNumber = {
+        id: number;
+        number: number;
+        amount: string | number;
+        starter: string | number;
+        can_sell_after_amount: boolean;
+        by_amount: boolean;
+        by_percentage: boolean;
     };
 
     type TicketHeader = {
@@ -152,14 +163,16 @@
     });
 
     $effect(() => {
-        const items = Array.isArray(data?.prohibitedItems) ? (data.prohibitedItems as NumberTotal[]) : [];
+        const items = Array.isArray(data?.prohibitedItems) ? (data.prohibitedItems as ProhibitedNumber[]) : [];
         prohibitedNumbers.set(
             items.map((item) => ({
                 id: item.id,
                 number: Number(item.number),
                 amount: Number(item.amount),
-                starter: Number(item.amount),
-                can_sell_after_amount: Boolean(item.amount)
+                starter: Number(item.starter),
+                can_sell_after_amount: Boolean(item.can_sell_after_amount),
+                by_amount: Boolean(item.by_amount),
+                by_percentage: Boolean(item.by_percentage)
             }))
         );
     });

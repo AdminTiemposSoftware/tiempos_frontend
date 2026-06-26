@@ -8,6 +8,7 @@ type AuthUser = {
 	branchName?: string | null;
 	branchLocation?: string | null;
 	bankingId?: string | null;
+	prohibitedPercentage?: number | null;
 } | null;
 
 type AuthState = {

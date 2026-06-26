@@ -13,8 +13,6 @@ export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) 
 		});
 	}
 
-	console.log('Received POST request with payload:', await request.clone().text());
-
 	const payload = await request.json().catch(() => null);
 	const number = payload?.number;
 	const amount = payload?.amount;

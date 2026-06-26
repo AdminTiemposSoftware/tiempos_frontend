@@ -27,6 +27,19 @@
 	$effect(() => {
 		availableAmountOnProhibited = $total * prohibitedPercentage;
 	});
+
+	function getOverageAmountOnProhibited(prohibitedNumber: { id: number; number: number; by_amount?: boolean; amount: number; by_percentage?: boolean; can_sell_after_amount?: boolean;  }) {
+		if (prohibitedNumber?.by_amount) {
+			if ($sellingMatrix?.[prohibitedNumber.number] >= prohibitedNumber.amount) {
+				return $sellingMatrix?.[prohibitedNumber.number] - prohibitedNumber.amount;
+			}
+		}else if (prohibitedNumber?.by_percentage){
+			if ($sellingMatrix?.[prohibitedNumber.number] && ($total * prohibitedPercentage) < $sellingMatrix?.[prohibitedNumber.number]) {
+				return $sellingMatrix?.[prohibitedNumber.number] - ($total * prohibitedPercentage);
+			}
+		}
+		return 0;
+	}
 </script>
 <header>
     <div class="prohibited">
@@ -34,15 +47,13 @@
         <div class="prohibited-list">
             {#if $prohibitedNumbers?.length}
                 {#each $prohibitedNumbers as number}
-                    <div class="prohibited-badge">
+                    <div class="prohibited-badge {getOverageAmountOnProhibited(number) > 0 ? 'prohibited-over' : ''}">
                         <span>{number.number}</span>
-                        <span>
-                            ₡{formatAmount(
-                                $sellingMatrix?.[number.number] && ($total * prohibitedPercentage) < $sellingMatrix?.[number.number]
-                                    ? $sellingMatrix?.[number.number] - ($total * prohibitedPercentage)
-                                    : 0
-                            )}
-                        </span>
+						<div class="prohibited-info">
+							<span>
+								Excedente: ₡{formatAmount(getOverageAmountOnProhibited(number))}
+							</span>
+						</div>
                     </div>
                 {/each}
             {:else}
@@ -80,13 +91,38 @@
 		display: flex;
 		flex-direction: column;
 		/* padding: 1.5rem 2rem; */
-		border-radius: 0.75rem;
+		border-radius: 100%;
         box-sizing: border-box;
 		flex: 0 0 auto;
-		width: fit-content;
-        padding: 1.5rem 0.75rem;
+		padding: 0.5rem 0.5rem;
+		position: relative;
+		cursor: pointer;
+	}
+
+	.prohibited-badge:hover {
+		transform: translateY(-1px);
 	}
 	.prohibited-badge span {
-		font-size: 0.8rem !important;
+		font-size: 0.9rem !important;
+	}
+	.prohibited-info {
+		display: none;
+		position: absolute;
+		background-color: #fff;
+		bottom: 110%;
+		left: 50%;
+		transform: translateX(-50%);
+		flex-direction: column;
+		align-items: center;
+		font-size: 0.75rem;
+		padding: 0.5rem;
+		border: 1px solid var(--color-border);
+		border-radius: 0.25rem;
+	}
+	.prohibited-badge:hover .prohibited-info {
+		display: flex;
+	}
+	.prohibited-over {
+		border-color: var(--color-theme-3);
 	}
 </style>

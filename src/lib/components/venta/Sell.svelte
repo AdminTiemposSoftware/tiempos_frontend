@@ -22,6 +22,8 @@
     import QrModal from './QrModal.svelte';
     import TicketsModal from './TicketsModal.svelte';
     import { prohibitedNumbers } from "../../stores/UpdateSellMatrix";
+    import { Notifications, acts } from '@tadashi/svelte-notification';
+    import { auth } from '../../stores/auth';
 
 
     onMount(() => {
@@ -108,27 +110,73 @@
         await processTicket();
     }
 
-    function hasProhibitedNumbers(numbers: Record<string, { price: number }>) {
+    function hasProhibitedNumbers(soldSnapshot: Record<string, { price: number }>) {
+        const prohibitedInSold = $prohibitedNumbers.filter( (p) =>
+            soldSnapshot[p.number] !== undefined && p.can_sell_after_amount === false
+        );
+        if (prohibitedInSold.length === 0) return false; 
 
-        console.log($prohibitedNumbers);
-        console.log($sellingMatrix);
-        console.log($sellingMatrix?.[70]);
-        // return Object.keys(numbers).some((num) => {
-        //     // Assuming you have a list of prohibited numbers
-        //     return prohibitedNumbers.includes(num);
-        // });
+        const matching = Object.fromEntries(Object.entries($sellingMatrix).filter(([key]) => prohibitedInSold.some((p) => p.number === Number(key))));
+
+        // Equivalent to first IF EXISTS
+        const exceededNumbersByAmount = prohibitedInSold.filter((p) => {
+            if (!p.by_amount) return false;
+            
+            const currentAmount = matching[p.number];
+            return currentAmount <= p.amount;
+        });
+        
+        let message = '';
+
+        if (exceededNumbersByAmount.length > 0) {
+            if (exceededNumbersByAmount.length === 1) 
+                message = `El número ${exceededNumbersByAmount[0].number} excede el monto permitido.`;
+            else 
+                message = `Los números ${exceededNumbersByAmount.map((x) => x.number).join(', ')} exceden el monto permitido.`;
+            
+            acts.add({
+                message: message,
+                mode: 'error', 
+                lifetime: 3
+            });
+            return true;
+        }
+
+        // Equivalent to second IF EXISTS
+        const percentageLimit = $total * ($auth.user?.prohibitedPercentage? $auth.user.prohibitedPercentage / 100 : 100);
+        const exceedsNumbersByPercentage = prohibitedInSold.filter((p) => {
+            if (!p.by_percentage) return false; 
+               
+            const currentAmount = matching[p.number];
+            return currentAmount >= percentageLimit && currentAmount >= p.starter;
+        });
+
+        if (exceedsNumbersByPercentage.length > 0) {
+            if (exceedsNumbersByPercentage.length === 1) 
+                message = `El número ${exceedsNumbersByPercentage[0].number} excede lo que tienes permitido vender.`;
+            else 
+                message = `Los números ${exceedsNumbersByPercentage.map((x) => x.number).join(', ')} exceden lo que tienes permitido vender.`;
+            
+            acts.add({
+                message: message,
+                mode: 'error', 
+                lifetime: 3
+            });
+            return true;
+        }
+        return false;
     }
 
     async function processTicket() {
         submitError = '';
 
         const drawScheduleId = selectedBet?.schedule_id ?? null;
-        if (!drawScheduleId || Object.keys(sold).length === 0) {
-            return;
-        }
-
+        if (!drawScheduleId || Object.keys(sold).length === 0) return;
+            
         const soldSnapshot = { ...sold };
         isSubmitting = true;
+
+        if (hasProhibitedNumbers(soldSnapshot)) return;
 
         const response = await fetch('/puesto/venta', {
             method: 'POST',
@@ -573,6 +621,7 @@
     </div>
 </section>
 
+<Notifications />
 <style>
     .sell {
         flex-direction: column;

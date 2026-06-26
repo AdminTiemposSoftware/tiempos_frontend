@@ -3,15 +3,23 @@
 	import ProhibitedNumberModal from '$lib/components/ProhibitedNumberModal.svelte';
     import ConfirmModal from '$lib/components/ConfirmModal.svelte';
     import Matrix from '../../../lib/components/venta/Matrix.svelte';
-	import Select from 'svelte-select';
-
+	import {Notifications, acts} from '@tadashi/svelte-notification'
+	import SelectModal from '$lib/components/SelectModal.svelte';
+	
+    const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
 	let prohibitedNumberToDelete = $state<number | null>(null);
 	let prohibitedNumbers = $state<prohibitedNumber[]>([]);
 	let showDeleteProhibitedModal = $state(false);
 	let showAddProhibitedModal = $state(false);
 	let showUpdateProhibitedModal = $state(false);
 	let selectedProhibitedNumber = $state<prohibitedNumber | null>(null);
-	let puestoOptions = $state<string[]>([]);
+	let puestoOptions = $state<{ value: string | number; label: string }[]>([
+		{ value: 0, label: 'Todos' },
+		{ value: 1, label: 'Central' },
+		{ value: 2, label: 'Norte' },
+		{ value: 3, label: 'Sur' }]);
+	let from =  $state(utcMinus6Date.toISOString().split('T')[0]);
+	let to =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	
     let { data } = $props();
 
@@ -23,6 +31,19 @@
 		can_sell_after_amount: boolean;
 		by_amount: boolean;
 		by_percentage: boolean;
+	};
+
+	type numberReportItem = {
+		branch_id: number;
+		branch_name: string;
+		draw_schedule_id: number;
+		draw_schedule_name: string;
+		draw_id: number;
+		draw_name: string;
+		number: number;
+		amount: number;
+		is_reventado: boolean;
+		is_megareventado: boolean;
 	};
 
     function handleConfirmDeleteProhibitedNumber() {
@@ -111,9 +132,11 @@
 		showUpdateProhibitedModal = false;
 	}
 
-    const prohibitedItems = Array.isArray(data?.prohibitedItems)
-		? (data.prohibitedItems as prohibitedNumber[])
-		: [];
+	
+    $effect(() => {
+		const prohibitedItems = Array.isArray(data?.prohibitedItems)
+			? (data.prohibitedItems as prohibitedNumber[])
+			: [];
 		prohibitedNumbers = prohibitedItems
 			.map((item) => ({
 				id: item.id,
@@ -126,8 +149,34 @@
 			}))
 			.filter((item) => Number.isFinite(item.number) && Number.isFinite(item.amount))
 			.sort((a, b) => a.number - b.number);
+    });
 
+	
+	let report = $derived.by(() => {
+		const reportTodayItems = Array.isArray(data?.reportTodayItems)
+			? (data.reportTodayItems as any[])
+			: [];
 
+		return reportTodayItems
+			.map((item) => ({
+				branch_id: Number(item.branch_id),
+				branch_name: String(item.branch_name),
+				draw_schedule_id: Number(item.draw_schedule_id),
+				draw_schedule_name: String(item.draw_schedule_name),
+				draw_id: Number(item.draw_id),
+				draw_name: String(item.draw_name),
+				number: Number(item.number),
+				amount: Number(item.amount),
+				is_reventado: Boolean(item.is_reventado),
+				is_megareventado: Boolean(item.is_megareventado)
+			}))
+			.filter(
+				(item) =>
+					Number.isFinite(item.number) &&
+					Number.isFinite(item.amount)
+			)
+			.sort((a, b) => a.number - b.number);
+	});
 	function showDeleteProhibitedNumber(value: number) {
 		prohibitedNumberToDelete = value;
 		showDeleteProhibitedModal = true;
@@ -174,32 +223,41 @@
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
 <section class="inicio">
-    <div class="ganadores">
+    <!-- <div class="ganadores">
         <h2>Aun tienes pendiente de asignar los ganadores de los sorteos:</h2>
         
-    </div>
+    </div> -->
     <div class="content">
         <div class="left">
             <div class="filters">
                 <div class="field">
-                    <label for="desde">Fecha</label>
-                    <input id="desde" type="date" value="2026-02-16" />
+                    <label for="desde">Desde</label>
+                    <input id="desde" type="date" value={from} />
+                </div>
+                <div class="field">
+                    <label for="hasta">Hasta</label>
+                    <input id="hasta" type="date" value={to} />
                 </div>
                 <div class="field">
                     <label for="puesto">Puesto</label>
-                    <!-- <Select items={puestoOptions} /> -->
-                    <input id="puesto" type="text" value="" />
-                </div>
+					<SelectModal
+						options={puestoOptions}
+						placeholder="Seleccione un puesto"
+					/>
+				</div>
                 <div class="field">
                     <label for="sorteo">Sorteo</label>
-                    <input id="sorteo" type="text" value="" />
+					<SelectModal
+						options={puestoOptions}
+						placeholder="Seleccione un puesto"
+					/>
                 </div>
             </div>
-            <Matrix />
+            <Matrix report={report} />
         </div>
         <div class="right">
             <h2>Opciones</h2>
-			<button type="button" class="option-button" disabled>
+			<button type="button" class="option-button">
 				Exportar xlsx
 			</button>
 			<button type="button" class="option-button" disabled>
@@ -261,12 +319,19 @@
         flex-direction: column;
     }
 
+	.field {
+		min-width: 8rem;
+	}
+	.field input {
+		height: 57.59%;
+	}
+
     .left {
 		border: 1px solid var(--color-border);
 		display: flex;
 		padding: 1rem;
 		flex-direction: column;
-        flex: 3;
+        flex: 5;
 		gap: 1rem;
     }
     .right {
@@ -326,11 +391,6 @@
 		background-color: white;
 		color: var(--color-theme-1);
 	}
-/* 
-	.can-sell-after-amount {
-		background-color: black;
-	}
-    */
 	.prohibited-add {
 		border-style: dashed;
 		color: var(--color-theme-2);
@@ -350,4 +410,5 @@
 		width: 100%;
 		font-weight: 500;
 	}
+
 </style>

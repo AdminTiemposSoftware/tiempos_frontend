@@ -10,6 +10,7 @@ type AuthUser = {
 	branchName?: string | null;
 	branchLocation?: string | null;
 	bankingId?: string | null;
+	prohibitedPercentage?: number | null;
 } | null;
 
 const publicPrefixes = ['/_app', '/puesto/login', '/banca/login', '/robots.txt', '/favicon'];
@@ -56,6 +57,7 @@ async function fetchUser(token: string, fetchFn: typeof fetch): Promise<AuthUser
 			user.branchId = branchData?.items?.[0]?.id ? String(branchData.items[0].id) : null;
 			user.branchName = branchData?.items?.[0]?.name ? String(branchData.items[0].name) : null;
 			user.branchLocation = branchData?.items?.[0]?.location ? String(branchData.items[0].location) : null;
+			user.prohibitedPercentage = branchData?.items?.[0]?.prohibited_percentage ? Number(branchData.items[0].prohibited_percentage) : null;
 		} else if (user.role === 'banking') {
 			const bankResponse = await fetchFn(`${baseUrl}/banking/by-user/${user.id}`, {
 				headers: {
@@ -74,7 +76,8 @@ async function fetchUser(token: string, fetchFn: typeof fetch): Promise<AuthUser
 			branchId: user.branchId ?? null,
 			branchName: user.branchName ?? null,
 			branchLocation: user.branchLocation ?? null,
-			bankingId: user.bankingId ?? null
+			bankingId: user.bankingId ?? null,
+			prohibitedPercentage: user.prohibitedPercentage ?? null
 		};
 	} catch {
 		return null;

@@ -10,6 +10,8 @@ declare global {
 				branchId?: string | null;
 				branchName?: string | null;
 				branchLocation?: string | null;
+				bankingId?: string | null;
+				prohibitedPercentage?: number | null;
 			} | null;
 		}
 

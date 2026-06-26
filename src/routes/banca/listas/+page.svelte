@@ -76,7 +76,6 @@
                     <Matrix 
                         rows={10}
                         columns={10}
-                        data={testingTable2Data}
                     />
                     <div class="actions">
                         <button onclick={handleViewQR}>Ver QR</button>
@@ -88,7 +87,6 @@
                     <Matrix 
                         rows={10}
                         columns={10}
-                        data={testingTable3Data}
                     />
                     <div class="actions">
                         <button onclick={handleViewQR}>Ver QR</button>
