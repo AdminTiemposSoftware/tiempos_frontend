@@ -43,7 +43,7 @@
 
 	function isOverage (prohibitedNumber: { id: number; number: number; by_amount?: boolean; amount: number; by_percentage?: boolean; can_sell_after_amount?: boolean;  }) {
 		if (prohibitedNumber?.by_amount){
-			if (prohibitedNumber?.amount === 0) {
+			if (prohibitedNumber?.amount === 0 || $sellingMatrix?.[prohibitedNumber.number] === prohibitedNumber.amount) {
 				return true;
 			}
 		}
