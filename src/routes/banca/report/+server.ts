@@ -1,7 +1,7 @@
 import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 
-export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) => {
+export const GET: RequestHandler = async ({ request, fetch, locals, cookies }) => {
     const baseUrl = env.API_URL;
 	const bankingId = locals.user?.bankingId;
 	const token = cookies.get('session_banca') ?? null;
@@ -12,13 +12,14 @@ export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) 
 			headers: { 'Content-Type': 'application/json' }
 		});
 	}
+    
+    const url = new URL(request.url);
+    const dateFrom = url.searchParams.get('date_from');
+    const dateTo = url.searchParams.get('date_to');
+    const branches = url.searchParams.get('branches');
+    const drawSchedules = url.searchParams.get('draw_schedules');
 
-    const payload = await request.json().catch(() => null);
-    const dateFrom = payload?.date_from;
-    const dateTo = payload?.date_to;
-    const branches = payload?.branches;
-    const drawSchedules = payload?.draw_schedules;
-
+    console.log('Received parameters:', { dateFrom, dateTo, branches, drawSchedules });
     if (!dateFrom || !dateTo || !branches || !drawSchedules) {
         return new Response(JSON.stringify({ error: 'Payload must include date_from, date_to, branches, and draw_schedules.' }), {
             status: 400,
@@ -26,17 +27,11 @@ export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) 
         });
     }
 
-    const response = await fetch(`${baseUrl}/report/filtered`, {
-        method: 'POST',
+    const response = await fetch(`${baseUrl}/report/filtered?date_from=${dateFrom}&date_to=${dateTo}&branches=${encodeURIComponent(branches)}&draw_schedules=${encodeURIComponent(drawSchedules)}`, {
+        method: 'GET',
         headers: { 'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
-            'X-Auth-App': 'banca' },
-        body: JSON.stringify({
-            date_from: dateFrom,
-            date_to: dateTo,
-            branches,
-            draw_schedules: drawSchedules
-        })
+            'X-Auth-App': 'banca' }
     });
 
     const responsePayload = await response.json().catch(() => null);

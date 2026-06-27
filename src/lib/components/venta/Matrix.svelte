@@ -4,18 +4,10 @@
         columns = $bindable(10),
         animateKey = $bindable<string | number | null>(null),
         isLoading = $bindable<boolean>(false),
-        report = $bindable<numberReportItem[]>([])
+        report = $bindable<reportItem[]>([])
     } = $props();
 
-    import { sellingMatrix } from '../../stores/UpdateSellMatrix';
-    import { prohibitedNumbers } from '../../stores/UpdateSellMatrix';
-
-    const groupedNumbers = report.reduce<Record<number, numberReportItem[]>>((acc, item) => {
-        (acc[item.number] ??= []).push(item);
-        return acc;
-    }, {});
-    
-	type numberReportItem = {
+	type reportItem = {
 		branch_id: number;
 		branch_name: string;
 		draw_schedule_id: number;
@@ -28,8 +20,22 @@
 		is_megareventado: boolean;
 	};
 
+    import { sellingMatrix } from '../../stores/UpdateSellMatrix';
+    import { prohibitedNumbers } from '../../stores/UpdateSellMatrix';
 
-    console.log(groupedNumbers);
+    let groupedNumbers = $state<Record<number, reportItem[]>>({});
+
+    $effect(() => {
+        groupedNumbers = groupReportByNumber(report);
+    });
+
+    function groupReportByNumber(reportItems: reportItem[]): Record<number, reportItem[]> {
+        return reportItems.reduce<Record<number, reportItem[]>>((acc, item) => {
+            (acc[item.number] ??= []).push(item);
+            return acc;
+    }, {});
+    }
+    
 </script>
 
 <section class="matrix-container">

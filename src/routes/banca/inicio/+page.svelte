@@ -13,13 +13,14 @@
 	let showAddProhibitedModal = $state(false);
 	let showUpdateProhibitedModal = $state(false);
 	let selectedProhibitedNumber = $state<prohibitedNumber | null>(null);
-	let puestoOptions = $state<{ value: string | number; label: string }[]>([
-		{ value: 0, label: 'Todos' },
-		{ value: 1, label: 'Central' },
-		{ value: 2, label: 'Norte' },
-		{ value: 3, label: 'Sur' }]);
+	let branchNames = $state<{ value: number; label: string }[]>([]);
+	let drawScheduleNames = $state<{ value: number; label: string }[]>([]);
+	let selectedBranch = $state<number[]>([]);
+	let selectedDrawSchedule = $state<number[]>([]);
 	let from =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let to =  $state(utcMinus6Date.toISOString().split('T')[0]);
+	let report = $state<reportItem[]>([]);
+	let isLoading = $state<boolean>(false);
 	
     let { data } = $props();
 
@@ -33,7 +34,7 @@
 		by_percentage: boolean;
 	};
 
-	type numberReportItem = {
+	type reportItem = {
 		branch_id: number;
 		branch_name: string;
 		draw_schedule_id: number;
@@ -151,13 +152,38 @@
 			.sort((a, b) => a.number - b.number);
     });
 
-	
-	let report = $derived.by(() => {
+	$effect(() => {
+		const branchNamesItems = Array.isArray(data?.branchNames)
+			? (data.branchNames as any[])
+			: [];
+		branchNames = [
+			{ value: 0, label: 'Todos' },
+			...branchNamesItems.map((item) => ({
+				value: Number(item.id),
+				label: String(item.name)
+			}))
+		];
+	});
+
+	$effect(() => {
+		const scheduleNamesItems = Array.isArray(data?.scheduleNames)
+			? (data.scheduleNames as any[])
+			: [];
+		drawScheduleNames = [
+			{ value: 0, label: 'Todos' },
+			...scheduleNamesItems.map((item) => ({
+				value: Number(item.draw_schedule_id),
+				label: `${String(item.draw_name)} - ${String(item.draw_schedule_name)}`
+			}))
+		];
+	});
+
+	$effect(() => {
 		const reportTodayItems = Array.isArray(data?.reportTodayItems)
 			? (data.reportTodayItems as any[])
 			: [];
 
-		return reportTodayItems
+		report = reportTodayItems
 			.map((item) => ({
 				branch_id: Number(item.branch_id),
 				branch_name: String(item.branch_name),
@@ -177,6 +203,82 @@
 			)
 			.sort((a, b) => a.number - b.number);
 	});
+
+	async function applyFilters() {
+		isLoading = true;
+		if (from > to) {
+            acts.add({
+                message: "La fecha 'Desde' no puede ser mayor que la fecha 'Hasta'.",
+                mode: 'error', 
+                lifetime: 3
+            });
+			return;
+		}
+
+		let branchesPayload: number[] = [];
+		let drawSchedulesPayload: number[] = [];
+		console.log('Selected Branches:', selectedBranch);
+		console.log('Selected Draw Schedules:', selectedDrawSchedule);
+		// All option is selected
+		if (selectedBranch.includes(0)) {
+			console.log('All branches selected');
+			branchesPayload = branchNames.slice(1).map((item) => item.value);
+		} else {
+			branchesPayload = selectedBranch;
+		}
+
+		// All option is selected
+		if (selectedDrawSchedule.includes(0)) {
+			drawSchedulesPayload = drawScheduleNames.slice(1).map((item) => item.value);
+		} else {
+			drawSchedulesPayload = selectedDrawSchedule;
+		}
+
+		const response = await fetch(`/banca/report?date_from=${from}&date_to=${to}&branches=${encodeURIComponent(branchesPayload.join(','))}&draw_schedules=${encodeURIComponent(drawSchedulesPayload.join(','))}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+		if (!response.ok) {
+			acts.add({
+				message: "Error al aplicar filtros.",
+				mode: 'error', 
+				lifetime: 3
+			});
+			return;
+		}
+
+		const data = await response.json();
+		const dataItems = Array.isArray(data?.items)
+			? (data.items as any[])
+			: [];
+
+		report = dataItems
+			.map((item) => ({
+				branch_id: Number(item.branch_id),
+				branch_name: String(item.branch_name),
+				draw_schedule_id: Number(item.draw_schedule_id),
+				draw_schedule_name: String(item.draw_schedule_name),
+				draw_id: Number(item.draw_id),
+				draw_name: String(item.draw_name),
+				number: Number(item.number),
+				amount: Number(item.amount),
+				is_reventado: Boolean(item.is_reventado),
+				is_megareventado: Boolean(item.is_megareventado)
+			}))
+			.filter(
+				(item) =>
+					Number.isFinite(item.number) &&
+					Number.isFinite(item.amount)
+			)
+			.sort((a, b) => a.number - b.number);
+
+		isLoading = false;
+	}
+
+
 	function showDeleteProhibitedNumber(value: number) {
 		prohibitedNumberToDelete = value;
 		showDeleteProhibitedModal = true;
@@ -231,29 +333,34 @@
         <div class="left">
             <div class="filters">
                 <div class="field">
-                    <label for="desde">Desde</label>
-                    <input id="desde" type="date" value={from} />
+                    <label for="from">Desde</label>
+                    <input id="from" type="date" bind:value={from}/>
                 </div>
                 <div class="field">
-                    <label for="hasta">Hasta</label>
-                    <input id="hasta" type="date" value={to} />
+                    <label for="to">Hasta</label>
+                    <input id="to" type="date" bind:value={to}/>
                 </div>
                 <div class="field">
                     <label for="puesto">Puesto</label>
 					<SelectModal
-						options={puestoOptions}
+						options={branchNames}
+						bind:selected={selectedBranch}
 						placeholder="Seleccione un puesto"
 					/>
 				</div>
                 <div class="field">
                     <label for="sorteo">Sorteo</label>
 					<SelectModal
-						options={puestoOptions}
-						placeholder="Seleccione un puesto"
+						options={drawScheduleNames}
+						bind:selected={selectedDrawSchedule}
+						placeholder="Seleccione un sorteo"
 					/>
                 </div>
+				<button type="button" class="option-button" onclick={applyFilters}>
+					Filtrar	
+				</button>
             </div>
-            <Matrix report={report} />
+            <Matrix bind:report={report} bind:isLoading={isLoading} />
         </div>
         <div class="right">
             <h2>Opciones</h2>
@@ -310,6 +417,8 @@
         </div> 
     </header>
 </section>
+<Notifications />
+
 {/if}
 
 <style>

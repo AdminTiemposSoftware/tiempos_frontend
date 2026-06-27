@@ -1,26 +1,51 @@
 <script lang="ts">
 	let {
 		options,
-		selected = $bindable([]),
+		selected = $bindable<number[]>([]),
 		placeholder = 'Seleccionar...'
 	} = $props();
+
+	type Option = {
+		value: string | number;
+		label: string;
+	};
 
     $effect(() => {
         if (selected.length === 0 && options.length > 0) {
             selected = [options[0].value];
         }
     });
+
 	let open = $state(false);
 
 	function toggle(value: string | number) {
+		const allValue = options[0].value;
+
+		// Clicked "All Selected"
+		if (value === allValue) {
+			const allSelected = selected.length === options.length;
+			selected = allSelected ? [] : options.map((o : Option) => o.value);
+			return;
+		}
+
+		// Toggle normal option
 		if (selected.includes(value)) {
-			selected = selected.filter((x) => x !== value);
+			selected = selected.filter((x : number) => x !== value);
 		} else {
 			selected = [...selected, value];
 		}
+
+		// Remove "All Selected"
+		selected = selected.filter((x : number) => x !== allValue);
+
+		// If every normal option selected → select All
+		const allNormalSelected = options.slice(1).every((o : Option) => selected.includes(o.value));
+			
+		if (allNormalSelected) 
+			selected = selected.filter((x : number) => x === allValue);
 	}
 
-	function isSelected(value: string | number) {
+	function isSelected(value: number) {
 		return selected.includes(value);
 	}
 </script>
@@ -43,7 +68,7 @@
 	>
 		{#if selected.length}
 			<div class="chips">
-				{#each options.filter((x) => selected.includes(x.value)) as item}
+				{#each options.filter((x : Option) => selected.includes(x.value)) as item}
 					<span class="chip">
 						{item.label}
 					</span>
@@ -113,7 +138,7 @@
 	.dropdown {
 		position: absolute;
 		top: calc(100% + .25rem);
-        max-width: 10rem;
+        max-width: 12rem;
 		width: 100%;
 		border: 1px solid var(--color-border);
 		background-color: #fff;

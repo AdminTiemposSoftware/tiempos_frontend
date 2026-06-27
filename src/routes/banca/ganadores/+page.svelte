@@ -168,11 +168,6 @@
                     <th>Nombre</th>
                     <th>Hora</th>
                     <th>Ganador</th>
-                    <!-- <th>Venta</th> -->
-                    <!-- <th>Comision</th>
-                    <th>Premios</th>
-                    <th>Neto</th> -->
-                    <th>Opciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -202,14 +197,6 @@
                             {#if winnerErrors[row.id]}
                                 <div class="winner-error">{winnerErrors[row.id]}</div>
                             {/if}
-                        </td>
-                        <td>
-                            <div class="options-buttons">
-                                <button>Imprimir</button>
-                                <button class="negative" on:click={() => openPayModal(row)}>
-                                    Pagar
-                                </button>
-                            </div>
                         </td>
                     </tr>
                 {/each}
