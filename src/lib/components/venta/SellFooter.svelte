@@ -30,7 +30,7 @@
 
 	function getOverageAmountOnProhibited(prohibitedNumber: { id: number; number: number; by_amount?: boolean; amount: number; by_percentage?: boolean; can_sell_after_amount?: boolean;  }) {
 		if (prohibitedNumber?.by_amount) {
-			if ($sellingMatrix?.[prohibitedNumber.number] >= prohibitedNumber.amount) {
+			if ($sellingMatrix?.[prohibitedNumber.number] > prohibitedNumber.amount) {
 				return $sellingMatrix?.[prohibitedNumber.number] - prohibitedNumber.amount;
 			}
 		}else if (prohibitedNumber?.by_percentage){
@@ -40,6 +40,15 @@
 		}
 		return 0;
 	}
+
+	function isOverage (prohibitedNumber: { id: number; number: number; by_amount?: boolean; amount: number; by_percentage?: boolean; can_sell_after_amount?: boolean;  }) {
+		if (prohibitedNumber?.by_amount){
+			if (prohibitedNumber?.amount === 0) {
+				return true;
+			}
+		}
+		return getOverageAmountOnProhibited(prohibitedNumber) > 0;
+	}
 </script>
 <header>
     <div class="prohibited">
@@ -47,7 +56,7 @@
         <div class="prohibited-list">
             {#if $prohibitedNumbers?.length}
                 {#each $prohibitedNumbers as number}
-                    <div class="prohibited-badge {getOverageAmountOnProhibited(number) > 0 ? 'prohibited-over' : ''}">
+                    <div class="prohibited-badge {isOverage(number) ? 'prohibited-over' : ''}">
                         <span>{number.number}</span>
 						<div class="prohibited-info">
 							<span>
