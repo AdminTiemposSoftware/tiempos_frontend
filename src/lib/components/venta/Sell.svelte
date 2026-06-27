@@ -118,12 +118,13 @@
 
         const matching = Object.fromEntries(Object.entries($sellingMatrix).filter(([key]) => prohibitedInSold.some((p) => p.number === Number(key))));
 
+        console.log('Matching prohibited numbers in sold:', matching);
         // Equivalent to first IF EXISTS
         const exceededNumbersByAmount = prohibitedInSold.filter((p) => {
             if (!p.by_amount) return false;
             
             const currentAmount = matching[p.number];
-            return currentAmount <= p.amount;
+            return currentAmount >= p.amount;
         });
         
         let message = '';
