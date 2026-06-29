@@ -27,6 +27,7 @@
 		cancelText = 'Cancelar',
 		handleAddProhibitedNumber = $bindable(),
 		handleUpdateProhibitedNumber = $bindable(),
+		handleDeleteProhibitedNumber = $bindable()
 	} = $props();
 
 	let numberInput: HTMLInputElement;
@@ -169,6 +170,17 @@
 					<button type="button" onclick={onClose}>{cancelText}</button>
 					<button type="submit">{confirmText}</button>
 				</div>
+
+				{#if handleDeleteProhibitedNumber && prohibited.id !== -1}
+					<button
+						type="button"
+						onclick={() => handleDeleteProhibitedNumber(prohibited)}
+						class="negative"
+					>
+						Eliminar numero restringido
+					</button>
+				{/if}
+			
 			</form>
 		</div>
 	</div>

@@ -7,7 +7,7 @@
 	import SelectModal from '$lib/components/SelectModal.svelte';
 	
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
-	let prohibitedNumberToDelete = $state<number | null>(null);
+	let prohibitedNumberToDelete = $state<prohibitedNumber | null>(null);
 	let prohibitedNumbers = $state<prohibitedNumber[]>([]);
 	let showDeleteProhibitedModal = $state(false);
 	let showAddProhibitedModal = $state(false);
@@ -21,11 +21,10 @@
 	let to =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let report = $state<reportItem[]>([]);
 	let isLoading = $state<boolean>(false);
-	
     let { data } = $props();
 
 	type prohibitedNumber = {
-		id?: number;
+		id: number;
 		number: number;
 		amount: number;
 		starter: number;
@@ -47,11 +46,27 @@
 		is_megareventado: boolean;
 	};
 
-    function handleConfirmDeleteProhibitedNumber() {
+    async function handleConfirmDeleteProhibitedNumber() {
 		if (prohibitedNumberToDelete == null) {
 			return;
 		}
-		prohibitedNumbers = prohibitedNumbers.filter((item) => item.number !== prohibitedNumberToDelete);
+
+		const response = await fetch(`/number/prohibited/${prohibitedNumberToDelete.id}`, {
+			method: 'DELETE',
+			headers: { 'Content-Type': 'application/json' }
+		});
+
+		if (!response.ok) {
+			acts.add({
+				message: "Error al eliminar el numero restringido.",
+				mode: 'error', 
+				lifetime: 3
+			});
+			return;
+		}
+
+		showUpdateProhibitedModal = false;
+		prohibitedNumbers = prohibitedNumbers.filter((item) => item.number !== prohibitedNumberToDelete?.number);
 		prohibitedNumberToDelete = null;
 	}
 
@@ -87,9 +102,15 @@
 		if (!response.ok) {
 			return;
 		}
+
+		const newProhibitedId = await response.json();
+		
+		console.log('Nuevo ID de número restringido:', newProhibitedId.items[0].NewProhibitedId);
+
 		prohibitedNumbers = prohibitedNumbers.some((item) => item.number === value)
 			? prohibitedNumbers
 			: [...prohibitedNumbers, { 
+				id: newProhibitedId.items[0].NewProhibitedId,
 				number: value, 
 				amount, 
 				starter, 
@@ -217,11 +238,8 @@
 
 		let branchesPayload: number[] = [];
 		let drawSchedulesPayload: number[] = [];
-		console.log('Selected Branches:', selectedBranch);
-		console.log('Selected Draw Schedules:', selectedDrawSchedule);
 		// All option is selected
 		if (selectedBranch.includes(0)) {
-			console.log('All branches selected');
 			branchesPayload = branchNames.slice(1).map((item) => item.value);
 		} else {
 			branchesPayload = selectedBranch;
@@ -279,7 +297,7 @@
 	}
 
 
-	function showDeleteProhibitedNumber(value: number) {
+	function showDeleteProhibitedNumber(value: prohibitedNumber) {
 		prohibitedNumberToDelete = value;
 		showDeleteProhibitedModal = true;
 	}
@@ -299,7 +317,7 @@
 	message={
 		prohibitedNumberToDelete == null
 			? 'Eliminar numero restringido?'
-			: `Eliminar el numero ${prohibitedNumberToDelete}?`
+			: `Eliminar el numero ${prohibitedNumberToDelete.number}?`
 	}
 	confirmText="Eliminar"
 	cancelText="Cancelar"
@@ -313,6 +331,7 @@
 	confirmText="Guardar"
 	cancelText="Cancelar"
 	handleUpdateProhibitedNumber={handleUpdateProhibitedNumber}
+	handleDeleteProhibitedNumber={showDeleteProhibitedNumber}
 />
 
 <ProhibitedNumberModal
