@@ -30,9 +30,9 @@
 		handleDeleteProhibitedNumber = $bindable()
 	} = $props();
 
-	let numberInput: HTMLInputElement;
-	let amountInput: HTMLInputElement;
-	let starterInput: HTMLInputElement;	
+	let numberInput: HTMLInputElement | undefined = $state<undefined>();
+	let amountInput: HTMLInputElement | undefined = $state<undefined>();
+	let starterInput: HTMLInputElement | undefined = $state<undefined>();
 
 	onMount(() => {
 		numberInput?.focus();

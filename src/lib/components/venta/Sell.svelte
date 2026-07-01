@@ -118,7 +118,6 @@
 
         const matching = Object.fromEntries(Object.entries($sellingMatrix).filter(([key]) => prohibitedInSold.some((p) => p.number === Number(key))));
 
-        console.log('Matching prohibited numbers in sold:', matching);
         // Equivalent to first IF EXISTS
         const exceededNumbersByAmount = prohibitedInSold.filter((p) => {
             if (!p.by_amount) return false;
@@ -494,8 +493,7 @@
         bind:numbersSold={sold}
         onClose={closeTicketsModal} 
         getSoldNumbersForTicket={getSoldNumbersForTicket}
-        onPDFPrint={handlePDFPrint}
-    />
++    />
 {/if}
 <svelte:window onkeydown={handlekeyinput} />
 <section class="sell">

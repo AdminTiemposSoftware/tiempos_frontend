@@ -4,7 +4,6 @@
     import Sell from "$lib/components/venta/Sell.svelte";
     import SellHeader from "$lib/components/venta/SellHeader.svelte";
     import { prohibitedNumbers } from "../../../lib/stores/UpdateSellMatrix";
-	import {Notifications, acts} from '@tadashi/svelte-notification'
     import { sellingMatrix } from "../../../lib/stores/UpdateSellMatrix";
     import { auth } from "$lib/stores/auth";
     import { total } from "../../../lib/stores/UpdateSellMatrix";
@@ -77,7 +76,7 @@
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
     let selectedDate = $state(utcMinus6Date.toISOString().split('T')[0]);
     let selectedBet = $state<AvailableBet | null>(null);
-    let prohibitedPercentage = $state(0.03);
+    let prohibitedPercentage = $state();
     let availableBets = $state<AvailableBet[]>([]);
     let isMatrixLoading = $state(false);
     let tickets = $state<TicketRow[]>([]);

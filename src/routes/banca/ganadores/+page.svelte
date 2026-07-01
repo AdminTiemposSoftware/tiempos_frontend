@@ -1,139 +1,102 @@
-<script lang="ts">
-    import ConfirmModal from '$lib/components/ConfirmModal.svelte';
-    import PayModal from '$lib/components/ganadores/PayModal.svelte';
+<script lang="ts">    
+	import {Notifications, acts} from '@tadashi/svelte-notification'
     import { auth } from '$lib/stores/auth';
-
-    const rows = [
-        {
-            id: 1,
-            date: '16/02/2026',
-            name: 'NICA 3',
-            time: '15:00',
-            winner: '68',
-            // sale: 0,
-            // commission: 0,
-            // prize: 0,
-            // net: 0
-        },
-        {
-            id: 2,
-            date: '16/02/2026',
-            name: 'NICA 9',
-            time: '16:00',
-            winner: '*',
-            // sale: 0,
-            // commission: 0,
-            // prize: 0,
-            // net: 0
-        }
-    ];
-
-    let editingWinner: Record<number, string> = rows.reduce(
-        (acc, row) => ({ ...acc, [row.id]: row.winner }),
-        {}
-    );
-
-    type Row = (typeof rows)[number];
-
-    let assignedWinner: Record<number, boolean> = rows.reduce(
-        (acc, row) => ({ ...acc, [row.id]: false }),
-        {}
-    );
-
-    let winnerErrors: Record<number, string | null> = rows.reduce(
-        (acc, row) => ({ ...acc, [row.id]: null }),
-        {}
-    );
-
-    let showAssignConfirm = false;
-    let pendingAssignRow: Row | null = null;
-    let pendingAssignValue = '';
-
-    let showPayModal = false;
-    let pendingPayRow: Row | null = null;
-    let payTicketNumber = '';
-
-    const assignWinner = (id: number) => {
-        //TODO UPDATE WINNER IN DB
-        assignedWinner = { ...assignedWinner, [id]: true };
+    import { goto } from '$app/navigation';
+    
+    let { data } = $props();
+    
+    const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    let selectedDate = $state(utcMinus6Date.toISOString().split('T')[0]);
+    let winners = $state<Winner[]>([]);
+    let editingWinner = $state<Record<number, number>>({});
+    let assignedWinner = $state<Record<number, boolean>>({});
+    
+    type Winner = {
+        date: string;
+        draw_id: number;
+        draw_is_megareventado: boolean;
+        draw_is_reventado: boolean;
+        draw_schedule_name: string;
+        position_id: number;
+        position_number: number;
+        schedule_id: number;
+        schedule_time: string;
+        winner_id: number;
+        winner_number: number;
     };
 
-    const clearWinnerError = (id: number) => {
-        if (!winnerErrors[id]) {
-            return;
-        }
-        winnerErrors = { ...winnerErrors, [id]: null };
-    };
+    // $effect(() => {
+        
+    //     void goto(`?date=${selectedDate}`, {
+    //         replaceState: true,
+    //         noScroll: true,
+    //         keepFocus: true
+    //     });
+    // });
+        
+    $effect(() => {
+        const items = Array.isArray(data?.items) ? data.items : [];
+        winners = items.map((item: any) => ({
+            date: item.date,
+            draw_id: item.draw_id,
+            draw_is_megareventado: item.draw_is_megareventado,
+            draw_is_reventado: item.draw_is_reventado,
+            draw_schedule_name: `${item.draw_name} ${item.schedule_name}`,
+            position_id: item.position_id,
+            position_number: item.position_number,
+            schedule_id: item.schedule_id,
+            schedule_time: item.schedule_time,
+            winner_id: item.winner_id,
+            winner_number: item.winner_number
+        }));
 
-    const requestAssignWinner = (row: Row) => {
-        const rawValue = editingWinner[row.id] ?? '';
-        const normalizedValue = rawValue.trim();
-        const isNumeric = /^\d+$/.test(normalizedValue);
+        editingWinner = items.reduce((acc: Record<number, number>, item: any) => {
+            acc[item.position_id] = item.winner_number;
+            return acc;
+        }, {});
+        assignedWinner = items.reduce((acc: Record<number, boolean>, item: any) => {
+            acc[item.position_id] = item.winner_number !== null;
+            return acc;
+        }, {});
+    });
 
-        if (!isNumeric) {
-            winnerErrors = {
-                ...winnerErrors,
-                [row.id]: 'Ingresa un numero valido.'
-            };
+    async function requestAssignWinner(winner: Winner) {
+        const numberToAssign = editingWinner[winner.position_id];
+        if (numberToAssign === undefined || numberToAssign === null) {
+            acts.add({
+                message: 'Por favor, ingrese un número antes de asignar.',
+                mode: 'error',
+                lifetime: 3
+            });
             return;
         }
 
-        editingWinner = { ...editingWinner, [row.id]: normalizedValue };
-        winnerErrors = { ...winnerErrors, [row.id]: null };
-        pendingAssignRow = row;
-        pendingAssignValue = normalizedValue;
-        showAssignConfirm = true;
-    };
+        
+        const response = await fetch('/banca/ganadores/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                position_id: winner.position_id,
+                number: numberToAssign,
+                date: winner.date
+            })
+        });
 
-    const confirmAssignWinner = () => {
-        if (!pendingAssignRow) {
+        if (!response.ok) {
+            acts.add({
+                message: 'Error al asignar el ganador. Por favor, inténtelo de nuevo.',
+                mode: 'error',
+                lifetime: 3
+            });
             return;
         }
-        assignWinner(pendingAssignRow.id);
-        winnerErrors = { ...winnerErrors, [pendingAssignRow.id]: null };
-        pendingAssignRow = null;
-        pendingAssignValue = '';
-    };
 
-    const openPayModal = (row: Row) => {
-        pendingPayRow = row;
-        payTicketNumber = '';
-        showPayModal = true;
-    };
+        assignedWinner[winner.position_id] = true;
 
-    const resetPayModal = () => {
-        pendingPayRow = null;
-    };
-
-    const handlePaySubmit = () => {
-        if (!pendingPayRow) {
-            return;
-        }
-        // TODO: Enviar pago a backend con el numero de tiquete ganador.
-        pendingPayRow = null;
-    };
-</script>
-
-<ConfirmModal
-    bind:showModal={showAssignConfirm}
-    message={
-        pendingAssignRow
-            ? `Asignar ganador ${pendingAssignValue} para ${pendingAssignRow.name}?`
-            : 'Asignar ganador?'
     }
-    confirmText="Asignar"
-    cancelText="Cancelar"
-    confirm={confirmAssignWinner}
-/>
-
-<PayModal
-    bind:showModal={showPayModal}
-    bind:ticketNumber={payTicketNumber}
-    name={pendingPayRow?.name ?? ''}
-    time={pendingPayRow?.time ?? ''}
-    onPay={handlePaySubmit}
-    onClose={resetPayModal}
-/>
+</script>
 
 <svelte:head>
 	<title>Ganadores</title>
@@ -153,10 +116,6 @@
                 <label for="desde">Fecha</label>
                 <input id="desde" type="date" value="2026-02-16" />
             </div>
-            <div class="field">
-                <label for="filtrar">Filtrar</label>
-                <button class="wide neutral">Sorteos</button>
-            </div>
         </div>
     </header>
 
@@ -165,44 +124,37 @@
             <thead>
                 <tr>
                     <th>Fecha</th>
-                    <th>Nombre</th>
-                    <th>Hora</th>
+                    <th>Sorteo</th>
                     <th>Ganador</th>
                 </tr>
             </thead>
             <tbody>
-                {#each rows as row}
+                {#each winners as winner}
                     <tr>
-                        <td>{row.date}</td>
-                        <td>{row.name}</td>
-                        <td>{row.time}</td>
+                        <td>{winner.date}</td>
+                        <td>{winner.draw_schedule_name} ({winner.schedule_time})</td>
                         <td>
                             <div class="winner-input">
                                 <input
-                                    type="text"
-                                    inputmode="numeric"
-                                    placeholder="Ej: 68"
-                                    bind:value={editingWinner[row.id]}
-                                    disabled={assignedWinner[row.id]}
-                                    on:input={() => clearWinnerError(row.id)}
+                                    type="number"
+                                    bind:value={editingWinner[winner.position_id]}
+                                    disabled={assignedWinner[winner.position_id]}
                                 />
-                                {#if !assignedWinner[row.id]}
+                                {#if !assignedWinner[winner.position_id]}
                                     <button
-                                        on:click={() => requestAssignWinner(row)}
+                                        onclick={() => requestAssignWinner(winner)}
                                     >
                                         Asignar
                                     </button>
                                 {/if}
                             </div>
-                            {#if winnerErrors[row.id]}
-                                <div class="winner-error">{winnerErrors[row.id]}</div>
-                            {/if}
                         </td>
                     </tr>
                 {/each}
             </tbody>
         </table>
     </div>
+<Notifications/>
 </section>
 {/if}
 
@@ -243,11 +195,4 @@
     .winner-input input {
         width: 50px;
     }
-
-    .winner-error {
-        margin-top: 0.25rem;
-        color: var(--color-negative, #c0392b);
-        font-size: 0.75rem;
-    }
-
 </style>
