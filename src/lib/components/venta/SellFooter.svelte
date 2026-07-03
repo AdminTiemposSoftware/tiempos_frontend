@@ -70,7 +70,7 @@
             {/if}
         </div>
     </div>
-    <span>Actualmente tienes los prohibidos al {prohibitedPercentage * 100}% por lo que solo tienes permitido vender ₡{formatAmount(availableAmountOnProhibited)}</span>
+    <span>Actualmente tienes los prohibidos al {prohibitedPercentage}% por lo que solo tienes permitido vender ₡{formatAmount(availableAmountOnProhibited)}</span>
 </header>
 
 <style>

@@ -125,6 +125,8 @@
         if (selectedBet?.schedule_id !== nextSelectedBet?.schedule_id) {
             selectedBet = nextSelectedBet;
         }
+
+        prohibitedPercentage = $auth.user?.prohibitedPercentage;
     });
 
     $effect(() => {

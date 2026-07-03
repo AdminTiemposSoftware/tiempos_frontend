@@ -184,6 +184,7 @@ section {
 
 input:disabled {
 	background-color: #efefef;
+	color: #999;
 }
 
 header {

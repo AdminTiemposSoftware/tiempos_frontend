@@ -121,6 +121,10 @@
         align-items: center;
     }
 
+    .matrix-cell input[type="number"]:first-child {
+        color: var(--color-text);
+    }
+
     .prohibited-number input[type="number"] {
         background-color: #f8d7da;
         border-color: #f5c6cb;
@@ -139,6 +143,7 @@
     .price {
         width: 100% !important; 
         background-color: #ffffff;
+        color: var(--color-text);
     }
 
     .price-animated {
