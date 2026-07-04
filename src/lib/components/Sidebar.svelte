@@ -54,8 +54,8 @@
         { label: 'Puestos', path: '/banca/puestos', roles: ['banking'] },
         { label: 'Sorteos', path: '/banca/sorteos', roles: ['banking'] },
         { label: 'Ganadores', path: '/banca/ganadores', roles: ['banking'] },
+        { label: 'Ganadores', path: '/puesto/ganadores', roles: ['branch'] },
         { label: 'Reportes', path: '/puesto/reportes', roles: ['branch'] },
-
         { label: 'Cajas', path: '/puesto/cajas', roles: ['branch'] },
 		{ label: 'Carga Excel', path: '/puesto/carga-excel', roles: ['branch'] }
 	];

@@ -353,7 +353,6 @@
         doc.save(`ticket-${safeSerial}.pdf`);
     }
 
-
     async function getTickets() {
         const scheduleId = selectedBet?.schedule_id ?? null;
         if (!scheduleId || !selectedDate) {

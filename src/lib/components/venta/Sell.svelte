@@ -493,7 +493,7 @@
         bind:numbersSold={sold}
         onClose={closeTicketsModal} 
         getSoldNumbersForTicket={getSoldNumbersForTicket}
-+    />
+    />
 {/if}
 <svelte:window onkeydown={handlekeyinput} />
 <section class="sell">

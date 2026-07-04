@@ -309,7 +309,7 @@
 </script>
 
 <svelte:head>
-    <title>En desarrollo</title>
+    <title>Inicio</title>
 </svelte:head>
 
 <ConfirmModal
