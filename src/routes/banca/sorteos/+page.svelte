@@ -4,7 +4,7 @@
 	import SorteoModal from '$lib/components/sorteos/SorteoModal.svelte';
 	import SorteoCard from '$lib/components/sorteos/SorteoCard.svelte';
 	import AssignSorteoModal from '$lib/components/sorteos/AssignSorteoModal.svelte';
-	import AssignPuestoModal from '$lib/components/sorteos/AssignPuestoModal.svelte';
+	import {Notifications, acts} from '@tadashi/svelte-notification'
 	import { auth } from '$lib/stores/auth';	
 
 	let { data } = $props();
@@ -251,6 +251,12 @@
 		});
 		if (!response.ok) {
 			console.error('Error saving schedule settings', await response.text());
+			acts.add({
+				message: 'Ha ocurrido un error al guardar los cambios.',
+				mode: 'error',
+				lifetime: 3
+			})
+			return;
 		}
 		// } else if (change === 'puestos') {
 		for (const puesto of settings.puestos) {
@@ -266,9 +272,27 @@
 			});
 			if (!response.ok) {
 				console.error('Error saving puesto settings', await response.text());
+				acts.add({
+					message: 'Ha ocurrido un error al guardar los cambios.',
+					mode: 'error',
+					lifetime: 3
+				})
+				return;
 			}
 		}
 
+		draws = draws.map((sorteo) => ({
+			...sorteo,
+			schedule: sorteo.schedule.map((slot) =>
+				slot.id === scheduleId ? { ...slot, ...settings } : slot
+			)
+		}));
+
+		acts.add({
+			message: 'Se han guardado los cambios correctamente.',
+			mode: 'success',
+			lifetime: 3
+		})
 	}
 
 	// Delete handlers
@@ -376,6 +400,7 @@
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
 <section class="page-stack draws-page">
+	<Notifications />
 	<header class="header-banking">
 		<div class="header-top">
 			<div class="header-title">
