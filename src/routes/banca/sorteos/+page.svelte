@@ -20,7 +20,7 @@
 	};
 
 	type schedule = {
-		id: number;
+		id: number | null;
 		name: string;
 		time: string;
 		is_reventado: boolean;
@@ -62,20 +62,15 @@
 	let showScheduleModal = $state(false);
 	let showSorteoModal = $state(false);
 	let showDeleteScheduleModal = $state(false);
-	let showDeletePuestoModal = $state(false);
 	let showDeleteSorteoModal = $state(false);
 	let showAssignSorteoModal = $state(false);
-	let showAssignPuestoModal = $state(false);
-	let selectedSorteo = $state<draw | null>(null);
-	let selectedSchedule = $state<schedule | null>(null);
+	let selectedSorteo = $state<draw>();
+	let selectedSchedule = $state<schedule>();
 	let selectedSorteoId = $state(0);
-	let selectedScheduleId = $state(0);
-	let selectedSchedulePuesto = $state<puesto | null>(null);
-	let selectedShortcutSorteoId = $state<number | null>(null);
+	let selectedShortcutSorteoId = $state<number>();
 	let selectedShortcutPuesto = $state('');
-	let puestoToDelete = $state(null);
-	let scheduleToDelete = $state(null);
-	let sorteoToDelete = $state(null);
+	let scheduleToDelete = $state<schedule>();
+	let sorteoToDelete = $state<draw>();
 	let expandedSorteo = $state<number[]>([]);
 	let selectedScheduleBySorteo = $state<Record<number, number | null>>({});
 	let puestoOptions = $state<puesto[]>([]);
@@ -101,7 +96,7 @@
 			try {
 				const res = await fetch(`/banca/sorteos/draw-schedule/${sorteoId}`);
 				const payload = await res.json().catch(() => null);
-				const items = Array.isArray(payload?.items) ? payload.items as { id: number; name: string; time: string, is_reventado: boolean, is_megareventado: boolean }[] : [];
+				const items = Array.isArray(payload?.items) ? payload.items as schedule[] : [];
 				schedule = items.map((it) => ({ 
 					id: it.id,
 					name: it.name ?? '',
@@ -166,14 +161,12 @@
 
 	// Open modals for edit/view actions
 	function showEditSorteo(sorteoId: number) {
-		selectedSorteo = { ...draws.find((s) => s.id === sorteoId) };
+		selectedSorteo = draws.find((s) => s.id === sorteoId);
 		showSorteoModal = true;
 	}
 
 	function showEditSchedule(sorteoId: number, scheduleId: number) {
-		selectedSchedule = {
-			...draws.find((s) => s.id === sorteoId)?.schedule.find((s) => s.id === scheduleId)
-		};
+		selectedSchedule = draws.find((s) => s.id === sorteoId)?.schedule.find((s) => s.id === scheduleId);
 		showScheduleModal = true;
 	}
 
@@ -195,18 +188,8 @@
 		draws = [...draws, { ...newSorteo, id: nextId }];
 	}
 
-	function handleAddScheduleSubmit(payload: { sorteoId: any; name: any; time: any; id: any; }) {
-		const { sorteoId, name, time, id } = payload;
-		draws = draws.map((sorteo) => {
-			if (sorteo.id !== sorteoId) {
-				return sorteo;
-			}
-			const nextId = id ?? Math.max(0, ...sorteo.schedule.map((item) => item.id)) + 1;
-			return {
-				...sorteo,
-				schedule: [...sorteo.schedule, { name, time, id: nextId, puestos: [] }]
-			};
-		});
+	function handleAddScheduleSubmit(payload: { sorteoId: any; name: any; time: any; id: any; is_reventado: any; is_megareventado: any; }) {
+	
 	}
 
 	// Update handlers
@@ -260,6 +243,10 @@
 		}
 		// } else if (change === 'puestos') {
 		for (const puesto of settings.puestos) {
+			if (puesto.id === undefined) continue; // skip if puesto id is not defined
+			if (puesto.comission <= 0 || puesto.comission >= 100) continue; // skip if comission is not valid
+			console.log('Saving puesto settings for schedule', scheduleId, puesto);
+
 			const response = await fetch(`/banca/sorteos/draw-schedule-branch`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -295,35 +282,63 @@
 		})
 	}
 
-	// Delete handlers
-	function handleConfirmDeletePuesto() {
-		// TODO Send delete request to backend
-		if (!puestoToDelete) {
+	async function handleConfirmDeleteSchedule() {
+		const response = await fetch(`/banca/sorteos/draw-schedule/${scheduleToDelete?.id}`, {
+			method: 'DELETE'
+		});
+
+		if (!response.ok) {
+			console.error('Error deleting schedule', response.statusText);
+			acts.add({
+				message: 'Ha ocurrido un error al eliminar el horario.',
+				mode: 'error',
+				lifetime: 3
+			})
 			return;
 		}
-		draws = draws.map((sorteo) => ({
-			...sorteo,
-			schedule: sorteo.schedule.map((slot) => ({
-				...slot,
-				puestos: slot.puestos.filter((puesto: { id: any; }) => puesto.id !== puestoToDelete?.id) //Asume puesto ids are unique across draws and horarios for simplicidad, otherwise also check sorteoId and scheduleId
-			}))
-		}));
-		puestoToDelete = null;
-	}
+		acts.add({
+			message: 'Horario eliminado correctamente.',
+			mode: 'success',
+			lifetime: 3
+		})
 
-	function handleConfirmDeleteSchedule() {
-		// TODO Send delete request to backend
 		draws = draws.map((sorteo) => ({
 			...sorteo,
 			schedule: sorteo.schedule.filter((slot) => slot.id !== scheduleToDelete?.id) //Asume schedule ids are unique across draws for simplicity, otherwise also check sorteoId
 		}));
-		scheduleToDelete = null;
+		scheduleToDelete = { id: -1, name: '', time: '', is_reventado: false, is_megareventado: false };
 	}
 
 	function handleConfirmDeleteSorteo() {
 		// TODO Send delete request to backend
+		// fetch(`/banca/sorteos/draw/${sorteoToDelete?.id}`, {
+		// 	method: 'DELETE'
+		// }).then((res) => {
+		// 	if (!res.ok) {
+		// 		console.error('Error deleting sorteo', res.statusText);
+		// 		acts.add({
+		// 			message: 'Ha ocurrido un error al eliminar el sorteo.',
+		// 			mode: 'error',
+		// 			lifetime: 3
+		// 		})
+		// 		return;
+		// 	}
+		// 	acts.add({
+		// 		message: 'Sorteo eliminado correctamente.',
+		// 		mode: 'success',
+		// 		lifetime: 3
+		// 	})
+		// }).catch((error) => {
+		// 	console.error('Error deleting sorteo', error);
+		// 	acts.add({
+		// 		message: 'Ha ocurrido un error al eliminar el sorteo.',
+		// 		mode: 'error',
+		// 		lifetime: 3
+		// 	})
+		// });
+
 		draws = draws.filter((sorteo) => sorteo.id !== sorteoToDelete?.id);
-		sorteoToDelete = null;
+		sorteoToDelete = {id: -1, name: '', is_reventado: false, is_megareventado: false, draw_day_id: 0, day_name: '', schedule: []};
 	}
 
 	function openAssignSorteoModal() {
@@ -342,26 +357,17 @@
 
 <ScheduleModal
 	bind:showModal={showScheduleModal}
-	bind:schedule={selectedSchedule}
-	bind:sorteoId={selectedSorteoId}
+	schedule={selectedSchedule}
+	sorteoId={selectedSorteoId}
 	addSchedule={handleAddScheduleSubmit}
 	updateSchedule={updateSchedule}
 />
 
 <SorteoModal
 	bind:showModal={showSorteoModal}
-	bind:sorteo={selectedSorteo}
+	sorteo={selectedSorteo}
 	addSorteo={handleAddSorteoSubmit}
 	updateSorteo={updateSorteo}
-/>
-
-<ConfirmModal
-	bind:showModal={showDeletePuestoModal}
-	title="Eliminar puesto"
-	message={`Estas seguro de eliminar ${puestoToDelete?.name ?? 'este puesto'} del horario?`}
-	confirmText="Eliminar"
-	cancelText="Cancelar"
-	confirm={handleConfirmDeletePuesto}
 />
 
 <ConfirmModal
@@ -383,7 +389,7 @@
 />
 
 <!-- TODO send the modal with the selected puestos for this sorteo -->
-<AssignSorteoModal
+<!-- <AssignSorteoModal
 	bind:showModal={showAssignSorteoModal}
 	draws={draws}
 	bind:selectedSorteoId={selectedShortcutSorteoId}
@@ -392,7 +398,7 @@
 	confirmText="Aplicar"
 	cancelText="Cancelar"
 	confirm={handleAssignSorteoToPuestos}
-/>
+/> -->
 
 <svelte:head>
 	<title>Sorteos</title>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { PenSolid, TrashBinSolid } from 'flowbite-svelte-icons';
+	import { acts, Notifications} from '@tadashi/svelte-notification'
 
 	let {
 		sorteo,
@@ -65,7 +66,7 @@
 					puestos: [...nextDraft.puestos, {
 						...puesto,
 						enabled: Boolean(existing),
-						comission: existing ? existing.comission : 0
+						comission: existing ? existing.comission : -1
 					}]
 				};
 		}
@@ -146,7 +147,7 @@
 			} else {
 				draft = {
 					...draft,
-					puestos: [...draft.puestos, { ...puesto, enabled, comission: 0 }]
+					puestos: [...draft.puestos, { ...puesto, enabled, comission: -1 }]
 				};
 			}
 			isDirty = true;
@@ -217,12 +218,20 @@
 
 	function handleSaveSettings() {
 		if (selectedSchedule?.id == null || !isDirty) return;
+		if (draft.puestos.some((p) => p.enabled && (p.comission <= 0 || isNaN(p.comission)))) {
+			acts.add({
+				message: 'Asigne una comisión válida',
+				mode: 'error',
+				lifetime: 3
+			});
+			return;
+		}
 		onSaveScheduleSettings(selectedSchedule.id, draft);
 		isDirty = false;
 	}
 
 </script>
-
+<Notifications/>
 <div class="panel-card">
 	<div
 		class="panel-toggle"

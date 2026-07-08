@@ -228,7 +228,7 @@
                         <td>
                             {winner.date ? winner.date.split('T')[0].split('-').reverse().join('/') : ''}
                         </td>                        
-                        <td>{winner.draw_schedule_name} {winner.position_number === 2 ? "reventado" : ""} ({winner.schedule_time})</td>
+                        <td>{winner.draw_schedule_name} {winner.position_number === 2 ? "reventado" : ""} {winner.position_number === 3 ? "megareventado" : ""} ({winner.schedule_time})</td>
                         <td>
                             <div class="horizontal-cell">
                                 <input 

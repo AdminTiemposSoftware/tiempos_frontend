@@ -1,13 +1,24 @@
 <script lang="ts">
 	let {
 		showModal = $bindable(),
-		schedule = $bindable({
+		schedule = $bindable<schedule>({
+			id: null,
 			name: '',
-			time: ''
+			time: '',
+			is_reventado: false,
+			is_megareventado: false
 		}),
 		sorteoId = $bindable(0),
         addSchedule
 	} = $props();
+	
+	type schedule = {
+		id: number | null;
+		name: string;
+		time: string;
+		is_reventado: boolean;
+		is_megareventado: boolean;
+	};
 
 	function onClose() {
 		showModal = false;
