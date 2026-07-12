@@ -245,7 +245,6 @@
 		for (const puesto of settings.puestos) {
 			if (puesto.id === undefined) continue; // skip if puesto id is not defined
 			if (puesto.comission <= 0 || puesto.comission >= 100) continue; // skip if comission is not valid
-			console.log('Saving puesto settings for schedule', scheduleId, puesto);
 
 			const response = await fetch(`/banca/sorteos/draw-schedule-branch`, {
 				method: 'POST',

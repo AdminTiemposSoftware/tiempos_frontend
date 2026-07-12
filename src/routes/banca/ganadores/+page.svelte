@@ -220,6 +220,7 @@
                     <th>Sorteo</th>
                     <th>Multiplicador</th>
                     <th>Ganador</th>
+                    <!-- <th>Cayó bola</th> TODO -->
                 </tr>
             </thead>
             <tbody>
@@ -281,6 +282,14 @@
                                 {/if}
                             </div>
                         </td>
+                        <td>
+                            <!-- {#if winner.position_number === 2}
+                                <div class= "horizontal-cell">
+                                    <button class="ball red">Roja</button>
+                                    <button class="ball white">Blanca</button>
+                                </div>
+                            {/if} -->
+                        </td>
                     </tr>
                 {/each}
             </tbody>
@@ -328,5 +337,24 @@
     .horizontal-cell {
         display: flex;
         gap: 0.5rem;
+    }
+
+    .ball {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: var(--color-theme-4);
+        color: white;
+        font-size: 0.75rem;
+        border: 1px solid black;
+        /* box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); */
+    }
+
+    .ball.white {
+        background-color: white;
+        color: black;
     }
 </style>

@@ -2,9 +2,11 @@
     import { onMount, tick } from "svelte";
     import { PenSolid, TrashBinSolid, EyeSolid } from "flowbite-svelte-icons";
     import ConfirmModal from "../ConfirmModal.svelte";
+    import ReceiptPreview from "../../printing/ReceiptPreview.svelte";
 
     type Ticket = {
         id: number;
+        serial: number;
         total: number;
         details: string;
         status?: boolean;
@@ -201,36 +203,29 @@
             <button onclick={onClose}>Cerrar</button>
         </div>
         <div class="ticket-sold-numbers">
-            <h2 class="modal-title">
-                
-                Tiquete 
-                {#if selectedTicket}
-                    #{selectedTicket.id}
-                {/if}
-            </h2>
-            <ul class="sold-list" aria-label="Numeros vendidos">
-                {#if selectedTicket}
-                    {#each soldNumbersForSelectedTicket as sold}
-                        <li class="sold-row">
-                            <span class="sold-number">{sold.number}</span>
-                            <span class="sold-dots" aria-hidden="true"></span>
-                            <span class="sold-price">₡{sold.price}</span>
-                        </li>
-                    {/each}
-                {/if}
-            </ul>
-            <div class="sold-total">
-                <span>Total</span>
-                <span>₡{soldNumbersTotal}</span>
-            </div>
-            <button 
-                onclick={loadSoldNumbers}
-                disabled={soldNumbersForSelectedTicket.length === 0}
-            >
-                Cargar
-            </button>
-        </div>
+            {#if selectedTicket}
+                <h2 class="modal-title">Tiquete {selectedTicket.id}</h2>
+                <ReceiptPreview 
+                    receipt={{
+                        serial: selectedTicket.serial.toString(),
+                        title: "",
+                        items: soldNumbersForSelectedTicket.map((sold) => ({
+                            number: sold.number,
+                            amount: sold.price
+                        })),
+                        total: soldNumbersTotal,
+                        footer: ['* * Gracias por su compra * *', '¡Buena suerte!']
+                    }}
+                    groupedItems={true}
+                    qrData={null}
+                    details={selectedTicket.details}
+                />
+                <button onclick={loadSoldNumbers}>Cargar números vendidos</button>
+            {:else}
+                <p>Seleccione un tiquete para ver los números vendidos.</p>
+            {/if}
     </div>
+</div>
 </div>
 
 <style>
@@ -241,33 +236,6 @@
 
     .tickets-table th {
         background-color: #efefef;
-    }
-
-    .sold-row {
-        display: grid;
-        grid-template-columns: auto 1fr auto;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.35rem 0.75rem;
-    }
-
-    .sold-number,
-    .sold-price {
-        font-weight: 600;
-    }
-
-    .sold-dots {
-        border-bottom: 2px dotted var(--color-border);
-        height: 0;
-    }
-
-    .sold-total {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0.5rem 0.75rem;
-        border-top: 2px solid var(--color-border);
-        font-weight: 600;
     }
 
     .search-row {

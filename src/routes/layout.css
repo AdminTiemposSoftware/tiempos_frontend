@@ -100,13 +100,13 @@ button {
 }
 
 button {
-	padding: 0.5rem 1rem;
 	background-color: var(--color-theme-1);
 	color: white;
 	border: none;
 	border-radius: 4px;
 	cursor: pointer;
 	transition: background-color 0.3s ease, transform 0.2s ease;
+	padding: 0.5rem 1rem;
 }
 
 button:hover {
@@ -588,3 +588,39 @@ button.prohibited-badge:focus-visible {
 	outline: 2px solid var(--color-theme-1);
 	outline-offset: 2px;
 }
+
+
+.button-name {
+	font-size: 0.9rem;
+	display: inline-flex;
+	margin-left: 0.5rem;
+}
+
+.button-name p {
+	padding: 0 1.5px 0 1.5px;
+	display: inline;
+	vertical-align: super;
+	text-decoration: underline;
+	font-weight: 550;
+}
+@media print {
+	@page {
+		size: 80mm auto;
+		margin: 0;
+	}
+    body * {
+        visibility: hidden;
+    }
+
+    .receipt,
+    .receipt * {
+        visibility: visible;
+    }
+
+    .receipt {
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+}
+

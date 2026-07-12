@@ -11,7 +11,8 @@ type TicketDetail = {
 
 type TicketRequest = {
 	draw_schedule_id: number;
-	details: TicketDetail[];
+	details: string;
+	numbers: TicketDetail[];
 };
 
 export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) => {
@@ -31,14 +32,15 @@ export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) 
 	}
 
 	const draw_schedule_id = Number(payload?.draw_schedule_id);
-	const details = Array.isArray(payload?.details) ? payload.details : [];
+	const details = payload?.details;
+	const numbers = Array.isArray(payload?.numbers) ? payload.numbers : [];
 
 	if (!Number.isFinite(draw_schedule_id) || draw_schedule_id <= 0) {
 		return json({ error: 'draw_schedule_id is required' }, { status: 400 });
 	}
 
-	if (!details.length) {
-		return json({ error: 'details must be a non-empty list' }, { status: 400 });
+	if (!numbers.length) {
+		return json({ error: 'numbers must be a non-empty list' }, { status: 400 });
 	}
 
 	const response = await fetch(`${baseUrl}/ticket`, {
@@ -51,7 +53,8 @@ export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) 
 		body: JSON.stringify({
 			draw_schedule_id,
 			branch_id: branchId,
-			details
+			details,
+			numbers
 		})
 	});
 

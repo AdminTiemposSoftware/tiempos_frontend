@@ -1,5 +1,5 @@
 <script lang="ts">
-    let sold= $state<Record<string, { price: number }>>({});
+    let sold= $state<Record<string, { price: number }>>({}); //TODO : temp value for testing 
     let soldAmount = $state(0);
     let priceInput: HTMLInputElement;
     let randomCountInput: HTMLInputElement;
@@ -14,7 +14,13 @@
     let {getTickets, getSoldNumbersForTicket, selectedBet, handlePDFPrint, selectedDate} = $props();
     let selectedRowIndex = $state(0);
     let rowRefs: Array<HTMLTableRowElement | null> = [];
-
+    let showTicketPreviewModal = $state(false); //TODO : temp value for testing 
+    let details = $state('');
+    let detailsSnapshot = $state('');
+    let soldSnapshot: Record<string, { price: number }> = $state({});
+    let createdTicket: { ticket_serial: string; ticket_amount: number; printed_at: string; ticket_number: string } | null = $state(null);
+    let showConfirmModal = $state(false);
+    
     import { onMount } from 'svelte';
     import { TrashBinSolid, CubeSolid, QuestionCircleSolid, PrinterSolid, EyeSolid, ReceiptSolid, CameraPhotoSolid } from "flowbite-svelte-icons";
     import { sellingMatrix } from '../../stores/UpdateSellMatrix';
@@ -24,7 +30,9 @@
     import { prohibitedNumbers } from "../../stores/UpdateSellMatrix";
     import { Notifications, acts } from '@tadashi/svelte-notification';
     import { auth } from '../../stores/auth';
-
+    import TicketPreviewModal from './TicketPreviewModal.svelte';
+    import ConfirmModalWithInput from '../ConfirmModalWithInput.svelte';
+    
 
     onMount(() => {
         priceInput?.focus();
@@ -96,7 +104,7 @@
         priceValue = '';
     }
 
-    function buildDetailsPayload(values: Record<string, { price: number }>) {
+    function buildNumbersPayload(values: Record<string, { price: number }>) {
         return Object.entries(values).map(([number, price]) => ({
             number: parseInt(number, 10),
             amount: price.price,
@@ -108,6 +116,7 @@
     async function submitTicket(event: Event) {
         event.preventDefault();
         await processTicket();
+        showTicketPreviewModal = true;
     }
 
     function hasProhibitedNumbers(soldSnapshot: Record<string, { price: number }>) {
@@ -167,13 +176,33 @@
         return false;
     }
 
+    function canSellSelectedNumbers(drawScheduleId : number ) {
+        if (!drawScheduleId){
+            acts.add({
+                message: 'No se ha seleccionado un sorteo.',
+                mode: 'error', 
+                lifetime: 3
+            });
+            return false;
+        }
+        if (Object.keys(sold).length === 0){ 
+            acts.add({
+                message: 'No hay números seleccionados.',
+                mode: 'error', 
+                lifetime: 3
+            });
+            return false;
+        }
+        return true;
+    }
+
     async function processTicket() {
         submitError = '';
 
-        const drawScheduleId = selectedBet?.schedule_id ?? null;
-        if (!drawScheduleId || Object.keys(sold).length === 0) return;
+        const drawScheduleId = selectedBet?.schedule_id ?? selectedBet?.draw_schedule_id;
+        if (!canSellSelectedNumbers(drawScheduleId)) return;
             
-        const soldSnapshot = { ...sold };
+        soldSnapshot = { ...sold };
         isSubmitting = true;
 
         if (hasProhibitedNumbers(soldSnapshot)) return;
@@ -185,7 +214,8 @@
             },
             body: JSON.stringify({
                 draw_schedule_id: drawScheduleId,
-                details: buildDetailsPayload(soldSnapshot)
+                details: details,
+                numbers: buildNumbersPayload(soldSnapshot)
             })
         });
 
@@ -197,23 +227,7 @@
         }
 
         const responseBody = await response.json().catch(() => null);
-        const createdTicket = Array.isArray(responseBody?.items) ? responseBody.items[0] : null;
-        if (createdTicket) {
-            const ticketRow = {
-                id: 0,
-                serial: createdTicket.ticket_serial,
-                total: Number(createdTicket.ticket_amount) || 0,
-                details: '',
-                time: createdTicket.printed_at ?? '',
-                date: selectedDate ?? '',
-                status: true
-            };
-            const soldNumbers = Object.entries(soldSnapshot).map(([number, price]) => ({
-                number: String(number).padStart(2, '0'),
-                price: price.price
-            }));
-            await handlePDFPrint(ticketRow, soldNumbers, createdTicket.ticket_number ?? null);
-        }
+        createdTicket = Array.isArray(responseBody?.items) ? responseBody.items[0] : null;
 
         sellingMatrix.update((matrix) => {
             for (const [number, price] of Object.entries(soldSnapshot)) {
@@ -224,6 +238,8 @@
         total.update((n) => n + Object.values(soldSnapshot).reduce((sum, item) => sum + item.price, 0));
         sold = {};
         soldAmount = 0;
+        detailsSnapshot = details;        
+        details = '';
     }
 
     function deleteNumber(number: string) {
@@ -368,14 +384,14 @@
 
     // TODO: Implement functionality for these buttons
     function viewQR() {
-        if (Object.keys(sold).length === 0) {
-            return;
-        }
+        // if (Object.keys(sold).length === 0) {
+        //     return;
+        // }
         showQrModal = true;
     }
 
     // TODO: Implement functionality for these buttons
-    function scanQR() {
+    async function scanQR() {
     }
 
     async function viewTickets() {
@@ -387,11 +403,19 @@
         showTicketsModal = false;
     }
 
-    function handlekeyinput(event: KeyboardEvent) {
+    async function handlekeyinput(event: KeyboardEvent) {
         const target = event.target;
         const isTyping = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || (target instanceof HTMLElement && target.isContentEditable);
 
         if (event.repeat) {
+            return;
+        }
+
+        if (showConfirmModal){
+            if (event.key === "Enter") {
+                event.preventDefault();
+                await handleConfirmDetails();
+            }
             return;
         }
         
@@ -424,8 +448,8 @@
                 break;
             case "r":
             case "R":
-                // Imprimir button
-                processTicket();
+            
+                await handlePrint();    
                 break;
             case "t":
             case "T":
@@ -435,6 +459,7 @@
             case "e":
             case "E":
                 //TODO : Escanear QR button
+                scanQR();
                 break;
             case "v":
             case "V":
@@ -479,13 +504,77 @@
             case "Q":
                 hasProhibitedNumbers(sold);
                 break;
+            case "d":
+            case "D":
+                handleConfirmPDF();
+                break;
         }
     }
+    async function handleConfirmPDF() {
+        if (createdTicket) {
+            const ticketRow = {
+                id: 0,
+                serial: createdTicket.ticket_serial,
+                total: Number(createdTicket.ticket_amount) || 0,
+                details: '',
+                time: createdTicket.printed_at ?? '',
+                date: selectedDate ?? '',
+                status: true
+            };
+            const soldNumbers = Object.entries(soldSnapshot).map(([number, price]) => ({
+                number: String(number).padStart(2, '0'),
+                price: price.price
+            }));
+            await handlePDFPrint(ticketRow, soldNumbers, createdTicket.ticket_number ?? null);
+            sold = {};
+            soldAmount = 0;
+        }
+
+    }
+
+    function closeQrModal() {
+        showQrModal = false;
+    }
+
+    async function handlePrint() {
+        const drawScheduleId = selectedBet?.schedule_id ?? selectedBet?.draw_schedule_id;
+        if(!showTicketPreviewModal && canSellSelectedNumbers(drawScheduleId)) {
+            showConfirmModal = true;
+        }
+    }
+
+    async function handleConfirmDetails() {
+        showConfirmModal = false;
+        await processTicket();
+        showTicketPreviewModal = true;
+    }
+    
 </script>
 
-{#if showQrModal}
-    <QrModal data={JSON.stringify(sold)} onClose={() => showQrModal = false} />
-{/if}
+<TicketPreviewModal 
+    bind:showTicketPreviewModal={showTicketPreviewModal} 
+    createdTicket={createdTicket}
+    bind:sold={soldSnapshot}
+    details={detailsSnapshot}
+    handleConfirmPDF={handleConfirmPDF}
+    selectedBet={selectedBet}
+    selectedDate={selectedDate}
+/>
+
+<QrModal 
+    bind:showQRModal={showQrModal}
+    data={$sellingMatrix} 
+    total={$total}
+    date={selectedDate}
+    onClose={closeQrModal} 
+/>
+
+<ConfirmModalWithInput
+    bind:showModal={showConfirmModal}
+    message="¿Desea agregar algún detalle?"
+    bind:input={details}
+    confirm={handleConfirmDetails}
+/>
 
 {#if showTicketsModal}
     <TicketsModal 
@@ -575,6 +664,7 @@
                             onclick={() => {
                                 selectedRowIndex = index;
                             }}
+
                         >
                             <td>{number}</td>
                             <td>₡{price.price}</td>
@@ -586,7 +676,6 @@
                 </tbody>
             </table>
         </div>
-        <!-- TODO: Implement functionality for these buttons -->
     <form onsubmit={submitTicket}>
         <button
             type="submit"
@@ -602,7 +691,7 @@
     <div class="buttons-group">
             <button 
                 onclick={viewQR}
-                disabled={Object.keys(sold).length === 0}
+                // disabled={Object.keys(sold).length === 0}
             >
                 <EyeSolid class="shrink-0 h-4 w-4" />
                 <div class="button-name"><p>V</p>er QR</div>
@@ -759,21 +848,6 @@
         color: #b91c1c;
         font-size: 0.9rem;
     }
-
-    .button-name {
-        font-size: 0.9rem;
-        display: inline-flex;
-        margin-left: 0.5rem;
-    }
-
-    .button-name p {
-        padding: 0 1.5px 0 1.5px;
-        display: inline;
-        vertical-align: super;
-        text-decoration: underline;
-        font-weight: 550;
-    }
-
     
     .selected-row {
         outline: 2px solid var(--color-theme-1);
