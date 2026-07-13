@@ -1,5 +1,5 @@
 <script lang="ts">
-    let sold= $state<Record<string, { price: number }>>({}); //TODO : temp value for testing 
+    let sold= $state<Record<string, { price: number }>>({}); 
     let soldAmount = $state(0);
     let priceInput: HTMLInputElement;
     let randomCountInput: HTMLInputElement;
@@ -14,12 +14,15 @@
     let {getTickets, getSoldNumbersForTicket, selectedBet, handlePDFPrint, selectedDate} = $props();
     let selectedRowIndex = $state(0);
     let rowRefs: Array<HTMLTableRowElement | null> = [];
-    let showTicketPreviewModal = $state(false); //TODO : temp value for testing 
+    let showTicketPreviewModal = $state(false); 
     let details = $state('');
     let detailsSnapshot = $state('');
     let soldSnapshot: Record<string, { price: number }> = $state({});
     let createdTicket: { ticket_serial: string; ticket_amount: number; printed_at: string; ticket_number: string } | null = $state(null);
     let showConfirmModal = $state(false);
+    let showScanQrModal = $state(false);
+    let qrScanInput = $state('');
+    let formElement: HTMLFormElement;
     
     import { onMount } from 'svelte';
     import { TrashBinSolid, CubeSolid, QuestionCircleSolid, PrinterSolid, EyeSolid, ReceiptSolid, CameraPhotoSolid } from "flowbite-svelte-icons";
@@ -32,12 +35,11 @@
     import { auth } from '../../stores/auth';
     import TicketPreviewModal from './TicketPreviewModal.svelte';
     import ConfirmModalWithInput from '../ConfirmModalWithInput.svelte';
-    
+    import QrScanModal from './QrScanModal.svelte';
 
     onMount(() => {
         priceInput?.focus();
     });
-    let formElement: HTMLFormElement;
 
     function formatThousands(value: string) {
         const digitsOnly = value.replace(/\D/g, '');
@@ -244,6 +246,7 @@
 
     function deleteNumber(number: string) {
         const { [number]: _, ...rest } = sold;
+        soldAmount -= sold[number]?.price || 0;
         sold = rest;
     }
 
@@ -390,8 +393,8 @@
         showQrModal = true;
     }
 
-    // TODO: Implement functionality for these buttons
     async function scanQR() {
+        showScanQrModal = true;
     }
 
     async function viewTickets() {
@@ -448,7 +451,6 @@
                 break;
             case "r":
             case "R":
-            
                 await handlePrint();    
                 break;
             case "t":
@@ -458,7 +460,7 @@
                 break;
             case "e":
             case "E":
-                //TODO : Escanear QR button
+                // Escanear QR button
                 scanQR();
                 break;
             case "v":
@@ -536,6 +538,69 @@
         showQrModal = false;
     }
 
+    function isValidTicketSerial(serial: string) {
+        if (!/^\d{16}$/.test(serial)) {
+            return false;
+        }
+
+        const year = Number(serial.slice(0, 2));
+        const month = Number(serial.slice(2, 4));
+        const day = Number(serial.slice(4, 6));
+        const hour = Number(serial.slice(6, 8));
+        const minute = Number(serial.slice(8, 10));
+        const second = Number(serial.slice(10, 12));
+
+        return (
+            Number.isInteger(year) &&
+            month >= 1 && month <= 12 &&
+            day >= 1 && day <= 31 &&
+            hour >= 0 && hour <= 23 &&
+            minute >= 0 && minute <= 59 &&
+            second >= 0 && second <= 59
+        );
+    }
+
+    function decodeQrData(qrData: string) {
+        const normalized = qrData.trim().toUpperCase();
+
+        if (!normalized || /[^0-9A-F]/.test(normalized)) {
+            return null;
+        }
+
+        for (let prefixLength = normalized.length - 8; prefixLength >= 0; prefixLength -= 8) {
+            const serialHex = normalized.slice(prefixLength);
+            let serialDecimal = '';
+
+            // try {
+            //     serialDecimal = BigInt(`0x${serialHex}`).toString(10);
+            // } catch {
+            //     continue;
+            // }
+
+            // if (!isValidTicketSerial(serialDecimal)) {
+            //     continue;
+            // }
+
+            const decodedSold: Record<string, { price: number }> = {};
+
+            for (let index = 0; index < prefixLength; index += 8) {
+                const chunk = normalized.slice(index, index + 8);
+                const number = Number.parseInt(chunk.slice(0, 2), 16);
+                const price = Number.parseInt(chunk.slice(2), 16);
+
+                if (Number.isNaN(number) || Number.isNaN(price) || number < 0 || number > 99) {
+                    continue;
+                }
+
+                decodedSold[String(number).padStart(2, '0')] = { price };
+            }
+
+            return decodedSold;
+        }
+
+        return null;
+    }
+
     async function handlePrint() {
         const drawScheduleId = selectedBet?.schedule_id ?? selectedBet?.draw_schedule_id;
         if(!showTicketPreviewModal && canSellSelectedNumbers(drawScheduleId)) {
@@ -549,6 +614,24 @@
         showTicketPreviewModal = true;
     }
     
+    function handleConfirmScanQrModal() {
+        const decodedSold = decodeQrData(qrScanInput);
+
+        if (!decodedSold) {
+            acts.add({
+                message: 'No se pudo leer el QR.',
+                mode: 'error',
+                lifetime: 3
+            });
+            return;
+        }
+
+        sold = decodedSold;
+        soldAmount = Object.values(decodedSold).reduce((sum, item) => sum + item.price, 0);
+        selectedRowIndex = 0;
+        showScanQrModal = false;
+        qrScanInput = '';
+    }
 </script>
 
 <TicketPreviewModal 
@@ -576,14 +659,20 @@
     confirm={handleConfirmDetails}
 />
 
-{#if showTicketsModal}
-    <TicketsModal 
-        tickets={tickets} 
-        bind:numbersSold={sold}
-        onClose={closeTicketsModal} 
-        getSoldNumbersForTicket={getSoldNumbersForTicket}
-    />
-{/if}
+<TicketsModal 
+    bind:showTicketModal={showTicketsModal}
+    bind:tickets={tickets} 
+    bind:numbersSold={sold}
+    onClose={closeTicketsModal} 
+    getSoldNumbersForTicket={getSoldNumbersForTicket}
+/>
+
+<QrScanModal
+    bind:showModal={showScanQrModal}
+    bind:input={qrScanInput}
+    confirm={handleConfirmScanQrModal}
+/>
+
 <svelte:window onkeydown={handlekeyinput} />
 <section class="sell">
     <span class="sold-amount">Tiquete: ₡{soldAmount}</span>

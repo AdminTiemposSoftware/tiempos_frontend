@@ -135,3 +135,4 @@ function buildReceipt(ticket: Ticket): Receipt {
         footer: ["¡Buena suerte!"]
     };
 }
+

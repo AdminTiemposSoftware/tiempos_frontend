@@ -25,7 +25,7 @@
 	}
 
 	$effect(() => {
-		availableAmountOnProhibited = $total * prohibitedPercentage;
+		availableAmountOnProhibited = $total * prohibitedPercentage*0.01;
 	});
 
 	function getOverageAmountOnProhibited(prohibitedNumber: { id: number; number: number; by_amount?: boolean; amount: number; by_percentage?: boolean; can_sell_after_amount?: boolean;  }) {

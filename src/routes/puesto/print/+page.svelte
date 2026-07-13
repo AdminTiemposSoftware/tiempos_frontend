@@ -1,16 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
     import { page } from '$app/state';
-
     import ReceiptPreview from '../../../lib/printing/ReceiptPreview.svelte';
 
-	onMount(() => {
-		window.print();
 
-		window.onafterprint = () => {
-			window.close();
-		};
-	});
+    let printed = $state(false);
     const data = $derived.by(() => {
 		const encoded = page.url.searchParams.get('data');
 
@@ -23,6 +17,15 @@
 		}
 	});
 
+    function handleReady() {
+        if (printed) return;
+
+        printed = true;
+        requestAnimationFrame(() => {
+            window.print();
+            window.onafterprint = () => window.close();
+        });
+    }
 </script>
 
 <ReceiptPreview 
@@ -30,11 +33,12 @@
     groupedItems={true} 
     qrData={data?.qrData}
     details={data?.details}
+    onReady={handleReady}
 />
 
 <style>
     @page {
-	size: 80mm auto;
+	size: 40mm auto;
 	margin: 0;
     }
 

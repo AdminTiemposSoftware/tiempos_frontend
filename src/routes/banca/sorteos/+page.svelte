@@ -189,7 +189,19 @@
 	}
 
 	function handleAddScheduleSubmit(payload: { sorteoId: any; name: any; time: any; id: any; is_reventado: any; is_megareventado: any; }) {
-	
+		draws = draws.map((sorteo) => sorteo.id === payload.sorteoId ? {
+			...sorteo,
+			schedule: [
+				...sorteo.schedule,
+				{
+					id: payload.id ?? -1,
+					name: payload.name,
+					time: payload.time,
+					is_reventado: payload.is_reventado ?? false,
+					is_megareventado: payload.is_megareventado ?? false
+				}
+			]
+		}: sorteo);
 	}
 
 	// Update handlers

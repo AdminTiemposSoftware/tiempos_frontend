@@ -55,7 +55,7 @@
         enabled: boolean;
     };
 
-    type TicketDetail = {
+    type Numbers = {
         ticket_header_serial: string;
         number: number;
         amount: string | number;
@@ -80,7 +80,7 @@
     let availableBets = $state<AvailableBet[]>([]);
     let isMatrixLoading = $state(false);
     let tickets = $state<TicketRow[]>([]);
-    let ticketDetails = $state<TicketDetail[]>([]);
+    let ticketNumbers = $state<Numbers[]>([]);
     let now = $state(new Date());
 
     function formatCloseTime(scheduleTime: string) {
@@ -357,7 +357,7 @@
         const scheduleId = selectedBet?.schedule_id ?? null;
         if (!scheduleId || !selectedDate) {
             tickets = [];
-            ticketDetails = [];
+            ticketNumbers = [];
             return tickets;
         }
 
@@ -368,16 +368,20 @@
         const response = await fetch(url.toString(), { method: 'GET' });
         if (!response.ok) {
             tickets = [];
-            ticketDetails = [];
+            ticketNumbers = [];
             return tickets;
         }
 
         const payload = await response.json().catch(() => null);
         const items = Array.isArray(payload?.items) ? (payload.items as TicketHeader[]) : [];
-        const details = Array.isArray(payload?.details) ? (payload.details as TicketDetail[]) : [];
+        const numbers = Array.isArray(payload?.numbers) ? (payload.numbers as Numbers[]) : [];
 
         tickets = items.map((item) => ({
             id: item.id,
+            scheduleName: selectedBet?.schedule_name ?? '',
+            scheduleTime: selectedBet?.schedule_time ?? '',
+            drawName: selectedBet?.draw_name ?? '',
+            branchName: $auth.user?.branchName,
             serial: item.serial,
             total: Number(item.amount) || 0,
             details: item.detail ?? '',
@@ -385,7 +389,7 @@
             date: item.date ?? '',
             status: item.enabled
         }));
-        ticketDetails = details;
+        ticketNumbers = numbers;
 
         return tickets;
     }
@@ -396,11 +400,11 @@
             return [];
         }
 
-        return ticketDetails
-            .filter((detail) => detail.ticket_header_serial === ticket.serial)
-            .map((detail) => ({
-                number: String(detail.number).padStart(2, '0'),
-                price: Number(detail.amount) || 0
+        return ticketNumbers
+            .filter((number) => number.ticket_header_serial === ticket.serial)
+            .map((number) => ({
+                number: String(number.number).padStart(2, '0'),
+                price: Number(number.amount) || 0
             }));
     }
 </script>

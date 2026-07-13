@@ -2,7 +2,6 @@
     let {
 		confirm,
 		showModal = $bindable(),
-		message = 'Estas seguro de continuar?',
 		input = $bindable(''),
 		confirmText = 'Confirmar',
 		cancelText = 'Cancelar'
@@ -40,7 +39,6 @@
 			onclick={(e) => e.stopPropagation()}
 			role="presentation"
 		>
-			<p class="modal-text">{message}</p>
 			<input
 				type="text"
 				placeholder="Ingrese el texto"

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { auth } from '../../stores/auth';
     import { onMount, tick } from "svelte";
     import { PenSolid, TrashBinSolid, EyeSolid } from "flowbite-svelte-icons";
     import ConfirmModal from "../ConfirmModal.svelte";
@@ -7,14 +8,26 @@
     type Ticket = {
         id: number;
         serial: number;
+        date: string;
+        time: string;
+        scheduleName: string;
+        scheduleTime: string;
+        drawName: string;
+        branchName: string;
         total: number;
         details: string;
         status?: boolean;
     };
 
-    let {getSoldNumbersForTicket, tickets = $bindable(), numbersSold=$bindable(), onClose} = $props();
+    let {
+        showTicketModal = $bindable(false),
+        getSoldNumbersForTicket, 
+        tickets = $bindable(), 
+        numbersSold=$bindable(), 
+        onClose
+    } = $props();
 
-    let localTickets: Ticket[] = [...tickets];
+    let localTickets: Ticket[] = $state([]);
     let lastTicketsRef = tickets;
     let showDeleteConfirm = $state(false);
     let ticketToDelete = $state<Ticket | null>(null);
@@ -26,7 +39,7 @@
 
     $effect(() => {
         if (tickets !== lastTicketsRef) {
-            localTickets = [...tickets];
+            localTickets = tickets;
             lastTicketsRef = tickets;
         }
     });
@@ -42,9 +55,7 @@
         : localTickets
     );
 
-    let soldNumbersTotal = $derived(
-        soldNumbersForSelectedTicket.reduce((sum, sold) => sum + (Number(sold.price) || 0), 0)
-    );
+    let soldNumbersTotal = $derived(soldNumbersForSelectedTicket.reduce((sum, sold) => sum + (Number(sold.price) || 0), 0));
 
     $effect(() => {
         if (filteredTickets.length === 0) {
@@ -121,6 +132,23 @@
         numbersSold = soldNumbersForSelectedTicket;
         onClose();
     }
+    
+    function serializeData(data: {number: string, price: number}[]): string {
+        const serialHex = selectedTicket?.serial
+            ? BigInt(selectedTicket.serial).toString(16).toUpperCase()
+            : '';
+
+        return Object.entries(data)
+            .sort(([leftNumber], [rightNumber]) => Number(leftNumber) - Number(rightNumber))
+            .map(([number, item]) => {
+                const numberHex = Number(item.number).toString(16).toUpperCase().padStart(2, '0');
+                const priceHex = Number(item.price).toString(16).toUpperCase().padStart(6, '0');
+
+                return `${numberHex}${priceHex}`;
+            })
+            .join('') + serialHex;
+    }
+
 </script>
 
 <ConfirmModal
@@ -129,7 +157,7 @@
     confirmText="Eliminar"
     confirm={confirmDelete}
 />
-
+{#if showTicketModal}
 <div 
     class="modal-backdrop" 
     role="button" 
@@ -143,7 +171,6 @@
         role="presentation"
     >
         <div class="tickets-list">
-            <h2 class="modal-title">Tiquetes</h2>
             <div class="search-row">
                 <label for="ticket-search">Buscar:</label>
                 <input
@@ -204,11 +231,11 @@
         </div>
         <div class="ticket-sold-numbers">
             {#if selectedTicket}
-                <h2 class="modal-title">Tiquete {selectedTicket.id}</h2>
                 <ReceiptPreview 
                     receipt={{
                         serial: selectedTicket.serial.toString(),
                         title: "",
+                        subtitles: [`Fecha: ${selectedTicket.date}`, `Hora cierre: ${selectedTicket.scheduleTime}`, `${selectedTicket.drawName} ${selectedTicket.scheduleName}`, selectedTicket.branchName],
                         items: soldNumbersForSelectedTicket.map((sold) => ({
                             number: sold.number,
                             amount: sold.price
@@ -217,16 +244,17 @@
                         footer: ['* * Gracias por su compra * *', '¡Buena suerte!']
                     }}
                     groupedItems={true}
-                    qrData={null}
+                    qrData={serializeData(soldNumbersForSelectedTicket)}
                     details={selectedTicket.details}
                 />
                 <button onclick={loadSoldNumbers}>Cargar números vendidos</button>
             {:else}
                 <p>Seleccione un tiquete para ver los números vendidos.</p>
             {/if}
+        </div>
     </div>
 </div>
-</div>
+{/if}
 
 <style>
     .tickets-table {

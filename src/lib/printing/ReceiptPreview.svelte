@@ -1,13 +1,42 @@
 <script lang="ts">
     import { onMount } from 'svelte';
+    import QRCode from 'qrcode';
+    import type { Receipt } from './types';
 
-    let { groupedItems, receipt, details, qrData } = $props();
-
+    let { groupedItems, receipt, details, qrData, onReady = undefined } = $props<{
+        groupedItems: boolean;
+        receipt: Receipt;
+        details?: string;
+        qrData: string;
+        onReady?: () => void;
+    }>();
     let QrCode = $state<any>(null);
+    let qrImage = $state<string>('');
+    
+    export async function generateQrImage(
+        data: string,
+        size = 200,
+        errorCorrection: 'L' | 'M' | 'Q' | 'H' = 'M'
+    ): Promise<string> {
+        return await QRCode.toDataURL(data, {
+            width: size,
+            margin: 0,
+            errorCorrectionLevel: errorCorrection,
+            type: 'image/png'
+        });
+    }
 
+    
     onMount(async () => {
         const module = await import('@castlenine/svelte-qrcode');
         QrCode = module.default;
+        qrImage = await generateQrImage(
+            qrData,
+            180,
+            'L'
+        );
+
+        onReady?.();
     });
 
     const lines = $derived.by(() => {
@@ -63,7 +92,8 @@
     {/if}
 
     {#if QrCode}
-        <QrCode value={qrData} size={100} errorCorrection="L" />
+        <QrCode data={qrData} size={100} errorCorrection="L" />
+        <!-- <img src={qrImage} alt="QR Code" width="120" height="120" /> -->
     {/if}
     {#if receipt.footer}
         {#each receipt.footer as footerItem}

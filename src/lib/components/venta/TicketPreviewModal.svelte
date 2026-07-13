@@ -53,11 +53,19 @@
     });
 
     function serializeData(data: Record<string, SoldItem>): string {
-        let result = Object.values(data)
-            .map((item) => item.price.toString(16).toUpperCase().padStart(6, '0'))
-            .join('');
-        result += receipt.total.toString(16).toUpperCase().padStart(8, '0');
-        return result;
+        const serialHex = createdTicket?.ticket_serial
+            ? BigInt(createdTicket.ticket_serial).toString(16).toUpperCase()
+            : '';
+
+        return Object.entries(data)
+            .sort(([leftNumber], [rightNumber]) => Number(leftNumber) - Number(rightNumber))
+            .map(([number, item]) => {
+                const numberHex = Number(number).toString(16).toUpperCase().padStart(2, '0');
+                const priceHex = Number(item.price).toString(16).toUpperCase().padStart(6, '0');
+
+                return `${numberHex}${priceHex}`;
+            })
+            .join('') + serialHex;
     }
 
     function printReceipt() {
@@ -79,15 +87,23 @@
         onClose();
 	}
 
-    $effect(() => {
-        console.log('Receipt data:', details);
-    });
-
     function onClose() {
         showTicketPreviewModal = false;
     }
+
+    function handlekeyinput(event: KeyboardEvent) {
+        if(!showTicketPreviewModal) return;
+        if (event.key === 'Escape') {
+            onClose();
+        }
+
+        if (event.key === 'Enter') {
+            printReceipt();
+        }
+    }
 </script>
 
+<svelte:window onkeydown={handlekeyinput} />
 {#if showTicketPreviewModal}
 <div 
     class="modal-backdrop" 
