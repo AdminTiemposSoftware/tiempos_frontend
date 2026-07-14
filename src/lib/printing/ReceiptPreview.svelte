@@ -92,8 +92,10 @@
     {/if}
 
     {#if QrCode}
+    <div class="qr-code">
         <QrCode data={qrData} size={100} errorCorrection="L" />
         <!-- <img src={qrImage} alt="QR Code" width="120" height="120" /> -->
+    </div>
     {/if}
     {#if receipt.footer}
         {#each receipt.footer as footerItem}
@@ -111,6 +113,13 @@
     padding: 15px 8px;
     border: 1px solid #ccc;
     text-align: center;
+    
+}
+
+.qr-code {
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
 }
 
 .line {

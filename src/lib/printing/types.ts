@@ -11,6 +11,7 @@ export interface ReceiptData {
 
 export interface Receipt {
     title: string;
+    serial?: string;
     subtitles?: string[];
     items: {
         number: string;

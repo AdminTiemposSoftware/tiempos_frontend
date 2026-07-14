@@ -1,7 +1,6 @@
 <script lang="ts">
     import { auth } from '../../stores/auth';
     import { onMount, tick } from "svelte";
-    import { PenSolid, TrashBinSolid, EyeSolid } from "flowbite-svelte-icons";
     import ConfirmModal from "../ConfirmModal.svelte";
     import ReceiptPreview from "../../printing/ReceiptPreview.svelte";
 
@@ -100,19 +99,22 @@
             event.preventDefault();
             selectedRowIndex = (selectedRowIndex + 1) % filteredTickets.length;
             void focusSelectedRow();
-        }
-        if (event.key === "ArrowUp") {
-            event.preventDefault();
-            selectedRowIndex =
-                (selectedRowIndex - 1 + filteredTickets.length) % filteredTickets.length;
-            void focusSelectedRow();
-        }
-        if (event.key === "Enter") {
-            event.preventDefault();
             const ticket = filteredTickets[selectedRowIndex];
             if (ticket) {
                 handleView(ticket);
             }
+        }
+        if (event.key === "ArrowUp") {
+            event.preventDefault();
+            selectedRowIndex = (selectedRowIndex - 1 + filteredTickets.length) % filteredTickets.length;
+            void focusSelectedRow();
+            const ticket = filteredTickets[selectedRowIndex];
+            if (ticket) {
+                handleView(ticket);
+            }
+        }
+        if (event.key === "Enter") {
+            event.preventDefault();
         }
     }
 
@@ -129,7 +131,13 @@
     }
 
     function loadSoldNumbers() {
-        numbersSold = soldNumbersForSelectedTicket;
+        numbersSold = soldNumbersForSelectedTicket.reduce<Record<string, { price: number }>>(
+            (accumulator, sold) => {
+                accumulator[sold.number] = { price: sold.price };
+                return accumulator;
+            },
+            {}
+        );
         onClose();
     }
     
@@ -184,6 +192,7 @@
             {#if filteredTickets.length === 0}
                 <p>No hay tiquetes para mostrar.</p>
             {:else}
+            <div class="ticket-scroll scroll-thin">
                 <table class="tickets-table" onkeydown={handleRowKeydown} role="grid"
                 tabindex="0"
                 >
@@ -192,7 +201,6 @@
                             <th>ID</th>
                             <th>Total</th>
                             <th>Detalle</th>
-                            <th>Opciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -217,7 +225,7 @@
                                         <div class="options-buttons">
                                             <button class="negative" onclick={(e) => {
                                                 e.stopPropagation();handleDelete(ticket)}}>
-                                                <TrashBinSolid class="shrink-0 h-4 w-4" />
+                                                X
                                             </button>
                                         </div>
                                     {/if}
@@ -225,9 +233,8 @@
                             </tr>
                         {/each}
                     </tbody>
-                </table>
+                </table></div>
             {/if}
-            <button onclick={onClose}>Cerrar</button>
         </div>
         <div class="ticket-sold-numbers">
             {#if selectedTicket}
@@ -266,6 +273,10 @@
         background-color: #efefef;
     }
 
+    .tickets-table td {
+        padding: 4px 8px;
+    }
+
     .search-row {
         display: flex;
         align-items: center;
@@ -281,6 +292,7 @@
         display: flex;
         flex-direction: row;
         max-width: 800px;
+        max-height: 490vh;
         width: 100%;
     }
 
@@ -291,14 +303,22 @@
         flex-direction: column;
         margin-left: 2rem;
         flex: 1;
+        align-items: center;
     }
     
     .ticket-sold-numbers button{
         margin-top: auto;
+        width: 100%;
+        margin-top: 1rem;
+    }
+
+    .ticket-scroll{
+        max-height: 380px;
+        overflow-y: auto;
     }
 
     .tickets-list {
-        flex: 3;
+        flex: 2;
     }
 
     .inactive {
@@ -313,6 +333,11 @@
 
     .annulled {
         font-weight: 600;
+    }
+
+    .options-buttons button{
+        
+        width: 100%;
     }
 
 </style>

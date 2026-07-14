@@ -115,12 +115,6 @@
         }));
     }
 
-    async function submitTicket(event: Event) {
-        event.preventDefault();
-        await processTicket();
-        showTicketPreviewModal = true;
-    }
-
     function hasProhibitedNumbers(soldSnapshot: Record<string, { price: number }>) {
         const prohibitedInSold = $prohibitedNumbers.filter( (p) =>
             soldSnapshot[p.number] !== undefined && p.can_sell_after_amount === false
@@ -204,10 +198,10 @@
         const drawScheduleId = selectedBet?.schedule_id ?? selectedBet?.draw_schedule_id;
         if (!canSellSelectedNumbers(drawScheduleId)) return;
             
+        if (hasProhibitedNumbers(soldSnapshot)) return;
+
         soldSnapshot = { ...sold };
         isSubmitting = true;
-
-        if (hasProhibitedNumbers(soldSnapshot)) return;
 
         const response = await fetch('/puesto/venta', {
             method: 'POST',
@@ -238,6 +232,7 @@
             return matrix;
         });
         total.update((n) => n + Object.values(soldSnapshot).reduce((sum, item) => sum + item.price, 0));
+        showTicketPreviewModal = true;
         sold = {};
         soldAmount = 0;
         detailsSnapshot = details;        
@@ -484,11 +479,16 @@
                 // 
                 break;
             case "ArrowDown":
+                if (showTicketPreviewModal || showTicketsModal || showQrModal || showScanQrModal) {
+                    return;
+                }
                 event.preventDefault();
-                console.log('Current sold keys:');
                 selectedRowIndex = Math.min(selectedRowIndex + 1, Object.keys(sold).length - 1);
                 break;
             case "ArrowUp":
+                if (showTicketPreviewModal || showTicketsModal || showQrModal || showScanQrModal) {
+                    return;
+                }
                 event.preventDefault();
                 selectedRowIndex = Math.max(selectedRowIndex - 1, 0);
                 break;
@@ -603,7 +603,7 @@
 
     async function handlePrint() {
         const drawScheduleId = selectedBet?.schedule_id ?? selectedBet?.draw_schedule_id;
-        if(!showTicketPreviewModal && canSellSelectedNumbers(drawScheduleId)) {
+        if(!showTicketPreviewModal && canSellSelectedNumbers(drawScheduleId) && !hasProhibitedNumbers(sold)) {
             showConfirmModal = true;
         }
     }
@@ -611,7 +611,6 @@
     async function handleConfirmDetails() {
         showConfirmModal = false;
         await processTicket();
-        showTicketPreviewModal = true;
     }
     
     function handleConfirmScanQrModal() {
@@ -765,7 +764,7 @@
                 </tbody>
             </table>
         </div>
-    <form onsubmit={submitTicket}>
+    <form onsubmit={handlePrint}>
         <button
             type="submit"
             disabled={Object.keys(sold).length === 0 || isSubmitting}
