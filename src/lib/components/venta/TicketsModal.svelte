@@ -2,6 +2,7 @@
     import { auth } from '../../stores/auth';
     import { onMount, tick } from "svelte";
     import ConfirmModal from "../ConfirmModal.svelte";
+    import ConfirmModalWithInput from "../ConfirmModalWithInput.svelte";
     import ReceiptPreview from "../../printing/ReceiptPreview.svelte";
 
     type Ticket = {
@@ -37,6 +38,8 @@
     let soldNumbersForSelectedTicket = $state<{number: string, price: number}[]>([]);
     let selectedRowIndex = $state(0);
     let rowRefs: Array<HTMLTableRowElement | null> = [];
+    let showJalarModal = $state(false);
+    let ticketToJalar = $state<string>('');
 
     $effect(() => {
         if (tickets !== lastTicketsRef) {
@@ -167,6 +170,7 @@
     confirmText="Eliminar"
     confirm={confirmDelete}
 />
+
 {#if showTicketModal}
 <div 
     class="modal-backdrop" 
@@ -183,7 +187,7 @@
         <div class="tickets-list">
 
             {#if filteredTickets.length === 0}
-                <p>No hay tiquetes para mostrar.</p>
+                <p class="no-tickets">No hay tiquetes para mostrar.</p>
             {:else}
             <div class="ticket-scroll scroll-thin">
                 <table class="tickets-table" onkeydown={handleRowKeydown} role="grid"
@@ -229,6 +233,9 @@
                 </table>
             </div>
             {/if}
+            <button class="jalar" onclick={() => {}}>
+                <div class="button-name"><p>J</p>alar tiquete</div>
+            </button>
         </div>
         <div class="ticket-sold-numbers">
             {#if selectedTicket}
@@ -254,7 +261,7 @@
                                 '* * Gracias por su compra * *',
                                 '¡Buena suerte!'
                             ],
-                            ticket_number: selectedTicket.id.toString().padStart(3, '0')
+                            ticket_number: (filteredTickets.length - selectedRowIndex).toString().padStart(3, '0')
                         }}
                         groupedItems={true}
                         qrData={serializeData(soldNumbersForSelectedTicket)}
@@ -272,8 +279,20 @@
 
 <style>
     .tickets-table {
-        margin: 1rem 0;
+        margin: 1rem 0 3rem 0;
         background-color: white;
+    }
+
+    .no-tickets {
+        text-align: center;
+        font-size: 1.2rem;
+    }
+
+    .jalar {
+        position: absolute;
+        bottom: 0;
+        margin-top: auto;
+        width: 100%;
     }
 
     .tickets-table th {
@@ -282,17 +301,6 @@
 
     .tickets-table td {
         padding: 4px 8px;
-    }
-
-    .search-row {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin: 0.5rem 0 1rem;
-    }
-
-    .search-row input {
-        flex: 1;
     }
 
     .modal {
@@ -326,6 +334,7 @@
 
     .tickets-list {
         flex: 2;
+        position: relative;
     }
 
     .inactive {
