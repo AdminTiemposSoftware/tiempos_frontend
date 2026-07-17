@@ -25,6 +25,8 @@
         draw_is_megareventado: boolean;
         draw_day_id: number;
         day_name: string;
+        position_number: number;
+        multiplier: number;
     };
 
     type NumberTotal = {
@@ -51,6 +53,7 @@
         amount: string | number;
         time: string;
         date: string;
+        printed_at: string;
         detail: string | null;
         enabled: boolean;
     };
@@ -101,7 +104,9 @@
             draw_is_reventado: item.draw_is_reventado,
             draw_is_megareventado: item.draw_is_megareventado,
             draw_day_id: item.draw_day_id,
-            day_name: item.day_name
+            day_name: item.day_name,
+            position_number: item.position_number,
+            multiplier: item.multiplier
         }));
 
         
@@ -387,6 +392,8 @@
             details: item.detail ?? '',
             time: item.time ?? '',
             date: item.date ?? '',
+            printed_at: item.printed_at ?? '',
+            multiplier: selectedBet?.multiplier ?? '',
             status: item.enabled
         }));
         ticketNumbers = numbers;

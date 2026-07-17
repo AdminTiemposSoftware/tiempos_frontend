@@ -15,6 +15,8 @@
         branchName: string;
         total: number;
         details: string;
+        printed_at: string;
+        multiplier: string;
         status?: boolean;
     };
 
@@ -179,15 +181,6 @@
         role="presentation"
     >
         <div class="tickets-list">
-            <div class="search-row">
-                <label for="ticket-search">Buscar:</label>
-                <input
-                    id="ticket-search"
-                    type="text"
-                    placeholder="ID, total o detalle"
-                    bind:value={searchTerm}
-                />
-            </div>
 
             {#if filteredTickets.length === 0}
                 <p>No hay tiquetes para mostrar.</p>
@@ -215,7 +208,7 @@
                                     handleView(ticket);
                                 }}
                             >
-                                <td>{ticket.id}</td>
+                                <td>{filteredTickets.length - index}</td>
                                 <td>₡{ticket.total}</td>
                                 <td>{ticket.details}</td>
                                 <td>
@@ -233,27 +226,41 @@
                             </tr>
                         {/each}
                     </tbody>
-                </table></div>
+                </table>
+            </div>
             {/if}
         </div>
         <div class="ticket-sold-numbers">
             {#if selectedTicket}
-                <ReceiptPreview 
-                    receipt={{
-                        serial: selectedTicket.serial.toString(),
-                        title: "",
-                        subtitles: [`Fecha: ${selectedTicket.date}`, `Hora cierre: ${selectedTicket.scheduleTime}`, `${selectedTicket.drawName} ${selectedTicket.scheduleName}`, selectedTicket.branchName],
-                        items: soldNumbersForSelectedTicket.map((sold) => ({
-                            number: sold.number,
-                            amount: sold.price
-                        })),
-                        total: soldNumbersTotal,
-                        footer: ['* * Gracias por su compra * *', '¡Buena suerte!']
-                    }}
-                    groupedItems={true}
-                    qrData={serializeData(soldNumbersForSelectedTicket)}
-                    details={selectedTicket.details}
-                />
+                <div class="receipt-container scroll-thin">
+                    <ReceiptPreview 
+                        receipt={{
+                            serial: `${selectedTicket.serial.toString()}`,
+                            title: "",
+                            subtitles: [
+                                `${selectedTicket.drawName} ${selectedTicket.scheduleName}`, 
+                                selectedTicket.branchName, `Fecha: ${selectedTicket.date}`, 
+                                `Hora: ${selectedTicket.printed_at.slice(0, 8)}` 
+                            ],
+                            items: soldNumbersForSelectedTicket.map((sold) => ({
+                                number: sold.number,
+                                amount: sold.price
+                            })),
+                            total: soldNumbersTotal,
+                            footer: [
+                                "----------ATENCION----------", 
+                                selectedTicket.multiplier ? `El primero paga al: ${selectedTicket.multiplier}` : '',
+                                "----------------------------",
+                                '* * Gracias por su compra * *',
+                                '¡Buena suerte!'
+                            ],
+                            ticket_number: selectedTicket.id.toString().padStart(3, '0')
+                        }}
+                        groupedItems={true}
+                        qrData={serializeData(soldNumbersForSelectedTicket)}
+                        details={selectedTicket.details}
+                    />
+                </div>
                 <button onclick={loadSoldNumbers}>Cargar números vendidos</button>
             {:else}
                 <p>Seleccione un tiquete para ver los números vendidos.</p>

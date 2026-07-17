@@ -31,24 +31,26 @@
         const branchName = $auth.user?.branchName ? String($auth.user.branchName) : 'Sucursal';
         const branchLocation = $auth.user?.branchLocation ? String($auth.user.branchLocation) : '';
 
+        const multiplierInfo = selectedBet?.multiplier ? `El primero paga al: ${selectedBet.multiplier}` : '';
+
         const title = selectedBet?.draw_name
             ? `${selectedBet.draw_name}${selectedBet.schedule_name ? ` ${selectedBet.schedule_name}` : ''}`
             : 'Tiquete de venta';
 
         const subtitleParts = [
             `${branchName} - ${branchLocation}`,
-            selectedBet?.schedule_time ? `Cierre: ${selectedBet.schedule_time}` : '',
-            selectedDate ? `Fecha: ${selectedDate}` : ''
+            selectedDate ? `Fecha: ${selectedDate}` : '',
+            createdTicket?.printed_at ? `Hora: ${createdTicket.printed_at.slice(0, 8)}` : ''
         ].filter(Boolean);
-
 
         return {
             title,
             subtitles: subtitleParts,
             items,
             total,
-            footer: ['* * Gracias por su compra * *', '¡Buena suerte!'],
-            serial: createdTicket?.ticket_serial || ''
+            footer: ["----------ATENCION----------", multiplierInfo, "----------------------------", '* * Gracias por su compra * *', '¡Buena suerte!'],
+            serial: `${createdTicket?.ticket_serial || ''}`,
+            ticket_number: createdTicket?.ticket_number?.toString().padStart(3, '0') || ''
         };
     });
 
@@ -117,18 +119,21 @@
         onclick={(e) => e.stopPropagation()}
         role="presentation"
     >
-        <ReceiptPreview 
-            groupedItems={true} 
-            details={details}
-            qrData={serializeData(sold)} 
-            receipt={receipt}
-            />
+        <div class="receipt-container scroll-thin">
+            <ReceiptPreview 
+                groupedItems={true} 
+                details={details}
+                qrData={serializeData(sold)} 
+                receipt={receipt}
+                />
+        </div>
+
         <div class="actions">  
             <button type="button" onclick={handleConfirmPDF}>
                 <div class="button-name">Guardar P<p>D</p>F</div>
             </button>
             <button onclick={printReceipt}>
-                <div class="button-name">Imp<p>r</p>imir</div>
+                <div class="button-name">Imp<p>r</p>imir (Enter)</div>
             </button>
         </div>
     </div>
@@ -140,7 +145,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 350px;    
+    width: 400px;    
 }
 
 .actions {

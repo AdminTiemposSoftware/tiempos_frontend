@@ -416,6 +416,14 @@
             }
             return;
         }
+
+        if (showScanQrModal) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                handleConfirmScanQrModal();
+            }
+            return;
+        }
         
         switch (event.key) {
             case "Enter":

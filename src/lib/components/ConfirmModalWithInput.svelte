@@ -4,7 +4,7 @@
 		showModal = $bindable(),
 		message = 'Estas seguro de continuar?',
 		input = $bindable(''),
-		confirmText = 'Confirmar',
+		confirmText = 'Confirmar (Enter)',
 		cancelText = 'Cancelar'
 	} = $props();
     let inputElement: HTMLInputElement;

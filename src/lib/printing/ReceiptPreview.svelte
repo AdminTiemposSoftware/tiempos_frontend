@@ -64,27 +64,37 @@
     onMount
     
 </script>
-
 <div class="receipt">
+<div class="line">
     <p>{receipt.serial}</p>
+    <span class="separator" aria-hidden="true"></span>
+    <p>{receipt.ticket_number}</p>
+</div>
     <p>{receipt.title}</p>
     {#if receipt.subtitles}
         {#each receipt.subtitles as subtitle}
             <p>{subtitle}</p>
         {/each}
     {/if}
+    <span class="space"> </span>
+    
+    <div class="line">
+        <span>Monto</span>
+        <span>Numero</span>
+    </div>
     <hr>
     {#each lines as item}
         <div class="line">
-            <span>{item.numbers.join(' x ')}</span>
-            <span>₡{item.amount}</span>
+            <span class="amount">₡{item.amount}</span>
+            <span class="separator" aria-hidden="true"></span>
+            <span class="numbers">{item.numbers.join(' x ')}</span>
         </div>
     {/each}
     <hr>
     <div class="line total">
 
-        <span>Total</span>
         <span>₡{receipt.total}</span>
+        <span>Total</span>
     </div>
     {#if details}
         <p>Detalles</p>
@@ -102,6 +112,7 @@
             <p>{footerItem}</p>
         {/each}
     {/if}
+    <span class="space"> </span>
 </div>
 
 <style>
@@ -111,19 +122,46 @@
     color: black;
     font-family: monospace;
     padding: 15px 8px;
-    border: 1px solid #ccc;
     text-align: center;
-    
 }
 
 .qr-code {
     margin: 0 auto;
     display: flex;
     justify-content: center;
+    padding: 3mm 0;
 }
 
 .line {
     display: flex;
+    align-items: center;
     justify-content: space-between;
+    gap: 6px;
+}
+
+/* .amount,
+.numbers {
+    white-space: nowrap;
+} */
+
+.space {
+    display: block;
+    height: 5mm;
+}
+
+.numbers {
+    text-align: right;
+    width: fit-content;
+}
+
+.amount {
+    text-align: left;
+}
+
+.separator {
+    flex: 1;
+    min-width: 25mm;
+    border-bottom: 1px dashed currentColor;
+    transform: translateY(2px);
 }
 </style>

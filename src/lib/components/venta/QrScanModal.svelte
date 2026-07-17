@@ -3,7 +3,7 @@
 		confirm,
 		showModal = $bindable(),
 		input = $bindable(''),
-		confirmText = 'Confirmar',
+		confirmText = 'Confirmar (Enter)',
 		cancelText = 'Cancelar'
 	} = $props();
     let inputElement: HTMLInputElement;

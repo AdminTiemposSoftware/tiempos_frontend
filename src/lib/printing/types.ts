@@ -20,4 +20,5 @@ export interface Receipt {
     total: number;
     qr?: string;
     footer?: string[];
+    ticket_number?: string;
 }
