@@ -2,7 +2,7 @@
     import { auth } from '../../stores/auth';
     import { onMount, tick } from "svelte";
     import ConfirmModal from "../ConfirmModal.svelte";
-    import ConfirmModalWithInput from "../ConfirmModalWithInput.svelte";
+    import JalarTicketModal from "./JalarTicketModal.svelte";
     import ReceiptPreview from "../../printing/ReceiptPreview.svelte";
 
     type Ticket = {
@@ -162,6 +162,19 @@
             .join('') + serialHex;
     }
 
+    function onJalar() {
+        showTicketModal = false;
+        showJalarModal = true;
+    }
+
+    function handleKeyInput(event: KeyboardEvent) {
+        switch (event.key) {
+            case "J":
+            case "j":
+                onJalar();
+                break;
+        }
+    }
 </script>
 
 <ConfirmModal
@@ -171,6 +184,11 @@
     confirm={confirmDelete}
 />
 
+<JalarTicketModal
+    bind:showModal={showJalarModal}
+    bind:numbersSold={numbersSold}
+/>
+<svelte:window onkeydown={handleKeyInput} />
 {#if showTicketModal}
 <div 
     class="modal-backdrop" 
@@ -233,7 +251,7 @@
                 </table>
             </div>
             {/if}
-            <button class="jalar" onclick={() => {}}>
+            <button class="jalar" onclick={onJalar}>
                 <div class="button-name"><p>J</p>alar tiquete</div>
             </button>
         </div>

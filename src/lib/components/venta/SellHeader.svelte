@@ -97,6 +97,7 @@
             );
     }
 
+    // TODO Globalize this function to a utility file since it's used in multiple places
     function formatAmount(value: number) {
         if (!Number.isFinite(value)) {
             return "0";
@@ -111,7 +112,6 @@
             ? `${sign}${groupedInteger}`
             : `${sign}${groupedInteger},${decimalPart}`;
     }
-
 </script>
 
 <header>

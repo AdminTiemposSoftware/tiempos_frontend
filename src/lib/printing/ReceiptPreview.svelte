@@ -65,11 +65,15 @@
     
 </script>
 <div class="receipt">
+{#if receipt.ticket_number}
 <div class="line">
     <p>{receipt.serial}</p>
     <span class="separator" aria-hidden="true"></span>
     <p>{receipt.ticket_number}</p>
 </div>
+{:else}
+    <p>{receipt.serial}</p>
+{/if}
     <p>{receipt.title}</p>
     {#if receipt.subtitles}
         {#each receipt.subtitles as subtitle}

@@ -1,19 +1,17 @@
 <script lang="ts">    
 	import {Notifications, acts} from '@tadashi/svelte-notification'
-
+    import type { Receipt } from '$lib/printing/types';
     import { auth } from '$lib/stores/auth';
     import { goto } from '$app/navigation';
-    import TicketsWinnerModal from '$lib/components/venta/TicketsWinnerModal.svelte';
+    import GetWinnerModal from '$lib/components/ganadores/GetWinnerModal.svelte';
     
     let { data } = $props();
-    
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
     let selectedDate = $state(utcMinus6Date.toISOString().split('T')[0]);
     let showTicketsModal = $state(false);
-    let ticketHeaders = $state<TicketHeader[]>([]);
-    let ticketDetails = $state<TicketDetail[]>([]);
     let winners = $state<Winner[]>([]);
-    let selectedWinner = $state<Winner | null>(null);
+    let ticketWinner = $state<Receipt | null>(null);
+    let serial = $state('');
     
     type Winner = {
         date: string;
@@ -28,24 +26,6 @@
         schedule_time: string;
         winner_id: number;
         winner_number: number;
-    };
-
-    type TicketHeader = {
-        id: number;
-        serial: string;
-        amount: string | number;
-        time: string;
-        date: string;
-        detail: string | null;
-        enabled: boolean;
-    };
-
-    type TicketDetail = {
-        ticket_header_serial: string;
-        number: number;
-        amount: string | number;
-        is_reventado: boolean;
-        is_megareventado: boolean;
     };
 
     $effect(() => {
@@ -86,59 +66,75 @@
         return false;
     }
 
-    async function viewTickets(winner: Winner) {
-        selectedWinner = winner;
-        ticketHeaders = await getTickets(winner);
+    function showGetWinnerModal() {
         showTicketsModal = true;
     }
 
-    async function getTickets(winner: Winner): Promise<TicketHeader[]> {
-        const url = new URL('/puesto/venta/tickets/winner', window.location.origin);
-        url.searchParams.set('winner_id', String(winner.winner_id));
-
-        const response = await fetch(url.toString(), { method: 'GET' });
-        if (!response.ok) {
-            ticketHeaders = [];
-            ticketDetails = [];
-            return ticketHeaders;
+    async function getWinnerTicket() {
+        if (serial.trim() === '') {
+            acts.add({
+                message: 'Por favor ingrese un serial de tiquete válido',
+                mode: 'error',
+                lifetime: 3
+            });
+            return;
         }
 
-        const payload = await response.json().catch(() => null);
-        const items = Array.isArray(payload?.items) ? (payload.items as TicketHeader[]) : [];
-        const details = Array.isArray(payload?.details) ? (payload.details as TicketDetail[]) : [];
+        try {
+            const response = await fetch(`/puesto/ganadores/${serial}`);
+            if (!response.ok) {
+                const errorData = await response.json();
+                acts.add({
+                    message: errorData.message || 'El tiquete consultado no es ganador',
+                    mode: 'error',
+                    lifetime: 3
+                });
+                return;
+            }
+            const data = await response.json();
+            const items = Array.isArray(data?.items) ? data.items : [];
+            if (items.length === 0) {
+                acts.add({
+                    message: 'El tiquete consultado no es ganador',
+                    mode: 'error',
+                    lifetime: 3
+                });
+                return;
+            }
+            ticketWinner = Object.values(items.reduce((acc, item) => {
+                if (!acc[item.serial]) {
+                    acc[item.serial] = {
+                        ...item,
+                        items: []
+                    };
+                }
 
-        ticketHeaders = items.map((item) => ({
-            id: item.id,
-            serial: item.serial,
-            amount: Number(item.amount) || 0,
-            detail: item.detail ?? '',
-            time: item.time ?? '',
-            date: item.date ?? '',
-            enabled: item.enabled
-        }));
-        ticketDetails = details;
+                acc[item.serial].items.push({
+                    number: item.number,
+                    amount: Number(item.amount),
+                    is_reventado: item.is_reventado,
+                    is_megareventado: item.is_megareventado
+                });
 
-        return ticketHeaders;
-    }
-
-    function getSoldNumbersForTicket(ticketId: number) {
-        const ticket = ticketHeaders.find((item) => item.id === ticketId);
-        if (!ticket) {
-            return [];
+                return acc;
+            }, {} as Record<string, any>))[0] as Receipt;
+        } catch (error) {
+            console.error('Error fetching ticket:', error);
+            acts.add({
+                message: 'Error al consultar el tiquete',
+                mode: 'error',
+                lifetime: 3
+            });
         }
-
-        return ticketDetails
-            .filter((detail) => detail.ticket_header_serial === ticket.serial)
-            .map((detail) => ({
-                number: String(detail.number).padStart(2, '0'),
-                price: Number(detail.amount) || 0
-            }));
     }
-
-    function closeTicketsModal() {
-        showTicketsModal = false;
-        ticketHeaders = [];
-        ticketDetails = [];
+    
+    async function handleKeyInput(event: KeyboardEvent) {
+        switch (event.key) {
+            case "C":
+            case "c":
+                showGetWinnerModal();
+                break;
+        }
     }
 </script>
 
@@ -146,15 +142,16 @@
 	<title>Ganadores</title>
 </svelte:head>
 
-{#if showTicketsModal}
-    <TicketsWinnerModal 
-        ticketHeaders={ticketHeaders} 
-        ticketDetails={ticketDetails}
-        onClose={closeTicketsModal} 
-        getSoldNumbersForTicket={getSoldNumbersForTicket}
-        winner={selectedWinner}
-    />
-{/if}
+<GetWinnerModal
+    bind:showModal={showTicketsModal}
+    bind:input={serial}
+    bind:ticketWinner={ticketWinner}
+    confirm={getWinnerTicket}
+    message="Ingrese el serial del tiquete a cobrar"
+    confirmText="Consultar (Enter)"
+/>
+
+<svelte:window onkeydown={handleKeyInput} />
 {#if ['branch'].includes($auth.user?.role ?? '')}
 <section class="ganadores">
     <header class="header-banking">
@@ -180,7 +177,6 @@
                     <th>Sorteo</th>
                     <th>Multiplicador</th>
                     <th>Ganador</th>
-                    <th>Tiquetes</th>
                 </tr>
             </thead>
             <tbody>
@@ -204,20 +200,20 @@
                                 {/if}
                             {/if}
                         </td>
-                        <td>
-                            {#if winner.winner_id !== null}
-                                <button onclick={() => viewTickets(winner)} class="text-blue-500 hover:underline">Ver</button>
-                            {:else}
-                                <span class="text-gray-500">No disponible</span>
-                            {/if}
-                        </td>
                     </tr>
                 {/each}
             </tbody>
         </table>
     </div>
+    <button
+        class="cobrar-button"
+        onclick={showGetWinnerModal}
+    >
+        <div class="button-name"><p>C</p>obrar tiquete</div>
+    </button>
 <Notifications/>
 </section>
+
 {/if}
 
 <style>
@@ -228,6 +224,7 @@
         gap: 1rem;
         width: 100%;
         box-sizing: border-box;
+        position: relative; 
     }
 
     .header-title {
@@ -248,15 +245,11 @@
         color: var(--color-text);
     }
 
-    .winner-input {
-        display: flex;
-        gap: 0.5rem;
-        align-items: center;
-        width: 50px;
+    .cobrar-button {
+        margin-top: auto;
+        bottom: 1rem;
+        width: 100%;
     }
 
-    .horizontal-cell {
-        display: flex;
-        gap: 0.5rem;
-    }
+
 </style>
