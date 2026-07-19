@@ -440,6 +440,8 @@
                     }
                 } else if (target instanceof HTMLInputElement && target.id === 'price') {
                     numberInput?.focus();
+                } else if (showTicketPreviewModal || showTicketsModal || showQrModal || showScanQrModal) {
+                    return;
                 }
                 else {
                     event.preventDefault();
