@@ -1,6 +1,5 @@
 <script lang="ts">
     let sold= $state<Record<string, { price: number }>>({}); 
-    let soldAmount = $state(0);
     let priceInput: HTMLInputElement;
     let randomCountInput: HTMLInputElement;
     let priceValue = $state('');
@@ -23,7 +22,10 @@
     let showScanQrModal = $state(false);
     let qrScanInput = $state('');
     let formElement: HTMLFormElement;
-    
+    let soldAmount = $derived.by(() => {
+        return Object.values(sold).reduce((sum, item) => sum + item.price, 0);
+    });
+
     import { onMount } from 'svelte';
     import { TrashBinSolid, CubeSolid, QuestionCircleSolid, PrinterSolid, EyeSolid, ReceiptSolid, CameraPhotoSolid } from "flowbite-svelte-icons";
     import { sellingMatrix } from '../../stores/UpdateSellMatrix';
@@ -100,7 +102,6 @@
             }
         });
         sold = newSelled;
-        soldAmount = Object.values(sold).reduce((sum, item) => sum + item.price, 0);
         formElement.reset();
         priceInput?.focus();
         priceValue = '';
@@ -234,14 +235,12 @@
         total.update((n) => n + Object.values(soldSnapshot).reduce((sum, item) => sum + item.price, 0));
         showTicketPreviewModal = true;
         sold = {};
-        soldAmount = 0;
         detailsSnapshot = details;        
         details = '';
     }
 
     function deleteNumber(number: string) {
         const { [number]: _, ...rest } = sold;
-        soldAmount -= sold[number]?.price || 0;
         sold = rest;
     }
 
@@ -634,7 +633,6 @@
         }
 
         sold = decodedSold;
-        soldAmount = Object.values(decodedSold).reduce((sum, item) => sum + item.price, 0);
         selectedRowIndex = 0;
         showScanQrModal = false;
         qrScanInput = '';
