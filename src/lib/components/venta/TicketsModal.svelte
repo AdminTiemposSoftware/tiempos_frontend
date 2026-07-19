@@ -173,6 +173,19 @@
             case "j":
                 onJalar();
                 break;
+            case "Enter":
+                if (!showTicketModal) {
+                    return;
+                }
+                if (selectedTicket) {
+                    loadSoldNumbers();
+                } else {
+                    const ticket = filteredTickets[selectedRowIndex];
+                    if (ticket) {
+                        handleView(ticket);
+                    }
+                }
+                break;
         }
     }
 </script>
@@ -286,7 +299,7 @@
                         details={selectedTicket.details}
                     />
                 </div>
-                <button onclick={loadSoldNumbers}>Cargar números vendidos</button>
+                <button onclick={loadSoldNumbers}>Cargar tiquete (Enter)</button>
             {:else}
                 <p>Seleccione un tiquete para ver los números vendidos.</p>
             {/if}
