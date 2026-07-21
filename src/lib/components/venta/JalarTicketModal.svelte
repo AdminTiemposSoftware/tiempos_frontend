@@ -6,7 +6,7 @@
 		cancelText = 'Cancelar',
 		numbersSold = $bindable<Record<string, { price: number }>>({})
 	} = $props();
-    let inputElement: HTMLInputElement;
+    let inputElement = $state<HTMLInputElement | null>(null);
 	let ticket = $state <Ticket | null>(null);
 	
 	import ReceiptPreview from '../../printing/ReceiptPreview.svelte';

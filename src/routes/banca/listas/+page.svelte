@@ -1,5 +1,5 @@
 <script lang="ts">
-    import Matrix from "$lib/components/venta/Matrix.svelte";
+    import MatrixInput from "$lib/components/listas/MatrixInput.svelte";
     import SelectModal from "$lib/components/SelectModal.svelte";
     import { auth } from '$lib/stores/auth';
 
@@ -16,7 +16,6 @@
 
     const bancos = ["Banco 1", "Banco 2", "Banco 3"];
     const locales = Array.from({ length: 7 }, (_, i) => `Local ${i + 1}`);
-    const sorteos = Array.from({ length: 51 }, (_, i) => `Sorteo ${i + 1}`);
 
     const handleExportExcel = () => {
         console.log("Exportar a Excel");
@@ -37,65 +36,7 @@
 
 {#if ['banking', 'branch'].includes($auth.user?.role ?? '')}
 <section class="container">
-    <header>
-        <div class="filters">
-            <div class="date">
-                <label for="desde">Desde</label>
-                <input type="date" id="desde" bind:value={dateFrom} placeholder="DD/MM/YYYY" />
-            </div>
-
-            <div class="date">
-                <label for="hasta">Hasta</label>
-                <input type="date" id="hasta" bind:value={dateTo} placeholder="DD/MM/YYYY" />
-            </div>
-
-            <SelectModal title="Bancos" items={bancos} bind:selected={selectedBancos} />
-            <SelectModal title="Locales" items={locales} bind:selected={selectedLocales} />
-            <SelectModal title="Sorteos" items={sorteos} bind:selected={selectedSorteos} />
-        </div>
-        <button onclick={handleConfirm}>Confirmar</button>
-    </header>
-
-    <section class="content">
-        {#if !selectedLottery}
-            {#if showAdditionalMatrices}
-                <h1>Tabla 1</h1>
-                <div class="matrix-exportable">  
-                    <Matrix 
-                        rows={10}
-                        columns={10}
-                        data={testingTable1Data}
-                    />
-                    <div class="actions">
-                        <button onclick={handleViewQR}>Ver QR</button>
-                        <button onclick={handleExportExcel}>Exportar XLSX</button>
-                    </div>
-                </div>
-                <h1>Tabla 2</h1>
-                <div class="matrix-exportable">  
-                    <Matrix 
-                        rows={10}
-                        columns={10}
-                    />
-                    <div class="actions">
-                        <button onclick={handleViewQR}>Ver QR</button>
-                        <button onclick={handleExportExcel}>Exportar XLSX</button>
-                    </div>
-                </div>
-                <h1>Tabla 3</h1>
-                <div class="matrix-exportable">  
-                    <Matrix 
-                        rows={10}
-                        columns={10}
-                    />
-                    <div class="actions">
-                        <button onclick={handleViewQR}>Ver QR</button>
-                        <button onclick={handleExportExcel}>Exportar XLSX</button>
-                    </div>
-                </div>
-            {/if}
-        {/if}
-    </section>
+    <MatrixInput mode="20x5" />
 </section>
 {/if}
 

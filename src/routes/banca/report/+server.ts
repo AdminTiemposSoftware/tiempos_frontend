@@ -19,7 +19,6 @@ export const GET: RequestHandler = async ({ request, fetch, locals, cookies }) =
     const branches = url.searchParams.get('branches');
     const drawSchedules = url.searchParams.get('draw_schedules');
 
-    console.log('Received parameters:', { dateFrom, dateTo, branches, drawSchedules });
     if (!dateFrom || !dateTo || !branches || !drawSchedules) {
         return new Response(JSON.stringify({ error: 'Payload must include date_from, date_to, branches, and draw_schedules.' }), {
             status: 400,

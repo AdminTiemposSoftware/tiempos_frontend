@@ -1,47 +1,53 @@
 <script lang="ts">
-    import TooltipGroupNode from './TooltipGroupNode.svelte';
-    import {
-        buildGroupingTree,
-        groupReportByNumber,
-        type GroupingMode,
-        type ReportItem
-    } from './grouping';
-
     let {
-        rows = $bindable(10),
-        columns = $bindable(10),
+        mode,
         animateKey = $bindable<string | number | null>(null),
         isLoading = $bindable<boolean>(false),
-        report = $bindable<ReportItem[]>([]),
-        groupingModes = $bindable<GroupingMode[]>([]),
-        groupingMode = $bindable<GroupingMode | null>(null)
+        report = $bindable<reportItem[]>([])
     } = $props();
+
+	type reportItem = {
+		branch_id: number;
+		branch_name: string;
+		draw_schedule_id: number;
+		draw_schedule_name: string;
+		draw_id: number;
+		draw_name: string;
+		number: number;
+		amount: number;
+		is_reventado: boolean;
+		is_megareventado: boolean;
+	};
 
     import { sellingMatrix } from '../../stores/UpdateSellMatrix';
     import { prohibitedNumbers } from '../../stores/UpdateSellMatrix';
 
-    let groupedNumbers = $state<Record<number, ReportItem[]>>({});
-    let hoveredIndex = $state<number | null>(null);
-    const activeGroupingModes = $derived(
-        ((groupingModes.length > 0 ? groupingModes : groupingMode ? [groupingMode] : ['branch']) as GroupingMode[])
-    );
-
-    let hoveredReportItems = $derived(hoveredIndex === null ? [] : (groupedNumbers[hoveredIndex] ?? []));
-
-    let hoveredGroupingTree = $derived(
-        hoveredReportItems.length === 0 ? [] : buildGroupingTree(hoveredReportItems, activeGroupingModes)
-    );
+    let groupedNumbers = $state<Record<number, reportItem[]>>({});
+    let rows = $state(10);
+    let columns = $state(10);
+    
+    $effect(() => {
+        if (mode === '10x10') {
+            rows = 10;
+            columns = 10;
+        } else if (mode === '5x20') {
+            rows = 5;
+            columns = 20;
+        } else if (mode === '20x5') {
+            rows = 20;
+            columns = 5;
+        }
+    });
 
     $effect(() => {
         groupedNumbers = groupReportByNumber(report);
     });
 
-    function showTooltip(index: number) {
-        hoveredIndex = index;
-    }
-
-    function clearTooltip() {
-        hoveredIndex = null;
+    function groupReportByNumber(reportItems: reportItem[]): Record<number, reportItem[]> {
+        return reportItems.reduce<Record<number, reportItem[]>>((acc, item) => {
+            (acc[item.number] ??= []).push(item);
+            return acc;
+    }, {});
     }
     
 </script>
@@ -64,19 +70,7 @@
                                 ${$prohibitedNumbers.some((n) => n.number === index) ? "prohibited-number" : ""} 
                                 ${groupedNumbers[index]?.length > 0 ? "has-report" : ""
                             }`}
-                            role="group"
-                            onmouseenter={() => showTooltip(index)}
-                            onmouseleave={clearTooltip}
                         >
-                            {#if hoveredIndex === index && hoveredGroupingTree.length > 0}
-                                <div class="report-tooltip" role="tooltip">
-                                    <ul class="tooltip-groups">
-                                        {#each hoveredGroupingTree as node}
-                                            <TooltipGroupNode node={node} />
-                                        {/each}
-                                    </ul>
-                                </div>
-                            {/if}
                             <input
                                 type="number"
                                 value={index}
@@ -89,14 +83,7 @@
                                 class:price-loading={isLoading}
                                 style={`--delay: ${index * 4}ms;`}
                                 value={groupedNumbers[index]?.reduce((sum, item) => sum + item.amount, 0) || $sellingMatrix[index] || 0}
-                                disabled={true}
                             />
-                            <div 
-                                class="report-info"
-                                hidden
-                            >
-                                <span>{groupedNumbers[index]?.length || 0}</span>
-                            </div>
                         </div>
                     {/each}
                 {/each}
@@ -145,56 +132,7 @@
         display: flex;
         flex-direction: row;
         align-items: center;
-        position: relative;
     }
-
-    .report-tooltip {
-        position: absolute;
-        bottom: calc(100% + 0.5rem);
-        left: 50%;
-        transform: translateX(-50%);
-        min-width: 12rem;
-        max-width: 14rem;
-        padding: 0.55rem 0.7rem;
-        border-radius: 0.5rem;
-        background: rgba(15, 23, 42, 0.95);
-        color: #f8fafc;
-        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
-        z-index: 3;
-        pointer-events: none;
-        font-size: 0.8rem;
-        line-height: 1.3;
-    }
-
-    .report-tooltip::after {
-        content: "";
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        border-width: 0.4rem;
-        border-style: solid;
-        border-color: rgba(15, 23, 42, 0.95) transparent transparent transparent;
-    }
-
-    .tooltip-title {
-        display: block;
-        font-weight: 600;
-        margin-bottom: 0.35rem;
-    }
-
-    .report-tooltip ul {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 0.3rem;
-    }
-
-	.tooltip-groups {
-		gap: 0.45rem;
-	}
 
     .matrix-cell input[type="number"]:first-child {
         color: var(--color-text);
@@ -209,11 +147,6 @@
         background-color: #f8c3c7;
         border-color: #f5c6cb;
     }
-    .has-report:hover {
-        transform: scale(1.05);
-        transition: transform 0.2s ease-in-out;
-    }
-    
     .has-report input[type="number"]:first-child {
         width: 32px;
         padding: 0.1rem !important;

@@ -1,10 +1,11 @@
 <script lang="ts">
-    import { auth } from '$lib/stores/auth';
-	import ProhibitedNumberModal from '$lib/components/ProhibitedNumberModal.svelte';
-    import ConfirmModal from '$lib/components/ConfirmModal.svelte';
+    import { auth } from '../../../lib/stores/auth';
+	import ProhibitedNumberModal from '../../../lib/components/ProhibitedNumberModal.svelte';
+    import ConfirmModal from '../../../lib/components/ConfirmModal.svelte';
     import Matrix from '../../../lib/components/venta/Matrix.svelte';
 	import {Notifications, acts} from '@tadashi/svelte-notification'
-	import SelectModal from '$lib/components/SelectModal.svelte';
+	import SelectModal from '../../../lib/components/SelectModal.svelte';
+	import { GROUPING_OPTIONS, type GroupingMode, type ReportItem } from '../../../lib/components/venta/grouping';
 	
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
 	let prohibitedNumberToDelete = $state<prohibitedNumber | null>(null);
@@ -12,14 +13,15 @@
 	let showDeleteProhibitedModal = $state(false);
 	let showAddProhibitedModal = $state(false);
 	let showUpdateProhibitedModal = $state(false);
-	let selectedProhibitedNumber = $state<prohibitedNumber | null>(null);
+	let selectedProhibitedNumber = $state<prohibitedNumber | undefined>(undefined);
 	let branchNames = $state<{ value: number; label: string }[]>([]);
 	let drawScheduleNames = $state<{ value: number; label: string }[]>([]);
 	let selectedBranch = $state<number[]>([]);
 	let selectedDrawSchedule = $state<number[]>([]);
+	let groupingModes = $state<GroupingMode[]>(['branch']);
 	let from =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let to =  $state(utcMinus6Date.toISOString().split('T')[0]);
-	let report = $state<reportItem[]>([]);
+	let report = $state<ReportItem[]>([]);
 	let isLoading = $state<boolean>(false);
     let { data } = $props();
 
@@ -31,19 +33,6 @@
 		can_sell_after_amount: boolean;
 		by_amount: boolean;
 		by_percentage: boolean;
-	};
-
-	type reportItem = {
-		branch_id: number;
-		branch_name: string;
-		draw_schedule_id: number;
-		draw_schedule_name: string;
-		draw_id: number;
-		draw_name: string;
-		number: number;
-		amount: number;
-		is_reventado: boolean;
-		is_megareventado: boolean;
 	};
 
     async function handleConfirmDeleteProhibitedNumber() {
@@ -215,7 +204,8 @@
 				number: Number(item.number),
 				amount: Number(item.amount),
 				is_reventado: Boolean(item.is_reventado),
-				is_megareventado: Boolean(item.is_megareventado)
+				is_megareventado: Boolean(item.is_megareventado),
+				date: String(item.date)
 			}))
 			.filter(
 				(item) =>
@@ -284,7 +274,8 @@
 				number: Number(item.number),
 				amount: Number(item.amount),
 				is_reventado: Boolean(item.is_reventado),
-				is_megareventado: Boolean(item.is_megareventado)
+				is_megareventado: Boolean(item.is_megareventado),
+				date: String(item.date)
 			}))
 			.filter(
 				(item) =>
@@ -306,6 +297,41 @@
 		selectedProhibitedNumber = prohibitedNumber;
 		showUpdateProhibitedModal = true;
 	}
+
+	function toggleGroupingMode(mode: GroupingMode) {
+		if (groupingModes.includes(mode)) {
+			if (groupingModes.length === 1) {
+				return;
+			}
+
+			groupingModes = groupingModes.filter((item) => item !== mode);
+			return;
+		}
+
+		groupingModes = [...groupingModes, mode];
+	}
+
+	function moveGroupingMode(mode: GroupingMode, direction: -1 | 1) {
+		const currentIndex = groupingModes.indexOf(mode);
+
+		if (currentIndex === -1) {
+			return;
+		}
+
+		const targetIndex = currentIndex + direction;
+
+		if (targetIndex < 0 || targetIndex >= groupingModes.length) {
+			return;
+		}
+
+		const nextModes = [...groupingModes];
+		[nextModes[currentIndex], nextModes[targetIndex]] = [nextModes[targetIndex], nextModes[currentIndex]];
+		groupingModes = nextModes;
+	}
+
+	function getGroupingModeLabel(mode: GroupingMode) {
+		return GROUPING_OPTIONS.find((option: { value: GroupingMode; label: string }) => option.value === mode)?.label ?? mode;
+	}
 </script>
 
 <svelte:head>
@@ -324,7 +350,7 @@
 	confirm={handleConfirmDeleteProhibitedNumber}
 />
 
-<ProhibitedNumberModal
+<!-- <ProhibitedNumberModal
 	bind:showModal={showUpdateProhibitedModal}
 	bind:prohibited={selectedProhibitedNumber}
 	title="Actualizar numero restringido"
@@ -340,7 +366,7 @@
 	confirmText="Guardar"
 	cancelText="Cancelar"
 	handleAddProhibitedNumber={handleAddProhibitedNumber}
-/>
+/> -->
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
 <section class="inicio">
@@ -367,29 +393,54 @@
 						placeholder="Seleccione un puesto"
 					/>
 				</div>
-                <div class="field">
-                    <label for="sorteo">Sorteo</label>
+	            <div class="field">
+	                <label for="sorteo">Sorteo</label>
 					<SelectModal
 						options={drawScheduleNames}
 						bind:selected={selectedDrawSchedule}
 						placeholder="Seleccione un sorteo"
 					/>
-                </div>
+	            </div>
+				
 				<button type="button" class="option-button" onclick={applyFilters}>
 					Filtrar	
 				</button>
             </div>
-            <Matrix bind:report={report} bind:isLoading={isLoading} />
+	        <Matrix bind:report={report} bind:isLoading={isLoading} bind:groupingModes={groupingModes} />
+			<button type="button" class="option-button" onclick={applyFilters}>
+				Obtener reporte	
+			</button>
         </div>
         <div class="right">
-            <h2>Opciones</h2>
-			<button type="button" class="option-button">
-				Exportar xlsx
-			</button>
-			<button type="button" class="option-button" disabled>
-				Ver QR
-			</button>
-
+			<div class="field grouping-field">
+				<label for="agrupacion">Agrupación</label>
+					<div class="grouping-options">
+						{#each GROUPING_OPTIONS as option}
+							<button
+								type="button"
+								class={`grouping-option ${groupingModes.includes(option.value) ? 'selected' : ''}`}
+								onclick={() => toggleGroupingMode(option.value)}
+							>
+								<input type="checkbox" checked={groupingModes.includes(option.value)} readonly />
+								<span>{option.label}</span>
+							</button>
+						{/each}
+					</div>
+				<div class="grouping-order">
+					<label for="orden">Orden</label>
+					<div class="grouping-chip-list">
+						{#each groupingModes as mode, index}
+							<div class="chip">
+								<span>{index + 1}. {getGroupingModeLabel(mode)}</span>
+								<div class="grouping-chip-actions">
+									<button type="button" onclick={() => moveGroupingMode(mode, -1)} disabled={index === 0}>↑</button>
+									<button type="button" onclick={() => moveGroupingMode(mode, 1)} disabled={index === groupingModes.length - 1}>↓</button>
+								</div>
+							</div>
+						{/each}
+					</div>
+				</div>
+			</div>
         </div>
     </div>
     <header>
@@ -452,6 +503,98 @@
 	}
 	.field input {
 		height: 57.59%;
+	}
+
+	.filters {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 1rem;
+		align-items: flex-end;
+	}
+
+	.grouping-field {
+		flex: 1 1 100%;
+	}
+
+	.grouping-editor {
+		display: flex;
+		flex-direction: column;
+		gap: 0.65rem;
+		padding: 0.75rem;
+		border: 1px solid var(--color-border);
+		background-color: #fff;
+	}
+
+	.grouping-options {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin-bottom: 1rem;
+	}
+
+	.grouping-option {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.45rem 0.65rem;
+		border: 1px solid var(--color-border);
+		background-color: white;
+		color: var(--color-text);
+		font-size: 0.85rem;
+	}
+
+	.grouping-option.selected {
+		border-color: var(--color-theme-2);
+		background: var(--color-theme-8);
+	}
+
+	.grouping-option input {
+		width: auto;
+		height: auto;
+	}
+
+	.grouping-order {
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+	}
+
+	.grouping-order-label {
+		font-size: 0.9rem;
+		font-weight: 600;
+		color: var(--color-text);
+	}
+
+	.grouping-chip-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.grouping-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.35rem 0.6rem;
+		border: 1px solid var(--color-border);
+		background-color: var(--color-box-background);
+	}
+
+	.grouping-chip-actions {
+		display: inline-flex;
+		gap: 0.25rem;
+	}
+
+	.grouping-chip-actions button {
+		padding: 0.15rem 0.35rem;
+		border: 1px solid var(--color-border);
+		background: #fff;
+		color: var(--color-text);
+	}
+
+	.grouping-chip-actions button:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
 	}
 
     .left {
@@ -537,6 +680,15 @@
 		border-top: 2px solid var(--color-border);
 		width: 100%;
 		font-weight: 500;
+	}
+
+	.chip {
+        border-radius: 0.25rem;
+        background-color: white;
+        color: var(--color-text);
+        border: 1px solid var(--color-border);
+		padding: .2rem .5rem;
+		font-size: 0.85rem;
 	}
 
 </style>
