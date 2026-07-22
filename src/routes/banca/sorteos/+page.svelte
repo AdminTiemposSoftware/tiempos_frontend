@@ -14,8 +14,7 @@
 		name: string;
 		is_reventado: boolean;
 		is_megareventado: boolean;
-		draw_day_id: number;
-		day_name: string;
+		days: string[];
 		schedule: schedule[];
 	};
 
@@ -37,16 +36,24 @@
 	let draws =$state<draw[]>([]);
 
 	$effect(() => {
-		const items = Array.isArray(data?.items) ? (data.items as draw[]) : [];
-		draws = items.map((item) => ({
-			id: item.id,
-			name: item.name,
-			is_reventado: item.is_reventado,
-			is_megareventado: item.is_megareventado,
-			draw_day_id: item.draw_day_id,
-			day_name: item.day_name,
-			schedule: [] // initialize empty schedule, will be loaded on demand
-		}));
+		const items = Array.isArray(data?.items) ? (data.items as {id: number; name: string; is_reventado: boolean; is_megareventado: boolean; draw_day_id: number; day_name: string}[]) : [];
+
+		draws = Object.values(
+			items.reduce<Record<number, draw>>((acc, item) => {
+				if (!acc[item.id]) {
+					acc[item.id] = {
+						id: item.id,
+						name: item.name,
+						is_reventado: item.is_reventado,
+						is_megareventado: item.is_megareventado,
+						days: [],
+						schedule: []
+					};
+				}
+				acc[item.id].days.push(item.day_name);
+				return acc;
+			}, {})
+		);
 
 		const branchItems = Array.isArray(data?.branchItems)
 			? (data.branchItems as { id: number; name: string; }[])
@@ -149,7 +156,7 @@
 
 	// Open modals for create actions
 	function handleAddSorteo() {
-		selectedSorteo = { name: '', days: '', is_reventado: false, is_megareventado: false };
+		selectedSorteo = { id: -1, name: '', days: [], is_reventado: false, is_megareventado: false, schedule: [] };
 		showSorteoModal = true;
 	}
 
@@ -164,12 +171,7 @@
 		selectedSorteo = draws.find((s) => s.id === sorteoId);
 		showSorteoModal = true;
 	}
-
-	function showEditSchedule(sorteoId: number, scheduleId: number) {
-		selectedSchedule = draws.find((s) => s.id === sorteoId)?.schedule.find((s) => s.id === scheduleId);
-		showScheduleModal = true;
-	}
-
+	
 	function showDeleteSchedule(sorteoId: number, scheduleId: number) {
 		scheduleToDelete = draws.find((s) => s.id === sorteoId)?.schedule.find((s) => s.id === scheduleId);
 		showDeleteScheduleModal = true;
@@ -180,12 +182,46 @@
 		showDeleteSorteoModal = true;
 	}
 
+	async function handleAddSorteoSubmit(payload: { name: string; is_reventado: boolean; is_megareventado: boolean; draw_days: string[]; }) {
+		try {
+			const response = await fetch(`/banca/sorteos`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
 
-	// Create handlers
-	function handleAddSorteoSubmit(event: CustomEvent) {
-		const newSorteo = event.detail;
-		const nextId = Math.max(0, ...draws.map((item) => item.id)) + 1;
-		draws = [...draws, { ...newSorteo, id: nextId }];
+			if (!response.ok) {
+				console.error('Error adding sorteo', response.statusText);
+				acts.add({
+					message: 'Ha ocurrido un error al agregar el sorteo.',
+					mode: 'error',
+					lifetime: 3
+				})
+				return;
+			}
+
+			const result = await response.json();
+		
+			console.log('Sorteo added successfully:', result.items[0]["id"]);
+
+			draws = [...draws, { id: result.items[0]["id"], schedule: [], name: payload.name, is_reventado: payload.is_reventado, is_megareventado: payload.is_megareventado, days: payload.draw_days }];
+
+			acts.add({
+				message: 'Sorteo agregado correctamente.',
+				mode: 'success',
+				lifetime: 3
+			})
+
+			showSorteoModal = false;
+
+		} catch (error) {
+			console.error('Error adding sorteo', error);
+			acts.add({
+				message: 'Ha ocurrido un error al agregar el sorteo.',
+				mode: 'error',
+				lifetime: 3
+			})
+		}
 	}
 
 	function handleAddScheduleSubmit(payload: { sorteoId: any; name: any; time: any; id: any; is_reventado: any; is_megareventado: any; }) {
@@ -205,20 +241,40 @@
 	}
 
 	// Update handlers
-	function updateSorteo(updatedSorteo: { id: number; }) {
-		draws = draws.map((sorteo) =>
-			sorteo.id === updatedSorteo.id ? { ...sorteo, ...updatedSorteo } : sorteo
-		);
-	}
+	async function updateSorteo(updatedSorteo: { id: number; name: string; is_reventado: boolean; is_megareventado: boolean; days: string[]; schedule: schedule[]; }) {
+		try {
+			const response = await fetch(`/banca/sorteos/${updatedSorteo.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(updatedSorteo)
+			});
+			
+			if (!response.ok) {
+				console.error('Error updating sorteo', response.statusText);
+				acts.add({
+					message: 'Ha ocurrido un error al actualizar el sorteo.',
+					mode: 'error',
+					lifetime: 3
+				})
+				return;
+			}
 
-	function updateSchedule(updatedSchedule: { id: number; }) {
-		// TODO Send update request to backend
-		draws = draws.map((sorteo) => ({
-			...sorteo,
-			schedule: sorteo.schedule.map((slot) =>
-				slot.id === updatedSchedule.id ? { ...slot, ...updatedSchedule } : slot
-			)
-		}));
+			draws = draws.map((sorteo) => sorteo.id === updatedSorteo.id ? { ...sorteo, ...updatedSorteo } : sorteo);
+			acts.add({
+				message: 'Sorteo actualizado correctamente.',
+				mode: 'success',
+				lifetime: 3
+			})
+			showSorteoModal = false;
+
+		} catch (error) {
+			console.error('Error updating sorteo', error);
+			acts.add({
+				message: 'Ha ocurrido un error al actualizar el sorteo.',
+				mode: 'error',
+				lifetime: 3
+			})
+		}
 	}
 
 	async function saveScheduleSettings(
@@ -294,62 +350,70 @@
 	}
 
 	async function handleConfirmDeleteSchedule() {
-		const response = await fetch(`/banca/sorteos/draw-schedule/${scheduleToDelete?.id}`, {
-			method: 'DELETE'
-		});
+		try {
+			const response = await fetch(`/banca/sorteos/draw-schedule/${scheduleToDelete?.id}`, {
+				method: 'DELETE'
+			});
 
-		if (!response.ok) {
-			console.error('Error deleting schedule', response.statusText);
+			if (!response.ok) {
+				console.error('Error deleting schedule', response.statusText);
+				acts.add({
+					message: 'Ha ocurrido un error al eliminar el horario.',
+					mode: 'error',
+					lifetime: 3
+				})
+				return;
+			}
+			acts.add({
+				message: 'Horario eliminado correctamente.',
+				mode: 'success',
+				lifetime: 3
+			})
+
+			draws = draws.map((sorteo) => ({
+				...sorteo,
+				schedule: sorteo.schedule.filter((slot) => slot.id !== scheduleToDelete?.id) //Asume schedule ids are unique across draws for simplicity, otherwise also check sorteoId
+			}));
+			scheduleToDelete = { id: -1, name: '', time: '', is_reventado: false, is_megareventado: false };
+		} catch (error) {
+			console.error('Error deleting schedule', error);
 			acts.add({
 				message: 'Ha ocurrido un error al eliminar el horario.',
 				mode: 'error',
 				lifetime: 3
 			})
-			return;
 		}
-		acts.add({
-			message: 'Horario eliminado correctamente.',
-			mode: 'success',
-			lifetime: 3
-		})
-
-		draws = draws.map((sorteo) => ({
-			...sorteo,
-			schedule: sorteo.schedule.filter((slot) => slot.id !== scheduleToDelete?.id) //Asume schedule ids are unique across draws for simplicity, otherwise also check sorteoId
-		}));
-		scheduleToDelete = { id: -1, name: '', time: '', is_reventado: false, is_megareventado: false };
 	}
 
-	function handleConfirmDeleteSorteo() {
-		// TODO Send delete request to backend
-		// fetch(`/banca/sorteos/draw/${sorteoToDelete?.id}`, {
-		// 	method: 'DELETE'
-		// }).then((res) => {
-		// 	if (!res.ok) {
-		// 		console.error('Error deleting sorteo', res.statusText);
-		// 		acts.add({
-		// 			message: 'Ha ocurrido un error al eliminar el sorteo.',
-		// 			mode: 'error',
-		// 			lifetime: 3
-		// 		})
-		// 		return;
-		// 	}
-		// 	acts.add({
-		// 		message: 'Sorteo eliminado correctamente.',
-		// 		mode: 'success',
-		// 		lifetime: 3
-		// 	})
-		// }).catch((error) => {
-		// 	console.error('Error deleting sorteo', error);
-		// 	acts.add({
-		// 		message: 'Ha ocurrido un error al eliminar el sorteo.',
-		// 		mode: 'error',
-		// 		lifetime: 3
-		// 	})
-		// });
+	async function handleConfirmDeleteSorteo() {
+		await fetch(`/banca/sorteos/${sorteoToDelete?.id}`, {
+			method: 'DELETE'
+		}).then((res) => {
+			if (!res.ok) {
+				console.error('Error deleting sorteo', res.statusText);
+				acts.add({
+					message: 'Ha ocurrido un error al eliminar el sorteo.',
+					mode: 'error',
+					lifetime: 3
+				})
+				return;
+			}
+			acts.add({
+				message: 'Sorteo eliminado correctamente.',
+				mode: 'success',
+				lifetime: 3
+			})
+		}).catch((error) => {
+			console.error('Error deleting sorteo', error);
+			acts.add({
+				message: 'Ha ocurrido un error al eliminar el sorteo.',
+				mode: 'error',
+				lifetime: 3
+			})
+		});
 
 		draws = draws.filter((sorteo) => sorteo.id !== sorteoToDelete?.id);
-		sorteoToDelete = {id: -1, name: '', is_reventado: false, is_megareventado: false, draw_day_id: 0, day_name: '', schedule: []};
+		sorteoToDelete = {id: -1, name: '', is_reventado: false, is_megareventado: false, days: [], schedule: []};
 	}
 
 	function openAssignSorteoModal() {
@@ -371,7 +435,6 @@
 	schedule={selectedSchedule}
 	sorteoId={selectedSorteoId}
 	addSchedule={handleAddScheduleSubmit}
-	updateSchedule={updateSchedule}
 />
 
 <SorteoModal
@@ -441,7 +504,6 @@
 				onEditSorteo={() => showEditSorteo(draw.id)}
 				onDeleteSorteo={() => showDeleteSorteo(draw.id)}
 				onAddSchedule={() => showAddSchedule(draw.id)}
-				onEditSchedule={(scheduleId: number) => showEditSchedule(draw.id, scheduleId)}
 				onDeleteSchedule={(scheduleId: number) => showDeleteSchedule(draw.id, scheduleId)}
 				onSaveScheduleSettings={(
 					scheduleId: number,
@@ -462,7 +524,7 @@
 		<h2>Atajos</h2>
 		<div class="shortcuts-actions">
 			<button onclick={openAssignSorteoModal}>Agregar un sorteo a todos los puestos</button>
-			<button onclick={() => {}}>Agregar un puesto en todos los draws</button>
+			<button onclick={() => {}}>Agregar un puesto en todos los sorteos</button>
 		</div>
 	</div>
 </section>

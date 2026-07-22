@@ -7,13 +7,17 @@
 		cancelText = 'Cancelar'
 	} = $props();
 
+	let hasConfirmed = $state(false);
+
 	function onClose() {
 		showModal = false;
 	}
 
-	function handleConfirm() {
-		confirm();
+	async function handleConfirm() {
+		hasConfirmed = true;
+		await confirm();
 		onClose();
+		hasConfirmed = false;
 	}
 </script>
 
@@ -35,7 +39,7 @@
 				<button type="button" onclick={onClose}>
 					{cancelText}
 				</button>
-				<button type="button" class="negative" onclick={handleConfirm}>
+				<button type="button" class="negative" onclick={handleConfirm} disabled={hasConfirmed}>
 					{confirmText}
 				</button>
 			</div>

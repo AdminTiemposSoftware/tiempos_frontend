@@ -1,43 +1,52 @@
 <script lang="ts">
 	let {
 		showModal = $bindable(),
-		sorteo = $bindable({
-			name: '',
-			is_reventado: false,
-			is_megareventado: false,
-			days: ''
-		}),
-		addSorteo = $bindable(),
-		updateSorteo = $bindable()
+		sorteo = ({ id: 0, name: '', days: [], is_reventado: false, is_megareventado: false }),
+		addSorteo,
+		updateSorteo
 	} = $props();
 
-	const dayOptions = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
-	let selectedDays = $derived(
-		sorteo.days ? sorteo.days.split(',').map((day) => day.trim()).filter(Boolean) : []
-	);
-
+	import {acts, Notifications} from '@tadashi/svelte-notification';
+	
+	const dayOptions = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+	let name = $derived<string>(sorteo.name);
+	let is_reventado = $derived<boolean>(sorteo.is_reventado);
+	let is_megareventado = $derived<boolean>(sorteo.is_megareventado);
+	let selectedDays = $derived<string[]>(sorteo.days)
+	let hasConfirmed = $state(false);
 
 	function onClose() {
 		showModal = false;
 	}
 
-	function handleSubmit() {
+	async function handleSubmit() {
 		const payload = {
-			...sorteo,
-			name: sorteo.name?.trim(),
-			days: selectedDays.join(', ')
+			id: sorteo?.id,
+			name: name?.trim(),
+			is_reventado: is_reventado,
+			is_megareventado: is_megareventado,
+			draw_days: selectedDays
 		};
-
-		if (!payload.name || !payload.days) {
+		if (!payload.name){
+			return;
+		}
+		if (!payload.draw_days || payload.draw_days.length === 0) {
+			acts.add({
+				mode: 'error',
+				message: 'Por favor, seleccione al menos un día para el sorteo.',
+				lifetime: 3
+			});
 			return;
 		}
 
-		if (payload.id) {
-			updateSorteo(payload);
+		hasConfirmed = true;
+		console.log('Submitting sorteo:', sorteo, 'with payload:', payload);
+		if (sorteo?.id !== -1) {
+			await updateSorteo(payload);
 		} else {
-			addSorteo(payload);
+			await addSorteo(payload);
 		}
-		onClose();
+		hasConfirmed = false;
 	}
 </script>
 
@@ -58,16 +67,16 @@
 				}}
 			>
 				<label class="modal-label" for="sorteo-name">Nombre</label>
-				<input class="modal-input" id="sorteo-name" type="text" bind:value={sorteo.name} required />
+				<input class="modal-input" id="sorteo-name" type="text" bind:value={name} required />
 
 				<div class="switch-grid">
 					<label class="switch-row">
 						<span>Reventado</span>
-						<input class="switch-input" type="checkbox" bind:checked={sorteo.is_reventado} />
+						<input class="switch-input" type="checkbox" bind:checked={is_reventado} />
 					</label>
 					<label class="switch-row">
 						<span>Megareventado</span>
-						<input class="switch-input" type="checkbox" bind:checked={sorteo.is_megareventado} />
+						<input class="switch-input" type="checkbox" bind:checked={is_megareventado} />
 					</label>
 				</div>
 
@@ -75,7 +84,7 @@
 				<div class="days-grid">
 					{#each dayOptions as day}
 						<label class="day-option">
-							<input id="sorteo-days" type="checkbox" value={day} bind:group={selectedDays} />
+							<input id="sorteo-days" type="checkbox" value={day} checked={selectedDays.includes(day)} bind:group={selectedDays} />
 							<span>{day}</span>
 						</label>
 					{/each}
@@ -83,7 +92,7 @@
 
 				<div class="modal-actions">
 					<button type="button" onclick={onClose}>Cancelar</button>
-					<button type="submit">Guardar</button>
+					<button type="submit" disabled={hasConfirmed}>Guardar</button>
 				</div>
 			</form>
 		</div>

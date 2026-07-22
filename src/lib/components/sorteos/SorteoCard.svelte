@@ -13,7 +13,6 @@
 		onEditSorteo,
 		onDeleteSorteo,
 		onAddSchedule,
-		onEditSchedule,
 		onDeleteSchedule,
 		onAddPuesto,
 		onEditPuesto,
@@ -230,6 +229,16 @@
 		isDirty = false;
 	}
 
+	function handleEditSorteo (event: Event) {
+		event.stopPropagation();
+		onEditSorteo?.();
+	}
+
+	function handleDeleteSorteo (event: Event) {
+		event.stopPropagation();
+		onDeleteSorteo?.();
+	}
+
 </script>
 <Notifications/>
 <div class="panel-card">
@@ -249,14 +258,18 @@
 				{#if sorteo.is_megareventado}
 					<span class="chip">Megareventado</span>
 				{/if}
-				<span class="chip chip--muted">{sorteo.days}</span>
+				{#if sorteo.days && sorteo.days.length > 0}
+					{#each sorteo.days as day}
+						<span class="chip chip--muted">{day}</span>
+					{/each}
+				{/if}
 			</div>
 		</div>
 		<div class="options-buttons">
-			<button class="neutral" onclick={onEditSorteo}>
+			<button class="neutral" onclick={handleEditSorteo}>
 				<PenSolid class="shrink-0 h-4 w-4" />
 			</button>
-			<button class="negative" onclick={onDeleteSorteo}>
+			<button class="negative" onclick={handleDeleteSorteo}>
 				<TrashBinSolid class="shrink-0 h-4 w-4" />
 			</button>
 		</div>
