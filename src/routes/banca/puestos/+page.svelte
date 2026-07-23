@@ -4,6 +4,7 @@
 	import UserModal from '../../../lib/components/puestos/UserModal.svelte';
 	import { PenSolid, TrashBinSolid } from 'flowbite-svelte-icons';
 	import { auth } from '$lib/stores/auth';
+	import {Notifications, acts} from '@tadashi/svelte-notification'
 
 	let { data } = $props();
 	let showModal = $state(false);
@@ -19,7 +20,6 @@
 		banking_id: number;
 		name: string;
 		location: string;
-		status: string;
 		prohibited_percentage?: number | string;
 		user_count?: number;
 		draw_count?: number;
@@ -50,7 +50,6 @@
 			banking_id: Number(data?.bankingId ?? 1),
 			name: '',
 			location: '',
-			status: 'Activo',
 			prohibited_percentage: 0,
 			users: [],
 			sorteos: []
@@ -68,42 +67,73 @@
 		showDeleteModal = true;
 	}
 
-	function handleConfirmDelete() {
-		if (!puestoToDelete) {
-			return;
+	async function handleConfirmDelete() {
+		try {
+			if (!puestoToDelete) {
+				return;
+			}
+			const response = await fetch(`/banca/puestos/${puestoToDelete?.id}`, {
+				method: 'DELETE'
+			});
+
+			if (!response.ok) {
+				acts.add({
+					message: 'Error al eliminar el puesto',
+					mode: 'error',
+					lifetime: 3
+				});
+				return;
+			}
+
+			acts.add({
+				message: 'Puesto eliminado correctamente',
+				mode: 'success',
+				lifetime: 3
+			});
+			puestos = puestos.filter((item) => item.id !== puestoToDelete?.id);
+			expandedPuestos = expandedPuestos.filter((id) => id !== puestoToDelete?.id);
+			puestoToDelete = null;
+		} catch (error) {
+			console.error('Error al eliminar el puesto:', error);
+			acts.add({
+				message: 'Error al eliminar el puesto',
+				mode: 'error',
+				lifetime: 3
+			});
 		}
-		puestos = puestos.filter((item) => item.id !== puestoToDelete?.id);
-		expandedPuestos = expandedPuestos.filter((id) => id !== puestoToDelete?.id);
-		puestoToDelete = null;
 	}
 
-	async function handleAddPuesto(payload: Partial<Puesto>) {
-		const response = await fetch('/banca/puestos', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
+	async function handleAddPuesto(payload: Puesto) {
+		try {
+			const response = await fetch('/banca/puestos', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					banking_id: Number(payload.banking_id ?? data?.bankingId ?? 1),
+					name: payload.name ?? 'Nuevo puesto',
+					location: payload.location ?? '-',
+					prohibited_percentage: Number(payload.prohibited_percentage ?? 0)
+				})
+			});
+
+			if (!response.ok) {
+				acts.add({
+					message: 'Error al crear el puesto',
+					mode: 'error',
+					lifetime: 3
+				});
+				return;
+			}
+
+			const result = await response.json().catch(() => null);
+			const id = result?.items?.[0]?.id;
+			const createdPuesto =  {
+				id: id,
 				banking_id: Number(payload.banking_id ?? data?.bankingId ?? 1),
 				name: payload.name ?? 'Nuevo puesto',
 				location: payload.location ?? '-',
-				prohibited_percentage: Number(payload.prohibited_percentage ?? 0)
-			})
-		});
-
-		if (!response.ok) {
-			throw new Error('Failed to create puesto');
-		}
-
-		const result = await response.json().catch(() => null);
-		const createdPuesto = Array.isArray(result?.items) && result.items.length > 0
-			? result.items[0]
-			: {
-				id: Math.max(0, ...puestos.map((item) => item.id ?? 0)) + 1,
-				banking_id: Number(payload.banking_id ?? data?.bankingId ?? 1),
-				name: payload.name ?? 'Nuevo puesto',
-				location: payload.location ?? '-',
-				status: payload.status ?? 'Activo',
 				prohibited_percentage: Number(payload.prohibited_percentage ?? 0),
 				user_count: 0,
 				draw_count: 0,
@@ -111,20 +141,69 @@
 				sorteos: payload.sorteos ?? []
 			};
 
-		puestos = [...puestos, createdPuesto];
+			acts.add({
+				message: 'Puesto creado correctamente',
+				mode: 'success',
+				lifetime: 3
+			});
+
+			showModal = false;
+			puestos = [...puestos, createdPuesto];
+		} catch (error) {
+			console.error('Error al crear el puesto:', error);
+			acts.add({
+				message: 'Error al crear el puesto',
+				mode: 'error',
+				lifetime: 3
+			});
+		}
 	}
 
-	function handleUpdatePuesto(payload: Partial<Puesto> & { id: number }) {
-		puestos = puestos.map((item) =>
-			item.id === payload.id
-				? {
-						...item,
-						...payload,
-						users: payload.users ?? item.users,
-						sorteos: payload.sorteos ?? item.sorteos
-					}
-				: item
-		);
+	async function handleUpdatePuesto(payload: { id: number, name?: string, location?: string, prohibited_percentage?: number } ) {
+		try {
+			if (!payload.id) {
+				throw new Error('El payload debe contener un id válido para actualizar el puesto.');
+			}
+
+			const response = await fetch(`/banca/puestos/${payload.id}`, {
+				method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					name: payload.name ?? '',
+					location: payload.location ?? '',
+					prohibited_percentage: Number(payload.prohibited_percentage ?? 0)
+				})
+			});
+
+			if (!response.ok) {
+				acts.add({
+					message: 'Error al actualizar el puesto',
+					mode: 'error',
+					lifetime: 3
+				});
+				return;
+			}
+
+			acts.add({
+				message: 'Puesto actualizado correctamente',
+				mode: 'success',
+				lifetime: 3
+			});
+			puestos = puestos.map((item) => item.id === payload.id ? {
+				...item,
+				...payload
+			} : item );
+			showModal = false;
+		} catch (error) {
+			console.error('Error al actualizar el puesto:', error);
+			acts.add({
+				message: 'Error al actualizar el puesto',
+				mode: 'error',
+				lifetime: 3
+			});
+		}
 	}
 
 	function handleCreateUser(puesto: Puesto) {
@@ -132,17 +211,65 @@
 		showUserModal = true;
 	}
 
+	async function addUser(payload: { username: string; name: string; phone: string; password?: string }) {
+		try {
+			if (!selectedPuesto?.id) {
+				throw new Error('No se puede agregar un usuario sin un puesto seleccionado.');
+			}
+
+			const response = await fetch(`/banca/puestos/users`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({"branch_id": selectedPuesto.id, "username": payload.username, "name": payload.name, "phone": payload.phone, "password": payload.password})
+			});
+
+			if (!response.ok) {
+				acts.add({
+					message: 'Error al agregar el usuario',
+					mode: 'error',
+					lifetime: 3
+				});
+				return;
+			}
+
+			const result = await response.json().catch(() => null);
+			const id = result?.items?.[0].new_user_id;
+
+			acts.add({
+				message: 'Usuario agregado correctamente',
+				mode: 'success',
+				lifetime: 3
+			});
+			puestos = puestos.map((item) => item.id === selectedPuesto?.id ? {
+				...item,
+				users: [...(item.users ?? []), { id, username: payload.username, name: payload.name, phone: payload.phone }],
+				user_count: (item.user_count ?? 0) + 1
+			} : item );
+
+			showUserModal = false;
+		} catch (error) {
+			console.error('Error al agregar el usuario:', error);
+			acts.add({
+				message: 'Error al agregar el usuario',
+				mode: 'error',
+				lifetime: 3
+			});
+		}
+	}
+
 	function updateUser() {
 		// TODO
 	}
 
-	function createSorteo() {
+	function handleAssignSorteo() {
 		// TODO
 	}
 </script>
 
 <PuestoModal
-	bind:showModal
+	bind:showModal={showModal}
 	bind:puesto={selectedPuesto}
 	addPuesto={handleAddPuesto}
 	updatePuesto={handleUpdatePuesto}
@@ -160,14 +287,15 @@
 <UserModal
 	bind:showModal={showUserModal}
 	updateUser={updateUser}
+	addUser={addUser}
 />
 	
-
 <svelte:head>
 	<title>Puestos</title>
 </svelte:head>
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
+<Notifications />
 <section class="page-stack">
 	<header class="header-banking">
 		<div>
@@ -181,18 +309,31 @@
 	<div class="panel-list">
 		{#each puestos as puesto}
 			<div class="panel-card">
-				<button class="panel-toggle" onclick={() => togglePuesto(puesto.id ?? 0)}>
-					<div class="panel-main">
+				<div 
+					class="panel-toggle" 
+					onclick={() => togglePuesto(puesto.id ?? 0)}
+					onkeydown={(e) => e.key === 'Enter' && togglePuesto(puesto.id ?? 0)}
+					role="button"
+					tabindex="0"
+				>
+					<div class="panel-info">
 						<span class="panel-title">{puesto.name}</span>
 						<span class="puesto-location">{puesto.location}</span>
 						<div class="chip-row">
-							<span class="chip">{puesto.status}</span>
 							<span class="chip chip--muted">{puesto.user_count ?? puesto.users?.length ?? 0} usuarios</span>
 							<span class="chip chip--muted">{puesto.draw_count ?? puesto.sorteos?.length ?? 0} sorteos</span>
 							<span class="chip chip--muted">Prohibidos al {puesto.prohibited_percentage}%</span>
 						</div>
 					</div>
-				</button>
+					<div class="options-buttons">
+						<button class="neutral" onclick={(event) => {event.stopPropagation(); handleEdit(puesto); }}>
+							<PenSolid class="shrink-0 h-4 w-4" />
+						</button>
+						<button class="negative" onclick={(event) => {event.stopPropagation(); handleDelete(puesto); }}>
+							<TrashBinSolid class="shrink-0 h-4 w-4" />
+						</button>
+					</div>
+				</div>
 				{#if expandedPuestos.includes(puesto.id ?? 0)}
 					<div class="panel-content panel-content--filled">
 
@@ -254,22 +395,10 @@
 										</table>
 									</div>
 								{/if}
-								<button onclick={createSorteo}>
+								<button onclick={handleAssignSorteo}>
 									Assignar sorteo	
 								</button>
 							</div>
-						</div>
-
-
-						<div class="panel-actions">
-							<button onclick={() => handleEdit(puesto)}>
-								<PenSolid class="shrink-0 h-4 w-4" />
-								Editar
-							</button>
-							<button class="danger" onclick={() => handleDelete(puesto)}>
-								<TrashBinSolid class="shrink-0 h-4 w-4" />
-								Eliminar
-							</button>
 						</div>
 					</div>
 				{/if}
@@ -283,9 +412,20 @@
 	section {
 		gap: 0;
 	}
+
 	.puesto-location {
 		color: rgba(0, 0, 0, 0.6);
 		font-size: 0.9rem;
+	}
+
+	.panel-info {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+	}
+
+	.chip-row {
+		margin-top: 0.5rem;
 	}
 
 	.panel-content--filled {
@@ -326,11 +466,13 @@
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 	}
+
 	.subsection.column {
 		display: flex;
 		flex-direction: row;
 		width: 100%;
 	}
+
 	.sub-subsection {
 		flex: 1;
 	}

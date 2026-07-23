@@ -107,7 +107,7 @@
 
     {#if QrCode}
     <div class="qr-code">
-        <QrCode data={qrData} size={100} errorCorrection="L" />
+        <QrCode data={qrData} size={160} errorCorrection="L" />
         <!-- <img src={qrImage} alt="QR Code" width="120" height="120" /> -->
     </div>
     {/if}

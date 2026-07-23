@@ -1,93 +1,42 @@
 <script lang="ts">
 	type Puesto = {
 		id?: number;
-		banking_id: number | '' | null;
 		name: string;
 		location: string;
 		prohibited_percentage: number | '';
-		users: string[];
-	};
-
-	const defaultPuesto: Puesto = {
-		banking_id: null,
-		name: '',
-		location: '',
-		prohibited_percentage: 0,
-		users: []
 	};
 
 	let { 
 		showModal = $bindable(), 
-		puesto = $bindable({ ...defaultPuesto }),
+		puesto = $bindable({ id: -1, banking_id: null, name: '', location: '', prohibited_percentage: 0, users: [] }),
 		updatePuesto = $bindable(),
 		addPuesto = $bindable()
 	} = $props();
-	let userInput = $state('');
-	let wasOpen = false;
-
-	$effect(() => {
-		if (showModal && !wasOpen) {
-			const merged = { ...defaultPuesto, ...(puesto ?? {}) } as Puesto;
-			merged.users = Array.isArray(merged.users) ? merged.users : [];
-			puesto = merged;
-			userInput = '';
-		}
-		wasOpen = showModal;
-	});
 
 	function onClose() {
 		showModal = false;
-	}
-
-	function addUser() {
-		const value = userInput.trim();
-		if (!puesto || !value) {
-			return;
-		}
-		const exists = puesto.users.some((user) => user.toLowerCase() === value.toLowerCase());
-		if (!exists) {
-			puesto = { ...puesto, users: [...puesto.users, value] };
-		}
-		userInput = '';
-	}
-
-	function removeUser(value: string) {
-		if (!puesto) {
-			return;
-		}
-		puesto = { ...puesto, users: puesto.users.filter((user) => user !== value) };
 	}
 
 	async function handleSubmit() {
 		if (!puesto) {
 			return;
 		}
-		const bankingId = puesto.banking_id === null || puesto.banking_id === ''
-			? null
-			: Number(puesto.banking_id);
+		
 		const payload: Puesto = {
-			...puesto,
-			banking_id: bankingId,
+			id: puesto.id,
 			name: puesto.name.trim(),
 			location: puesto.location.trim(),
 			prohibited_percentage: Number(puesto.prohibited_percentage || 0),
-			users: puesto.users.map((user) => user.trim()).filter(Boolean)
 		};
 
-		if (!payload.name || !payload.location || payload.banking_id === null) {
+		if (!payload.name || !payload.location) {
 			return;
 		}
 
-		try {
-			if (payload.id) {
-				await updatePuesto(payload);
-			} else {
-				await addPuesto(payload);
-			}
-			onClose();
-		} catch (error) {
-			console.error('Failed to save puesto', error);
-		}
+		if (puesto.id && puesto.id > 0) 
+			await updatePuesto(payload);
+		else 
+			await addPuesto(payload);
 	}
 </script>
 

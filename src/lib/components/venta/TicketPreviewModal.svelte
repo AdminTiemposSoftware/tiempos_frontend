@@ -80,11 +80,15 @@
             JSON.stringify(receiptData)
         );
 
-        window.open(
+        const printWindow = window.open(
             '/puesto/print?data=' + encoded,
             '_blank',
             'width=500,height=700'
         );
+
+        printWindow?.addEventListener('afterprint', () => {
+            printWindow.close();
+        });
 
         onClose();
 	}
@@ -129,9 +133,9 @@
         </div>
 
         <div class="actions">  
-            <button type="button" onclick={handleConfirmPDF}>
+            <!-- <button type="button" onclick={handleConfirmPDF}>
                 <div class="button-name">Guardar P<p>D</p>F</div>
-            </button>
+            </button> -->
             <button onclick={printReceipt}>
                 <div class="button-name">Imp<p>r</p>imir (Enter)</div>
             </button>

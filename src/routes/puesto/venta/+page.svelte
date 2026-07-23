@@ -24,7 +24,7 @@
         draw_is_reventado: boolean;
         draw_is_megareventado: boolean;
         draw_day_id: number;
-        day_name: string;
+        days: string[];
         position_number: number;
         multiplier: number;
     };
@@ -92,22 +92,33 @@
 
     $effect(() => {
         now;
-        const items = Array.isArray(data?.drawItems) ? (data.drawItems as AvailableBet[]) : [];
-        const mappedBets = items.map((item) => ({
-            draw_schedule_branch_id: item.draw_schedule_branch_id,
-            comission: item.comission,
-            schedule_id: item.schedule_id,
-            schedule_name: item.schedule_name,
-            schedule_time: formatCloseTime(item.schedule_time),
-            draw_id: item.draw_id,
-            draw_name: item.draw_name,
-            draw_is_reventado: item.draw_is_reventado,
-            draw_is_megareventado: item.draw_is_megareventado,
-            draw_day_id: item.draw_day_id,
-            day_name: item.day_name,
-            position_number: item.position_number,
-            multiplier: item.multiplier
-        }));
+        const items = Array.isArray(data?.drawItems) ? (data.drawItems as { schedule_id: number, day_name: string, draw_schedule_branch_id: number, comission: string | number, schedule_name: string, schedule_time: string, draw_id: number, draw_name: string, draw_is_reventado: boolean, draw_is_megareventado: boolean, position_number: number, multiplier: number }[]) : [];
+
+        const mappedBets = Object.values(
+            items.reduce((acc, item) => {
+                if (!acc[item.schedule_id]) {
+                    acc[item.schedule_id] = {
+                        draw_schedule_branch_id: item.draw_schedule_branch_id,
+                        comission: item.comission,
+                        schedule_id: item.schedule_id,
+                        schedule_name: item.schedule_name,
+                        schedule_time: formatCloseTime(item.schedule_time),
+                        draw_id: item.draw_id,
+                        draw_name: item.draw_name,
+                        draw_is_reventado: item.draw_is_reventado,
+                        draw_is_megareventado: item.draw_is_megareventado,
+                        days: [],
+                        position_number: item.position_number,
+                        multiplier: item.multiplier
+                    };
+                }
+
+                acc[item.schedule_id].days.push(item.day_name);
+
+                return acc;
+            }, {} as Record<number, any>)
+        );
+        console.log('Mapped Bets:', mappedBets);
 
         
         const filteredBets = mappedBets.filter((bet) =>
