@@ -13,7 +13,7 @@
 	let showDeleteProhibitedModal = $state(false);
 	let showAddProhibitedModal = $state(false);
 	let showUpdateProhibitedModal = $state(false);
-	let selectedProhibitedNumber = $state<prohibitedNumber | undefined>(undefined);
+	let selectedProhibitedNumber = $state<prohibitedNumber>({id: -1, number: 0, amount: 0, starter: 0, can_sell_after_amount: false, by_amount: false, by_percentage: true});
 	let branchNames = $state<{ value: number; label: string }[]>([]);
 	let drawScheduleNames = $state<{ value: number; label: string }[]>([]);
 	let selectedBranch = $state<number[]>([]);
@@ -350,7 +350,7 @@
 	confirm={handleConfirmDeleteProhibitedNumber}
 />
 
-<!-- <ProhibitedNumberModal
+<ProhibitedNumberModal
 	bind:showModal={showUpdateProhibitedModal}
 	bind:prohibited={selectedProhibitedNumber}
 	title="Actualizar numero restringido"
@@ -362,11 +362,12 @@
 
 <ProhibitedNumberModal
 	bind:showModal={showAddProhibitedModal}
+	bind:prohibited={selectedProhibitedNumber}
 	title="Agregar numero restringido"
 	confirmText="Guardar"
 	cancelText="Cancelar"
 	handleAddProhibitedNumber={handleAddProhibitedNumber}
-/> -->
+/>
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
 <section class="inicio">
