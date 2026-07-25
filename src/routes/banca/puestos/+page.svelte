@@ -24,7 +24,7 @@
 		user_count?: number;
 		draw_count?: number;
 		users?: Array<{ username: string; name: string; phone: string }>;
-		sorteos?: Array<{ id: number; name: string; type: string; days: string }>;
+		sorteos?: Array<{ draw_id: number; type: string; days: string; draw_name: string; draw_schedule_id: number; draw_schedule_time: string; draw_schedule_name: string; is_reventado: boolean; is_megareventado: boolean, comission: string }>;
 	};
 
 	$effect(() => {
@@ -39,10 +39,42 @@
 		}));
 	});
 
-	function togglePuesto(puestoId: number) {
+	async function togglePuesto(puestoId: number) {
 		expandedPuestos = expandedPuestos.includes(puestoId)
 			? expandedPuestos.filter((id) => id !== puestoId)
 			: [...expandedPuestos, puestoId];
+
+		const puesto = puestos.find((p) => p.id === puestoId);
+		
+		if (puesto && !puesto.users?.length && !puesto.sorteos?.length) {
+			// Fetch users and sorteos for the puesto if not already loaded
+			try {
+				const response = await fetch(`/banca/puestos/${puestoId}/details`);
+
+				if (!response.ok) {
+					acts.add({
+						message: 'Error al cargar los detalles del puesto',
+						mode: 'error',
+						lifetime: 3
+					});
+					return;
+				}
+
+				const data = await response.json();
+
+				if (data) {
+					const updatedPuesto = { ...puesto, users: data.usersItems ?? [], sorteos: data.drawItems ?? [] };
+					puestos = puestos.map((p) => (p.id === puestoId ? updatedPuesto : p));
+				}
+			} catch (error) {
+				console.error('Error fetching puesto details:', error);
+				acts.add({
+					message: 'Error al cargar los detalles del puesto',
+					mode: 'error',
+					lifetime: 3
+				});
+			};	
+		}
 	}
 
 	function openNewPuesto() {
@@ -379,25 +411,23 @@
 											<thead>
 												<tr>
 													<th>Sorteo</th>
-													<th>Tipo</th>
-													<th>Dias</th>
+													<th>Comisión</th>
 												</tr>
 											</thead>
 											<tbody>
 												{#each puesto.sorteos as sorteo}
 													<tr>
-														<td>{sorteo.name}</td>
-														<td>{sorteo.type}</td>
-														<td>{sorteo.days}</td>
+														<td>{sorteo.draw_name} {sorteo.draw_schedule_name}</td>
+														<td>{sorteo.comission}</td>
 													</tr>
 												{/each}
 											</tbody>
 										</table>
 									</div>
 								{/if}
-								<button onclick={handleAssignSorteo}>
+								<!-- <button onclick={handleAssignSorteo}>
 									Assignar sorteo	
-								</button>
+								</button> -->
 							</div>
 						</div>
 					</div>
@@ -474,7 +504,14 @@
 	}
 
 	.sub-subsection {
+		display: flex;
 		flex: 1;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.sub-subsection button {
+		margin-top: auto;
 	}
 </style>
 
