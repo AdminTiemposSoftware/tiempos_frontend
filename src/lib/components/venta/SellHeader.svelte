@@ -1,7 +1,6 @@
 <script lang="ts">
     import { total } from "../../stores/UpdateSellMatrix";
-    import { onMount, onDestroy } from "svelte";
-    import SellFooter from "$lib/components/venta/SellFooter.svelte";
+    import SellFooter from "./SellFooter.svelte";
 
     let { 
         selectedDate = $bindable(), 
@@ -12,16 +11,31 @@
     } = $props();
 
     let now = $state(new Date());
-    let intervalId: NodeJS.Timeout;
-
-    onMount(() => {
-        intervalId = setInterval(() => {
+    $effect(() => {
+        const intervalId = setInterval(() => {
             now = new Date();
         }, 1000);
+
+        return () => clearInterval(intervalId);
     });
 
-    onDestroy(() => {
-        clearInterval(intervalId);
+    const radioName = "sorteo";
+
+    const sortedBets = $derived.by(() => getSortedBets(availableBets ?? []));
+    const selectedBetIndex = $derived.by(() => sortedBets.findIndex((bet) => bet.schedule_id === selectedBet?.schedule_id));
+    const previousBetIndex = $derived.by(() => {
+        if (sortedBets.length < 2 || selectedBetIndex < 0) {
+            return -1;
+        }
+
+        return (selectedBetIndex - 1 + sortedBets.length) % sortedBets.length;
+    });
+    const nextBetIndex = $derived.by(() => {
+        if (sortedBets.length < 2 || selectedBetIndex < 0) {
+            return -1;
+        }
+
+        return (selectedBetIndex + 1) % sortedBets.length;
     });
 
     function parseCloseTime(value: string) {
@@ -97,6 +111,50 @@
             );
     }
 
+    function selectBet(index: number) {
+        const nextBet = sortedBets[index];
+        if (!nextBet) {
+            return;
+        }
+
+        selectedBet = nextBet;
+
+        queueMicrotask(() => {
+            const nextInput = document.querySelector<HTMLInputElement>(`input[name="${radioName}"][value="${nextBet.schedule_id}"]`);
+            nextInput?.focus();
+        });
+    }
+
+    function handleBetKeydown(event: KeyboardEvent) {
+        if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
+            return;
+        }
+
+        const target = event.target;
+        if ((target instanceof HTMLInputElement) && target.type !== "radio") {
+            return;
+        }
+        console.log("handleBetKeydown", event.key, event.target);
+
+        if (sortedBets.length < 2) {
+            return;
+        }
+
+        const currentIndex = selectedBetIndex >= 0
+            ? selectedBetIndex
+            : sortedBets.findIndex((bet) => String(bet.schedule_id) === target.value);
+
+        if (currentIndex < 0) {
+            return;
+        }
+
+        event.preventDefault();
+
+        const offset = event.key === "ArrowRight" ? 1 : -1;
+        const nextIndex = (currentIndex + offset + sortedBets.length) % sortedBets.length;
+        selectBet(nextIndex);
+    }
+
     // TODO Globalize this function to a utility file since it's used in multiple places
     function formatAmount(value: number) {
         if (!Number.isFinite(value)) {
@@ -114,6 +172,7 @@
     }
 </script>
 
+<svelte:window onkeydown={handleBetKeydown} />
 <header>
     <div class="header-top">
         <div class="header-content left">
@@ -132,16 +191,25 @@
             <div class="header-content sorteo">
                 <span class="sorteo-label">Sorteo:</span>
                 <div class="sorteo-radio">
-                    {#each getSortedBets(availableBets) as bet}
+                    {#each sortedBets as bet, index (bet.schedule_id)}
                         <label class="sorteo-option">
                             <input
                                 type="radio"
-                                name="sorteo"
+                                name={radioName}
+                                value={bet.schedule_id}
                                 checked={selectedBet?.schedule_id === bet.schedule_id}
                                 onchange={() => selectedBet = bet}
                                 class="sorteo-input"
                             />
-                            <span class="sorteo-pill">{bet.draw_name} {bet.schedule_name}</span>
+                            <span class="sorteo-pill">
+                                {#if index === previousBetIndex}
+                                    <span class="sorteo-direction sorteo-direction-left" aria-hidden="true">←</span>
+                                {/if}
+                                <span class="sorteo-pill-text">{bet.draw_name} {bet.schedule_name}</span>
+                                {#if index === nextBetIndex}
+                                    <span class="sorteo-direction sorteo-direction-right" aria-hidden="true">→</span>
+                                {/if}
+                            </span>
                         </label>
                     {/each}
                 </div>
@@ -185,11 +253,15 @@
     .sorteo-pill {
         display: inline-flex;
         align-items: center;
+        gap: 0.35rem;
         padding: 0.35rem 0.75rem;
         border: 1px solid var(--color-border);
         transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
         font-size: 1rem;
         user-select: none;
+    }
+    .sorteo-pill-text {
+        white-space: nowrap;
     }
     .sorteo-input:checked + .sorteo-pill {
         background: var(--color-theme-1);
@@ -197,6 +269,11 @@
     }
     .sorteo-option:hover .sorteo-pill {
         border-color: var(--color-theme-2);
+    }
+    .sorteo-direction {
+        font-size: 0.85em;
+        line-height: 1;
+        opacity: 0.85;
     }
     .header-top {
         display: flex;

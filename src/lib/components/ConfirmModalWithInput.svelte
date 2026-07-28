@@ -7,7 +7,7 @@
 		confirmText = 'Confirmar (Enter)',
 		cancelText = 'Cancelar'
 	} = $props();
-    let inputElement: HTMLInputElement;
+    let inputElement = $state<HTMLInputElement>();
 
 	function onClose() {
 		showModal = false;

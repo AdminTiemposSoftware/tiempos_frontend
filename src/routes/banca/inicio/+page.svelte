@@ -3,6 +3,7 @@
 	import ProhibitedNumberModal from '../../../lib/components/ProhibitedNumberModal.svelte';
     import ConfirmModal from '../../../lib/components/ConfirmModal.svelte';
     import Matrix from '../../../lib/components/venta/Matrix.svelte';
+	import ReportModal from '../../../lib/components/listas/ReportModal.svelte';
 	import {Notifications, acts} from '@tadashi/svelte-notification'
 	import SelectModal from '../../../lib/components/SelectModal.svelte';
 	import { GROUPING_OPTIONS, type GroupingMode, type ReportItem } from '../../../lib/components/venta/grouping';
@@ -22,7 +23,12 @@
 	let from =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let to =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let report = $state<ReportItem[]>([]);
+	let reportQrData = $state<Record<number, number>>({});
+	let totalQr = $state<number>(0);
+	let puestosQr = $state<string[]>([]);
+	let sorteosQr = $state<string[]>([]);
 	let isLoading = $state<boolean>(false);
+	let showReportModal = $state<boolean>(false);
     let { data } = $props();
 
 	type prohibitedNumber = {
@@ -94,8 +100,6 @@
 
 		const newProhibitedId = await response.json();
 		
-		console.log('Nuevo ID de número restringido:', newProhibitedId.items[0].NewProhibitedId);
-
 		prohibitedNumbers = prohibitedNumbers.some((item) => item.number === value)
 			? prohibitedNumbers
 			: [...prohibitedNumbers, { 
@@ -167,7 +171,6 @@
 			? (data.branchNames as any[])
 			: [];
 		branchNames = [
-			{ value: 0, label: 'Todos' },
 			...branchNamesItems.map((item) => ({
 				value: Number(item.id),
 				label: String(item.name)
@@ -180,7 +183,6 @@
 			? (data.scheduleNames as any[])
 			: [];
 		drawScheduleNames = [
-			{ value: 0, label: 'Todos' },
 			...scheduleNamesItems.map((item) => ({
 				value: Number(item.draw_schedule_id),
 				label: `${String(item.draw_name)} - ${String(item.draw_schedule_name)}`
@@ -193,26 +195,23 @@
 			? (data.reportTodayItems as any[])
 			: [];
 
-		report = reportTodayItems
-			.map((item) => ({
-				branch_id: Number(item.branch_id),
-				branch_name: String(item.branch_name),
-				draw_schedule_id: Number(item.draw_schedule_id),
-				draw_schedule_name: String(item.draw_schedule_name),
-				draw_id: Number(item.draw_id),
-				draw_name: String(item.draw_name),
-				number: Number(item.number),
-				amount: Number(item.amount),
-				is_reventado: Boolean(item.is_reventado),
-				is_megareventado: Boolean(item.is_megareventado),
-				date: String(item.date)
-			}))
-			.filter(
-				(item) =>
-					Number.isFinite(item.number) &&
-					Number.isFinite(item.amount)
-			)
-			.sort((a, b) => a.number - b.number);
+		report = reportTodayItems.map((item) => ({
+			branch_id: Number(item.branch_id),
+			branch_name: String(item.branch_name),
+			draw_schedule_id: Number(item.draw_schedule_id),
+			draw_schedule_name: String(item.draw_schedule_name),
+			draw_id: Number(item.draw_id),
+			draw_name: String(item.draw_name),
+			number: Number(item.number),
+			amount: Number(item.amount),
+			is_reventado: Boolean(item.is_reventado),
+			is_megareventado: Boolean(item.is_megareventado),
+			date: String(item.date)
+		})).filter((item) => Number.isFinite(item.number) && Number.isFinite(item.amount))
+		.sort((a, b) => a.number - b.number);
+				
+				
+		
 	});
 
 	async function applyFilters() {
@@ -263,26 +262,21 @@
 			? (data.items as any[])
 			: [];
 
-		report = dataItems
-			.map((item) => ({
-				branch_id: Number(item.branch_id),
-				branch_name: String(item.branch_name),
-				draw_schedule_id: Number(item.draw_schedule_id),
-				draw_schedule_name: String(item.draw_schedule_name),
-				draw_id: Number(item.draw_id),
-				draw_name: String(item.draw_name),
-				number: Number(item.number),
-				amount: Number(item.amount),
-				is_reventado: Boolean(item.is_reventado),
-				is_megareventado: Boolean(item.is_megareventado),
-				date: String(item.date)
-			}))
-			.filter(
-				(item) =>
-					Number.isFinite(item.number) &&
-					Number.isFinite(item.amount)
-			)
-			.sort((a, b) => a.number - b.number);
+		report = dataItems.map((item) => ({
+			branch_id: Number(item.branch_id),
+			branch_name: String(item.branch_name),
+			draw_schedule_id: Number(item.draw_schedule_id),
+			draw_schedule_name: String(item.draw_schedule_name),
+			draw_id: Number(item.draw_id),
+			draw_name: String(item.draw_name),
+			number: Number(item.number),
+			amount: Number(item.amount),
+			is_reventado: Boolean(item.is_reventado),
+			is_megareventado: Boolean(item.is_megareventado),
+			date: String(item.date)
+		})).filter(
+			(item) => Number.isFinite(item.number) && Number.isFinite(item.amount))
+		.sort((a, b) => a.number - b.number);
 
 		isLoading = false;
 	}
@@ -332,6 +326,28 @@
 	function getGroupingModeLabel(mode: GroupingMode) {
 		return GROUPING_OPTIONS.find((option: { value: GroupingMode; label: string }) => option.value === mode)?.label ?? mode;
 	}
+
+	async function handleShowReportModal() {
+		await applyFilters();
+		showReportModal = true;
+		if (report.length === 0) {
+			reportQrData = Object.fromEntries(
+				Array.from({ length: 100 }, (_, i) => [i, 0])
+			);
+		} else {
+			reportQrData = report.reduce((acc: Record<number, number>, item: ReportItem) => {
+				acc[item.number] = (acc[item.number] || 0) + item.amount;
+				return acc;
+			}, {});
+		}
+		totalQr = Object.values(reportQrData).reduce((acc, amount) => acc + amount, 0);
+		puestosQr = selectedBranch.length === 0 || selectedBranch.includes(0)
+			? branchNames.slice(1).map((item) => item.label)
+			: branchNames.filter((item) => selectedBranch.includes(item.value)).map((item) => item.label);
+		sorteosQr = selectedDrawSchedule.length === 0 || selectedDrawSchedule.includes(0)
+			? drawScheduleNames.slice(1).map((item) => item.label)
+			: drawScheduleNames.filter((item) => selectedDrawSchedule.includes(item.value)).map((item) => item.label);
+	}
 </script>
 
 <svelte:head>
@@ -367,6 +383,16 @@
 	confirmText="Guardar"
 	cancelText="Cancelar"
 	handleAddProhibitedNumber={handleAddProhibitedNumber}
+/>
+
+<ReportModal
+	bind:showModal={showReportModal}
+	data={reportQrData}
+	dateFrom={from}
+	puestos={puestosQr}
+	sorteos={sorteosQr}
+	dateTo={to}
+	total={totalQr}
 />
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
@@ -408,7 +434,7 @@
 				</button>
             </div>
 	        <Matrix bind:report={report} bind:isLoading={isLoading} bind:groupingModes={groupingModes} />
-			<button type="button" class="option-button" onclick={applyFilters}>
+			<button type="button" class="option-button" onclick={handleShowReportModal}>
 				Obtener reporte	
 			</button>
         </div>
@@ -451,7 +477,7 @@
 				<button
 					class={`prohibited-badge`}
 					onclick={() => {}}
-					aria-label={`Actualizar numero restringido}`}
+					aria-label={`Actualizar numero restringido`}
 				>
 					<span class="prohibited-number">Numero</span>
 					
@@ -502,6 +528,7 @@
 	.field {
 		min-width: 8rem;
 	}
+
 	.field input {
 		height: 57.59%;
 	}
@@ -691,5 +718,7 @@
 		padding: .2rem .5rem;
 		font-size: 0.85rem;
 	}
+
+	
 
 </style>
