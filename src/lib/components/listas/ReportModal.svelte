@@ -60,8 +60,6 @@
             <p>{puesto}</p>
             {#if puestos.indexOf(puesto) < puestos.length - 1}
                 •
-            {:else}
-                <p>{puesto}</p>
             {/if}
             {/each}
         </div>
