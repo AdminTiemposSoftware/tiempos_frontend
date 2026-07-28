@@ -9,19 +9,10 @@
 		by_amount: boolean;
 		by_percentage: boolean;
 	}
-	const defaultProhibitedNumber: ProhibitedNumber = {
-		id: -1,
-		number: 0,
-		amount: 0,
-		starter: 0,
-		can_sell_after_amount: false,
-		by_amount: false,
-		by_percentage: true
-	};
 	
 	let {
 		showModal = $bindable(),
-		prohibited = $bindable<ProhibitedNumber>(defaultProhibitedNumber),
+		prohibited = $bindable<ProhibitedNumber>({id: -1, number: 0, amount: 0, starter: 0, can_sell_after_amount: false, by_amount: false, by_percentage: true}),
 		title = 'Agregar numero restringido',
 		confirmText = 'Guardar',
 		cancelText = 'Cancelar',
@@ -30,15 +21,16 @@
 		handleDeleteProhibitedNumber = $bindable()
 	} = $props();
 
-	let numberInput: HTMLInputElement | undefined = $state<undefined>();
-	let amountInput: HTMLInputElement | undefined = $state<undefined>();
-	let starterInput: HTMLInputElement | undefined = $state<undefined>();
+	let numberInput = $state<HTMLInputElement>();
+	let amountInput = $state<HTMLInputElement>();
+	let starterInput = $state<HTMLInputElement>();
 
 	onMount(() => {
 		numberInput?.focus();
 	});
 
 	function onClose() {
+		prohibited = {id: -1, number: 0, amount: 0, starter: 0, can_sell_after_amount: false, by_amount: false, by_percentage: true};
 		showModal = false;
 	}
 
@@ -67,9 +59,9 @@
 		if (event.key === 'Enter') {
 			event.preventDefault();
 			if (target instanceof HTMLInputElement && target.id === 'prohibited-number') {
-				amountInput.focus();
+				amountInput?.focus();
 			} else if (target instanceof HTMLInputElement && target.id === 'prohibited-amount') {
-				starterInput.focus();
+				starterInput?.focus();
 			} else if (target instanceof HTMLInputElement && target.id === 'prohibited-starter') {
 				handleSubmit();
 

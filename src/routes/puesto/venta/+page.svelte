@@ -118,8 +118,6 @@
                 return acc;
             }, {} as Record<number, any>)
         );
-        console.log('Mapped Bets:', mappedBets);
-
         
         const filteredBets = mappedBets.filter((bet) =>
             isBetOpen(bet.schedule_time, now)

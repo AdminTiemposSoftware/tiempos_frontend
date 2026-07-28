@@ -12,37 +12,18 @@
 
     $effect(() => {
         if (selected.length === 0 && options.length > 0) {
-            selected = [options[0].value];
+			selected = options.map((o : Option) => o.value);
         }
     });
 
 	let open = $state(false);
 
 	function toggle(value: string | number) {
-		const allValue = options[0].value;
-
-		// Clicked "All Selected"
-		if (value === allValue) {
-			const allSelected = selected.length === options.length;
-			selected = allSelected ? [] : options.map((o : Option) => o.value);
-			return;
-		}
-
-		// Toggle normal option
 		if (selected.includes(value)) {
 			selected = selected.filter((x : number) => x !== value);
 		} else {
 			selected = [...selected, value];
 		}
-
-		// Remove "All Selected"
-		selected = selected.filter((x : number) => x !== allValue);
-
-		// If every normal option selected → select All
-		const allNormalSelected = options.slice(1).every((o : Option) => selected.includes(o.value));
-			
-		if (allNormalSelected) 
-			selected = selected.filter((x : number) => x === allValue);
 	}
 
 	function isSelected(value: number) {
