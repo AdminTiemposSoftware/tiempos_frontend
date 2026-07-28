@@ -57,8 +57,9 @@
         {/if}</h2>
         <div class="chip-row">
             {#each puestos as puesto}
+            <p>{puesto}</p>
             {#if puestos.indexOf(puesto) < puestos.length - 1}
-                <p>{puesto}</p> •
+                •
             {:else}
                 <p>{puesto}</p>
             {/if}
@@ -67,6 +68,9 @@
         <div class="chip-row">
             {#each sorteos as sorteo}
                 <p>{sorteo}</p>
+                {#if sorteos.indexOf(sorteo) < sorteos.length - 1}
+                    •
+                {/if}
             {/each}
         </div>
         <div class="qr-container">
@@ -92,5 +96,6 @@
     .chip-row, .modal-title{
         margin-bottom: 0.5rem;
         font-size: 1rem;
+        justify-content: center;
     }
 </style>
