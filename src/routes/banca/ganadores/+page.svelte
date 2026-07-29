@@ -1,7 +1,7 @@
 <script lang="ts">    
 	import {Notifications, acts} from '@tadashi/svelte-notification'
     import { auth } from '$lib/stores/auth';
-    import { PenSolid, TrashBinSolid } from 'flowbite-svelte-icons';
+    import SorteoWinnerCard from '$lib/components/ganadores/SorteoWinnerCard.svelte';
     import { goto } from '$app/navigation';
     
     let { data } = $props();
@@ -15,69 +15,43 @@
     let originalMultiplier = $state<Record<number, number>>({});
     let editingMultiplier = $state<Record<number, number>>({});
     
+    type Position = {
+        id: number;
+        multiplier: number;
+    };
+
     type Winner = {
         date: string;
         draw_id: number;
         draw_is_megareventado: boolean;
         draw_is_reventado: boolean;
         draw_schedule_name: string;
-        position_id: number;
-        position_number: number;
-        position_multiplier: number;
+        positions: Record<number, Position>;
         schedule_id: number;
         schedule_time: string;
-        winner_id: number;
-        winner_number: number;
     };
-
-    $effect(() => {
-        void goto(`?date=${selectedDate}`, {
-            replaceState: true,
-            noScroll: true,
-            keepFocus: true
-        });
-    });
         
     $effect(() => {
         const items = Array.isArray(data?.items) ? data.items : [];
-        winners = items.map((item: any) => ({
-            date: item.date,
-            draw_id: item.draw_id,
-            draw_is_megareventado: item.draw_is_megareventado,
-            draw_is_reventado: item.draw_is_reventado,
-            draw_schedule_name: `${item.draw_name} ${item.schedule_name}`,
-            position_id: item.position_id,
-            position_number: item.position_number,
-            position_multiplier: item.position_multiplier,
-            schedule_id: item.schedule_id,
-            schedule_time: item.schedule_time,
-            winner_id: item.winner_id,
-            winner_number: item.winner_number
-        }));
+        winners = Object.values(items.reduce((acc, item) => {
+            if (!acc[item.schedule_id]) {
+                acc[item.schedule_id] = {
+                    draw_id: item.draw_id,
+                    draw_is_megareventado: item.draw_is_megareventado,
+                    draw_is_reventado: item.draw_is_reventado,
+                    draw_schedule_name: `${item.draw_name} ${item.schedule_name}`,
+                    positions: {},
+                    schedule_id: item.schedule_id,
+                    schedule_time: item.schedule_time
+                };
+            }
+            acc[item.schedule_id].positions[item.position_number] = {
+                id: item.position_id,
+                multiplier: item.position_multiplier
+            };
 
-        editingWinner = items.reduce((acc: Record<number, number>, item: any) => {
-            acc[item.position_id] = item.winner_number;
             return acc;
-        }, {});
-        assignedWinner = items.reduce((acc: Record<number, boolean>, item: any) => {
-            acc[item.position_id] = item.winner_number !== null;
-            return acc;
-        }, {});
-
-        editingMultiplierMode = items.reduce((acc: Record<number, boolean>, item: any) => {
-            acc[item.position_id] = false;
-            return acc;
-        }, {});
-        
-        originalMultiplier = items.reduce((acc: Record<number, number>, item: any) => {
-            acc[item.position_id] = item.position_multiplier;
-            return acc;
-        }, {});
-
-        editingMultiplier = items.reduce((acc: Record<number, number>, item: any) => {
-            acc[item.position_id] = item.position_multiplier;
-            return acc;
-        }, {});
+        }, {} as Record<string, Winner>));
     });
 
     async function requestAssignWinner(winner: Winner) {
@@ -211,90 +185,9 @@
             </div>
         </div>
     </header>
-
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Sorteo</th>
-                    <th>Multiplicador</th>
-                    <th>Ganador</th>
-                    <!-- <th>Cayó bola</th> TODO -->
-                </tr>
-            </thead>
-            <tbody>
-                {#each winners as winner}
-                    <tr>
-                        <td>
-                            {winner.date ? winner.date.split('T')[0].split('-').reverse().join('/') : ''}
-                        </td>                        
-                        <td>{winner.draw_schedule_name} {winner.position_number === 2 ? "reventado" : ""} {winner.position_number === 3 ? "megareventado" : ""} ({winner.schedule_time})</td>
-                        <td>
-                            <div class="horizontal-cell">
-                                <input 
-                                    type="text" 
-                                    bind:value={editingMultiplier[winner.position_id]} 
-                                    class="winner-input"
-                                    disabled={!editingMultiplierMode[winner.position_id]}
-                                />
-                                {#if !editingMultiplierMode[winner.position_id]}
-                                    <button
-                                        type="button"
-                                        class="neutral"
-                                        onclick={() => enableMultiplierEdit(winner.position_id)}
-                                    >
-                                        <PenSolid class="shrink-0 h-4 w-4" />
-                                    </button>
-                                {:else}
-                                    <button
-                                        type="button"
-                                        onclick={() => requestUpdateMultiplier(winner)}
-                                    >
-                                        ✓
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onclick={() => cancelMultiplierEdit(winner.position_id)}
-                                    >
-                                        X
-                                    </button>
-                                {/if}
-                            </div>
-                        </td>
-                        <td>
-                            <div class="horizontal-cell">
-                                {#if winner.position_multiplier !== null && canAssignWinner(winner)}
-                                    <input
-                                        type="number"
-                                        bind:value={editingWinner[winner.position_id]}
-                                        disabled={assignedWinner[winner.position_id]}
-                                        class="winner-input" 
-                                    />
-                                    {#if !assignedWinner[winner.position_id]}
-                                        <button
-                                            onclick={() => requestAssignWinner(winner)}
-                                            disabled={editingWinner[winner.position_id] === undefined || editingWinner[winner.position_id] === null}
-                                        >
-                                            ✓
-                                        </button>
-                                    {/if}
-                                {/if}
-                            </div>
-                        </td>
-                        <td>
-                            <!-- {#if winner.position_number === 2}
-                                <div class= "horizontal-cell">
-                                    <button class="ball red">Roja</button>
-                                    <button class="ball white">Blanca</button>
-                                </div>
-                            {/if} -->
-                        </td>
-                    </tr>
-                {/each}
-            </tbody>
-        </table>
-    </div>
+    {#each winners as winner}
+        <SorteoWinnerCard {winner} />
+    {/each}
 <Notifications/>
 </section>
 {/if}

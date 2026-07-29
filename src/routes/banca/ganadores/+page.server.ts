@@ -12,18 +12,14 @@ export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
     }
 
     try {
-	    const selectedDateParam = url.searchParams.get('date');
-        const fallbackDate = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString().split('T')[0];
-        const selectedDate = selectedDateParam ?? fallbackDate;
-
-        const [response] = await Promise.all([fetch(`${baseUrl}/winner/by-banking/${bankingId}/${selectedDate}`, {
+        const response = await fetch(`${baseUrl}/position/by-banking/${bankingId}`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
                 'X-Auth-App': 'banca',
                 Authorization: `Bearer ${token}`
             }
-        })]);
+        });
 
         const payload = response.ok ? await response.json().catch(() => null) : null;
 
