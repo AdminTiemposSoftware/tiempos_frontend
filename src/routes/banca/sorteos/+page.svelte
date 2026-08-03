@@ -5,7 +5,7 @@
 	import SorteoCard from '$lib/components/sorteos/SorteoCard.svelte';
 	import AssignSorteoModal from '$lib/components/sorteos/AssignSorteoModal.svelte';
 	import {Notifications, acts} from '@tadashi/svelte-notification'
-	import { auth } from '$lib/stores/auth';	
+	import { auth } from '$lib/stores/auth';
 
 	let { data } = $props();
 
@@ -62,7 +62,7 @@
 		puestoOptions = branchItems.map((item) => ({
 			id: item.id,
 			name: item.name,
-			comission: 0 
+			comission: 0
 		}));
 	});
 
@@ -104,7 +104,7 @@
 				const res = await fetch(`/banca/sorteos/draw-schedule/${sorteoId}`);
 				const payload = await res.json().catch(() => null);
 				const items = Array.isArray(payload?.items) ? payload.items as schedule[] : [];
-				schedule = items.map((it) => ({ 
+				schedule = items.map((it) => ({
 					id: it.id,
 					name: it.name ?? '',
 					time: it.time ?? '',
@@ -133,7 +133,7 @@
 				comission: Number(it.comission),
 				enabled: it.enabled ?? true
 			}));
-			
+
 			puestoBySchedule = puestos;
 		} catch (e) {
 			console.error('Error fetching branches for schedule', e);
@@ -171,7 +171,7 @@
 		selectedSorteo = draws.find((s) => s.id === sorteoId);
 		showSorteoModal = true;
 	}
-	
+
 	function showDeleteSchedule(sorteoId: number, scheduleId: number) {
 		scheduleToDelete = draws.find((s) => s.id === sorteoId)?.schedule.find((s) => s.id === scheduleId);
 		showDeleteScheduleModal = true;
@@ -201,7 +201,7 @@
 			}
 
 			const result = await response.json();
-		
+
 			console.log('Sorteo added successfully:', result.items[0]["id"]);
 
 			draws = [...draws, { id: result.items[0]["id"], schedule: [], name: payload.name, is_reventado: payload.is_reventado, is_megareventado: payload.is_megareventado, days: payload.draw_days }];
@@ -233,14 +233,13 @@
 					id: payload.id ?? -1,
 					name: payload.name,
 					time: payload.time,
-					is_reventado: payload.is_reventado ?? false,
-					is_megareventado: payload.is_megareventado ?? false
+					is_reventado: sorteo.is_reventado ?? false,
+					is_megareventado: sorteo.is_megareventado ?? false
 				}
 			]
 		}: sorteo);
 	}
 
-	// Update handlers
 	async function updateSorteo(updatedSorteo: { id: number; name: string; is_reventado: boolean; is_megareventado: boolean; days: string[]; schedule: schedule[]; }) {
 		try {
 			const response = await fetch(`/banca/sorteos/${updatedSorteo.id}`, {
@@ -248,7 +247,7 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(updatedSorteo)
 			});
-			
+
 			if (!response.ok) {
 				console.error('Error updating sorteo', response.statusText);
 				acts.add({
@@ -277,23 +276,13 @@
 		}
 	}
 
-	async function saveScheduleSettings(
-		scheduleId: number,
-		settings: {
-			name: string;
-			is_reventado: boolean;
-			is_megareventado: boolean;
-			time: string;
-			puestos: puesto[];
-		},
-		change: 'flags' | 'puestos'
-	) {
+	async function saveScheduleSettings(scheduleId: number, settings: {name: string; is_reventado: boolean; is_megareventado: boolean; time: string; puestos: puesto[];}, change: 'flags' | 'puestos') {
 
 		// if (change === 'flags') {
 		const response = await fetch(`/banca/sorteos/draw-schedule/${scheduleId}`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ 
+			body: JSON.stringify({
 				name: settings.name,
 				time: settings.time,
 				is_reventado: settings.is_reventado,
@@ -317,7 +306,7 @@
 			const response = await fetch(`/banca/sorteos/draw-schedule-branch`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ 
+				body: JSON.stringify({
 					branch_id: puesto.id,
 					draw_schedule_id: scheduleId,
 					comission: puesto.comission,
@@ -427,7 +416,7 @@
 		}
 		// TODO Send request to backend
 	}
-	
+
 </script>
 
 <ScheduleModal
@@ -560,14 +549,14 @@
 		padding: 0 1rem;
 		background-color: var(--color-bg-2);
 		font-size: 1.1rem;
-		
+
 	}
 	.shortcuts-actions {
 		display: flex;
 		gap: 0.5rem;
 		flex-wrap: wrap;
 	}
-	
+
 	.header-top {
 		display: flex;
 		flex-direction: row;
@@ -577,5 +566,3 @@
 		gap: 0.25rem;
 	}
 </style>
-
-

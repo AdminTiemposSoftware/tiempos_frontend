@@ -7,7 +7,7 @@
 	} = $props();
 
 	import {acts, Notifications} from '@tadashi/svelte-notification';
-	
+
 	const dayOptions = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 	let name = $derived<string>(sorteo.name);
 	let is_reventado = $derived<boolean>(sorteo.is_reventado);
@@ -76,7 +76,7 @@
 					</label>
 					<label class="switch-row">
 						<span>Megareventado</span>
-						<input class="switch-input" type="checkbox" bind:checked={is_megareventado} />
+						<input class="switch-input" type="checkbox" bind:checked={is_megareventado} disabled={!is_reventado} />
 					</label>
 				</div>
 

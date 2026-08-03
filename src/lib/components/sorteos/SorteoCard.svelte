@@ -108,7 +108,7 @@
 		}
 	}
 
-	function puestosAreTheSame(puesto: Puesto) {// TODO 
+	function puestosAreTheSame(puesto: Puesto) {// TODO
 		const existing = puestoBySchedule.find((p: { id: number; comission: number }) => p.id === puesto.id);
 		const draftPuesto = draft.puestos.find((p) => p.id === puesto.id);
 		const draftComission = draftPuesto ? draftPuesto.comission : 0;
@@ -189,12 +189,12 @@
 		// 	// isDirty = false; TO
 		// 	return;
 		// }
-		
+
 		draft = {
 			...draft,
 			time: input.value
 		};
-		
+
 		isDirty = true;
 	};
 
@@ -204,12 +204,12 @@
 		// 	isDirty = false;
 		// 	return;
 		// }
-		
+
 		draft = {
 			...draft,
 			name: input.value
 		};
-		
+
 		isDirty = true;
 	};
 
@@ -355,6 +355,7 @@
 											type="checkbox"
 											checked={Boolean(selectedSchedule.is_megareventado)}
 											onchange={(e) => handleReventadosFlagChange('is_megareventado', e)}
+											disabled={Boolean(!selectedSchedule.is_reventado)}
 										/>
 									</label>
 								</div>
