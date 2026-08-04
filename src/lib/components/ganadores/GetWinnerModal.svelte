@@ -1,4 +1,4 @@
-<script lang="ts">	
+<script lang="ts">
     let {
 		confirm,
 		showModal = $bindable(),
@@ -11,7 +11,7 @@
 
     let inputElement: HTMLInputElement;
 	let responseMessage = $state<string>('');
-		
+
 	import {Notifications, acts} from '@tadashi/svelte-notification'
 	import type { Receipt } from '../../printing/types';
 	import ReceiptPreview from '../../printing/ReceiptPreview.svelte';
@@ -68,7 +68,7 @@
             subtitles: subtitleParts,
             items,
             total,
-            footer: ["----------ATENCION----------", multiplierInfo, "----------------------------", '* * Gracias por su compra * *', '¡Buena suerte!'],
+            footer: ["------- ATENCION -------", multiplierInfo, "------------------------", 'Gracias por su compra', '¡Buena suerte!'],
             serial: `${ticketWinner?.serial || ''}`,
             ticket_number: ticketWinner?.ticket_number?.toString().padStart(3, '0') || ''
         };
@@ -80,7 +80,7 @@
 
         return BigInt(`0x${serialHex}`).toString();
     }
-	
+
     function countPossibleNumbers(qrData: string) {
         const normalized = qrData.trim().toUpperCase();
 
@@ -107,7 +107,7 @@
 
         return null;
     }
-	
+
     function serializeData(data): string {
         const serialHex = ticketWinner?.serial
             ? BigInt(ticketWinner.serial).toString(16).toUpperCase()
@@ -127,17 +127,17 @@
 		if (input.trim() === '') {
 			return;
 		}
-		
+
 		if (input.length > 16) {
 			let decodedData;
 			decodedData = countPossibleNumbers(input);
 			if (decodedData && decodedData > 0)
 				input = extractSerial(input, decodedData);
 		}
-		
+
 		confirm();
 	}
-		
+
     function formatAmount(value: number) {
         if (!Number.isFinite(value)) {
             return "0";
@@ -165,7 +165,7 @@
 		if (ticketWinner?.items?.length === 0) {
 			return;
 		}
-		
+
 		let response = fetch('/puesto/ganadores/pagar', {
 			method: 'POST',
 			headers: {
@@ -213,11 +213,11 @@
 <svelte:window onkeydown={handleKeyInput} />
 {#if showModal}
 <Notifications />
-<div 
-	class="modal-backdrop" 
-	role="button" 
-	onclick={onClose} 
-	onkeydown={(e) => e.key === "Escape" && onClose()} 
+<div
+	class="modal-backdrop"
+	role="button"
+	onclick={onClose}
+	onkeydown={(e) => e.key === "Escape" && onClose()}
 	tabindex="0"
 >
 	<div
@@ -249,13 +249,13 @@
 							<p class="modal-text positive subtitle">
 								Este tiquete es ganador, si desea pagarlo presione P.
 							</p>
-						
+
 							<div class="winner-information">
 								<div class="information-item">
 									<span>Número ganador</span>
 									<strong>{ticketWinner?.winner_number}</strong>
 								</div>
-						
+
 								<div class="information-item">
 									<span>Monto</span>
 									<strong>
@@ -266,12 +266,12 @@
 										)}
 									</strong>
 								</div>
-						
+
 								<div class="information-item">
 									<span>Multiplicador</span>
 									<strong>x{ticketWinner?.multiplier}</strong>
 								</div>
-						
+
 								<div class="information-item total">
 									<span>Total a pagar</span>
 									<strong>
@@ -283,7 +283,7 @@
 									</strong>
 								</div>
 							</div>
-							<button 
+							<button
 								class="pay-button"
 								disabled={ticketWinner?.items?.length === 0}
 								onclick={handlePayTicket}
@@ -297,10 +297,10 @@
 			<div class="right">
 				<div class="receipt-container scroll-thin">
 					{#if ticketWinner}
-						<ReceiptPreview 
-							groupedItems={true} 
+						<ReceiptPreview
+							groupedItems={true}
 							details={ticketWinner?.details ?? ''}
-							qrData={serializeData(ticketWinner?.items || {})} 
+							qrData={serializeData(ticketWinner?.items || {})}
 							receipt={receipt}
 						/>
 					{/if}

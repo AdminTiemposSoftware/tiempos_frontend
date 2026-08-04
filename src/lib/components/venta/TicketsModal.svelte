@@ -2,7 +2,6 @@
     import { auth } from '../../stores/auth';
     import { onMount, tick } from "svelte";
     import ConfirmModal from "../ConfirmModal.svelte";
-    import JalarTicketModal from "./JalarTicketModal.svelte";
     import ReceiptPreview from "../../printing/ReceiptPreview.svelte";
 
     type Ticket = {
@@ -23,9 +22,9 @@
 
     let {
         showTicketModal = $bindable(false),
-        getSoldNumbersForTicket, 
-        tickets = $bindable(), 
-        numbersSold=$bindable(), 
+        getSoldNumbersForTicket,
+        tickets = $bindable(),
+        numbersSold=$bindable(),
         onClose
     } = $props();
 
@@ -36,10 +35,9 @@
     let searchTerm = $state("");
     let selectedTicket = $state<Ticket | null>(null);
     let soldNumbersForSelectedTicket = $state<{number: string, price: number}[]>([]);
+    let qrData = $state<string>('');
     let selectedRowIndex = $state(0);
     let rowRefs: Array<HTMLTableRowElement | null> = [];
-    let showJalarModal = $state(false);
-    let ticketToJalar = $state<string>('');
 
     $effect(() => {
         if (tickets !== lastTicketsRef) {
@@ -49,7 +47,7 @@
     });
 
     let normalizedSearch = $derived(searchTerm.trim().toLowerCase());
-    
+
     let filteredTickets = $derived(
         normalizedSearch
         ? localTickets.filter((ticket) => {
@@ -83,6 +81,7 @@
 
     function handleView(ticket: Ticket) {
         soldNumbersForSelectedTicket = getSoldNumbersForTicket(ticket.id);
+        qrData = serializeData(soldNumbersForSelectedTicket);
         selectedTicket = ticket;
     }
 
@@ -145,7 +144,7 @@
         );
         onClose();
     }
-    
+
     function serializeData(data: {number: string, price: number}[]): string {
         const serialHex = selectedTicket?.serial
             ? BigInt(selectedTicket.serial).toString(16).toUpperCase()
@@ -162,17 +161,8 @@
             .join('') + serialHex;
     }
 
-    function onJalar() {
-        showTicketModal = false;
-        showJalarModal = true;
-    }
-
     function handleKeyInput(event: KeyboardEvent) {
         switch (event.key) {
-            case "J":
-            case "j":
-                onJalar();
-                break;
             case "Enter":
                 if (!showTicketModal) {
                     return;
@@ -197,17 +187,14 @@
     confirm={confirmDelete}
 />
 
-<JalarTicketModal
-    bind:showModal={showJalarModal}
-    bind:numbersSold={numbersSold}
-/>
+
 <svelte:window onkeydown={handleKeyInput} />
 {#if showTicketModal}
-<div 
-    class="modal-backdrop" 
-    role="button" 
-    onclick={onClose} 
-    onkeydown={(e) => e.key === "Escape" && onClose()} 
+<div
+    class="modal-backdrop"
+    role="button"
+    onclick={onClose}
+    onkeydown={(e) => e.key === "Escape" && onClose()}
     tabindex="0"
 >
     <div
@@ -264,21 +251,19 @@
                 </table>
             </div>
             {/if}
-            <button class="jalar" onclick={onJalar}>
-                <div class="button-name"><p>J</p>alar tiquete</div>
-            </button>
         </div>
         <div class="ticket-sold-numbers">
             {#if selectedTicket}
                 <div class="receipt-container scroll-thin">
-                    <ReceiptPreview 
+                    <!-- TODO: This component doesnt render the QR code correctly as it leaves the QR from the first ticket for all tickets -->
+                    <ReceiptPreview
                         receipt={{
                             serial: `${selectedTicket.serial.toString()}`,
                             title: "",
                             subtitles: [
-                                `${selectedTicket.drawName} ${selectedTicket.scheduleName}`, 
-                                selectedTicket.branchName, `Fecha: ${selectedTicket.date}`, 
-                                `Hora: ${selectedTicket.printed_at.slice(0, 8)}` 
+                                `${selectedTicket.drawName} ${selectedTicket.scheduleName}`,
+                                selectedTicket.branchName, `Fecha: ${selectedTicket.date}`,
+                                `Hora: ${selectedTicket.printed_at.slice(0, 8)}`
                             ],
                             items: soldNumbersForSelectedTicket.map((sold) => ({
                                 number: sold.number,
@@ -286,16 +271,16 @@
                             })),
                             total: soldNumbersTotal,
                             footer: [
-                                "----------ATENCION----------", 
+                                "------- ATENCION -------",
                                 selectedTicket.multiplier ? `El primero paga al: ${selectedTicket.multiplier}` : '',
-                                "----------------------------",
-                                '* * Gracias por su compra * *',
+                                "------------------------",
+                                'Gracias por su compra',
                                 '¡Buena suerte!'
                             ],
                             ticket_number: (filteredTickets.length - selectedRowIndex).toString().padStart(3, '0')
                         }}
                         groupedItems={true}
-                        qrData={serializeData(soldNumbersForSelectedTicket)}
+                        bind:qrData={qrData}
                         details={selectedTicket.details}
                     />
                 </div>
@@ -351,7 +336,7 @@
         flex: 1;
         align-items: center;
     }
-    
+
     .ticket-sold-numbers button{
         margin-top: auto;
         width: 100%;
@@ -383,7 +368,7 @@
     }
 
     .options-buttons button{
-        
+
         width: 100%;
     }
 
