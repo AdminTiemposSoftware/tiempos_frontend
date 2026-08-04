@@ -1,5 +1,5 @@
 <script lang="ts">
-    let sold= $state<Record<string, { price: number }>>({}); 
+    let sold= $state<Record<string, { price: number }>>({});
     let priceInput: HTMLInputElement;
     let randomCountInput: HTMLInputElement;
     let priceValue = $state('');
@@ -13,18 +13,17 @@
     let {getTickets, getSoldNumbersForTicket, selectedBet, handlePDFPrint, selectedDate} = $props();
     let selectedRowIndex = $state(0);
     let rowRefs: Array<HTMLTableRowElement | null> = [];
-    let showTicketPreviewModal = $state(false); 
+    let showTicketPreviewModal = $state(false);
     let details = $state('');
     let detailsSnapshot = $state('');
     let soldSnapshot: Record<string, { price: number }> = $state({});
     let createdTicket: { ticket_serial: string; ticket_amount: number; printed_at: string; ticket_number: string } | null = $state(null);
     let showConfirmModal = $state(false);
-    let showScanQrModal = $state(false);
-    let qrScanInput = $state('');
     let formElement: HTMLFormElement;
     let soldAmount = $derived.by(() => {
         return Object.values(sold).reduce((sum, item) => sum + item.price, 0);
     });
+    let showJalarModal = $state(false);
 
     import { onMount } from 'svelte';
     import { TrashBinSolid, CubeSolid, QuestionCircleSolid, PrinterSolid, EyeSolid, ReceiptSolid, CameraPhotoSolid } from "flowbite-svelte-icons";
@@ -37,7 +36,7 @@
     import { auth } from '../../stores/auth';
     import TicketPreviewModal from './TicketPreviewModal.svelte';
     import ConfirmModalWithInput from '../ConfirmModalWithInput.svelte';
-    import QrScanModal from './QrScanModal.svelte';
+    import JalarTicketModal from './JalarTicketModal.svelte';
 
     onMount(() => {
         priceInput?.focus();
@@ -120,29 +119,29 @@
         const prohibitedInSold = $prohibitedNumbers.filter( (p) =>
             soldSnapshot[p.number] !== undefined && p.can_sell_after_amount === false
         );
-        if (prohibitedInSold.length === 0) return false; 
+        if (prohibitedInSold.length === 0) return false;
 
         const matching = Object.fromEntries(Object.entries($sellingMatrix).filter(([key]) => prohibitedInSold.some((p) => p.number === Number(key))));
 
         // Equivalent to first IF EXISTS
         const exceededNumbersByAmount = prohibitedInSold.filter((p) => {
             if (!p.by_amount) return false;
-            
+
             const currentAmount = matching[p.number];
             return currentAmount >= p.amount;
         });
-        
+
         let message = '';
 
         if (exceededNumbersByAmount.length > 0) {
-            if (exceededNumbersByAmount.length === 1) 
+            if (exceededNumbersByAmount.length === 1)
                 message = `El número ${exceededNumbersByAmount[0].number} excede el monto permitido.`;
-            else 
+            else
                 message = `Los números ${exceededNumbersByAmount.map((x) => x.number).join(', ')} exceden el monto permitido.`;
-            
+
             acts.add({
                 message: message,
-                mode: 'error', 
+                mode: 'error',
                 lifetime: 3
             });
             return true;
@@ -151,21 +150,21 @@
         // Equivalent to second IF EXISTS
         const percentageLimit = $total * ($auth.user?.prohibitedPercentage? $auth.user.prohibitedPercentage / 100 : 100);
         const exceedsNumbersByPercentage = prohibitedInSold.filter((p) => {
-            if (!p.by_percentage) return false; 
-               
+            if (!p.by_percentage) return false;
+
             const currentAmount = matching[p.number];
             return currentAmount >= percentageLimit && currentAmount >= p.starter;
         });
 
         if (exceedsNumbersByPercentage.length > 0) {
-            if (exceedsNumbersByPercentage.length === 1) 
+            if (exceedsNumbersByPercentage.length === 1)
                 message = `El número ${exceedsNumbersByPercentage[0].number} excede lo que tienes permitido vender.`;
-            else 
+            else
                 message = `Los números ${exceedsNumbersByPercentage.map((x) => x.number).join(', ')} exceden lo que tienes permitido vender.`;
-            
+
             acts.add({
                 message: message,
-                mode: 'error', 
+                mode: 'error',
                 lifetime: 3
             });
             return true;
@@ -177,15 +176,15 @@
         if (!drawScheduleId){
             acts.add({
                 message: 'No se ha seleccionado un sorteo.',
-                mode: 'error', 
+                mode: 'error',
                 lifetime: 3
             });
             return false;
         }
-        if (Object.keys(sold).length === 0){ 
+        if (Object.keys(sold).length === 0){
             acts.add({
                 message: 'No hay números seleccionados.',
-                mode: 'error', 
+                mode: 'error',
                 lifetime: 3
             });
             return false;
@@ -198,7 +197,7 @@
 
         const drawScheduleId = selectedBet?.schedule_id ?? selectedBet?.draw_schedule_id;
         if (!canSellSelectedNumbers(drawScheduleId)) return;
-            
+
         if (hasProhibitedNumbers(soldSnapshot)) return;
 
         soldSnapshot = { ...sold };
@@ -235,7 +234,7 @@
         total.update((n) => n + Object.values(soldSnapshot).reduce((sum, item) => sum + item.price, 0));
         showTicketPreviewModal = true;
         sold = {};
-        detailsSnapshot = details;        
+        detailsSnapshot = details;
         details = '';
     }
 
@@ -254,7 +253,7 @@
 	    const formData = new FormData(formElement);
         const numberInput = formData.get("number") as string;
         const price = (formData.get("price") as string).replace(/\./g, '');
-        
+
         if (!numberInput || !price) {
             return;
         }
@@ -387,10 +386,6 @@
         showQrModal = true;
     }
 
-    async function scanQR() {
-        showScanQrModal = true;
-    }
-
     async function viewTickets() {
         tickets = await getTickets();
         showTicketsModal = true;
@@ -398,6 +393,10 @@
 
     function closeTicketsModal() {
         showTicketsModal = false;
+    }
+
+    function onJalar() {
+        showJalarModal = true;
     }
 
     async function handlekeyinput(event: KeyboardEvent) {
@@ -416,14 +415,6 @@
             return;
         }
 
-        if (showScanQrModal) {
-            if (event.key === "Enter") {
-                event.preventDefault();
-                handleConfirmScanQrModal();
-            }
-            return;
-        }
-        
         switch (event.key) {
             case "Enter":
                 event.preventDefault();
@@ -440,7 +431,7 @@
                     }
                 } else if (target instanceof HTMLInputElement && target.id === 'price') {
                     numberInput?.focus();
-                } else if (showTicketPreviewModal || showTicketsModal || showQrModal || showScanQrModal) {
+                } else if (showTicketPreviewModal || showTicketsModal || showQrModal || showJalarModal) {
                     return;
                 }
                 else {
@@ -455,17 +446,16 @@
                 break;
             case "r":
             case "R":
-                await handlePrint();    
+                await handlePrint();
                 break;
             case "t":
             case "T":
                 // Ver Tiquetes button
                 viewTickets();
                 break;
-            case "e":
-            case "E":
-                // Escanear QR button
-                scanQR();
+            case "J":
+            case "j":
+                onJalar();
                 break;
             case "v":
             case "V":
@@ -484,18 +474,18 @@
             case "i":
             case "I":
                 generateRandomNumbers();
-                // Limpiar inputs 
-                // 
+                // Limpiar inputs
+                //
                 break;
             case "ArrowDown":
-                if (showTicketPreviewModal || showTicketsModal || showQrModal || showScanQrModal) {
+                if (showTicketPreviewModal || showTicketsModal || showQrModal || showJalarModal) {
                     return;
                 }
                 event.preventDefault();
                 selectedRowIndex = Math.min(selectedRowIndex + 1, Object.keys(sold).length - 1);
                 break;
             case "ArrowUp":
-                if (showTicketPreviewModal || showTicketsModal || showQrModal || showScanQrModal) {
+                if (showTicketPreviewModal || showTicketsModal || showQrModal || showJalarModal) {
                     return;
                 }
                 event.preventDefault();
@@ -569,47 +559,6 @@
         );
     }
 
-    function decodeQrData(qrData: string) {
-        const normalized = qrData.trim().toUpperCase();
-
-        if (!normalized || /[^0-9A-F]/.test(normalized)) {
-            return null;
-        }
-
-        for (let prefixLength = normalized.length - 8; prefixLength >= 0; prefixLength -= 8) {
-            const serialHex = normalized.slice(prefixLength);
-            let serialDecimal = '';
-
-            // try {
-            //     serialDecimal = BigInt(`0x${serialHex}`).toString(10);
-            // } catch {
-            //     continue;
-            // }
-
-            // if (!isValidTicketSerial(serialDecimal)) {
-            //     continue;
-            // }
-
-            const decodedSold: Record<string, { price: number }> = {};
-
-            for (let index = 0; index < prefixLength; index += 8) {
-                const chunk = normalized.slice(index, index + 8);
-                const number = Number.parseInt(chunk.slice(0, 2), 16);
-                const price = Number.parseInt(chunk.slice(2), 16);
-
-                if (Number.isNaN(number) || Number.isNaN(price) || number < 0 || number > 99) {
-                    continue;
-                }
-
-                decodedSold[String(number).padStart(2, '0')] = { price };
-            }
-
-            return decodedSold;
-        }
-
-        return null;
-    }
-
     async function handlePrint() {
         const drawScheduleId = selectedBet?.schedule_id ?? selectedBet?.draw_schedule_id;
         if(!showTicketPreviewModal && canSellSelectedNumbers(drawScheduleId) && !hasProhibitedNumbers(sold)) {
@@ -621,28 +570,11 @@
         showConfirmModal = false;
         await processTicket();
     }
-    
-    function handleConfirmScanQrModal() {
-        const decodedSold = decodeQrData(qrScanInput);
 
-        if (!decodedSold) {
-            acts.add({
-                message: 'No se pudo leer el QR.',
-                mode: 'error',
-                lifetime: 3
-            });
-            return;
-        }
-
-        sold = decodedSold;
-        selectedRowIndex = 0;
-        showScanQrModal = false;
-        qrScanInput = '';
-    }
 </script>
 
-<TicketPreviewModal 
-    bind:showTicketPreviewModal={showTicketPreviewModal} 
+<TicketPreviewModal
+    bind:showTicketPreviewModal={showTicketPreviewModal}
     createdTicket={createdTicket}
     bind:sold={soldSnapshot}
     details={detailsSnapshot}
@@ -651,12 +583,12 @@
     selectedDate={selectedDate}
 />
 
-<QrModal 
+<QrModal
     bind:showQRModal={showQrModal}
-    data={$sellingMatrix} 
+    data={$sellingMatrix}
     total={$total}
     date={selectedDate}
-    onClose={closeQrModal} 
+    onClose={closeQrModal}
 />
 
 <ConfirmModalWithInput
@@ -666,18 +598,17 @@
     confirm={handleConfirmDetails}
 />
 
-<TicketsModal 
+<TicketsModal
     bind:showTicketModal={showTicketsModal}
-    bind:tickets={tickets} 
+    bind:tickets={tickets}
     bind:numbersSold={sold}
-    onClose={closeTicketsModal} 
+    onClose={closeTicketsModal}
     getSoldNumbersForTicket={getSoldNumbersForTicket}
 />
 
-<QrScanModal
-    bind:showModal={showScanQrModal}
-    bind:input={qrScanInput}
-    confirm={handleConfirmScanQrModal}
+<JalarTicketModal
+    bind:showModal={showJalarModal}
+    bind:numbersSold={sold}
 />
 
 <svelte:window onkeydown={handlekeyinput} />
@@ -714,7 +645,7 @@
         <button type="submit"><div class="button-name"><p>A</p>gregar</div></button>
     </form>
     <div class="buttons-group">
-        <button 
+        <button
             onclick={cleanSell}
             disabled={Object.keys(sold).length === 0}
         >
@@ -785,16 +716,15 @@
         <div class="form-error">{submitError}</div>
     {/if}
     <div class="buttons-group">
-            <button 
-                onclick={viewQR}
-                // disabled={Object.keys(sold).length === 0}
+            <button
+                onclick={viewQR} disabled={Object.keys(sold).length === 0}
             >
                 <EyeSolid class="shrink-0 h-4 w-4" />
                 <div class="button-name"><p>V</p>er QR</div>
             </button>
-            <button onclick={scanQR}>
+            <button onclick={onJalar}>
                 <CameraPhotoSolid class="shrink-0 h-4 w-4" />
-                <div class="button-name"><p>E</p>scanear QR</div>
+                <div class="button-name"><p>J</p>alar tiquete</div>
             </button>
             <button onclick={viewTickets}>
                 <ReceiptSolid class="shrink-0 h-4 w-4" />
@@ -838,7 +768,7 @@
     span{
         font-size: 1.25rem;
     }
-    
+
     .sold-amount {
         margin-bottom: 1rem;
         margin-right: auto;
@@ -870,7 +800,7 @@
         max-height: 330px;
         overflow-y: auto;
     }
-    
+
     .sold table {
         width: 100%;
         border-collapse: collapse;
@@ -944,7 +874,7 @@
         color: #b91c1c;
         font-size: 0.9rem;
     }
-    
+
     .selected-row {
         outline: 2px solid var(--color-theme-1);
         outline-offset: -2px;
