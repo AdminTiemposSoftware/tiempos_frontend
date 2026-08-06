@@ -10,13 +10,8 @@
 		label: string;
 	};
 
-    $effect(() => {
-        if (selected.length === 0 && options.length > 0) {
-			selected = options.map((o : Option) => o.value);
-        }
-    });
-
 	let open = $state(false);
+	const MAX_VISIBLE_LABELS = 2;
 
 	function toggle(value: string | number) {
 		if (selected.includes(value)) {
@@ -29,6 +24,20 @@
 	function isSelected(value: number) {
 		return selected.includes(value);
 	}
+
+	function toggleAll() {
+		if (selected.length === options.length) {
+			selected = [];
+			return;
+		}
+
+		selected = options.map((o: Option) => o.value);
+	}
+
+	const selectedItems = $derived(options.filter((x: Option) => selected.includes(x.value)));
+	const visibleSelectedItems = $derived(selectedItems.slice(0, MAX_VISIBLE_LABELS));
+	const remainingSelectedCount = $derived(Math.max(0, selectedItems.length - MAX_VISIBLE_LABELS));
+	const allSelected = $derived(options.length > 0 && selected.length === options.length);
 </script>
 
 <svelte:window
@@ -49,11 +58,16 @@
 	>
 		{#if selected.length}
 			<div class="chips">
-				{#each options.filter((x : Option) => selected.includes(x.value)) as item}
+				{#each visibleSelectedItems as item}
 					<span class="chip">
 						{item.label}
 					</span>
 				{/each}
+				{#if remainingSelectedCount > 0}
+					<span class="chip more-chip">
+						+{remainingSelectedCount}
+					</span>
+				{/if}
 			</div>
 		{:else}
 			<span class="placeholder">
@@ -64,6 +78,19 @@
 
 	{#if open}
 		<div class="dropdown">
+			<button
+				type="button"
+				class="option select-all-option"
+				onclick={toggleAll}
+			>
+				<input
+					type="checkbox"
+					checked={allSelected}
+					readonly
+				/>
+				{allSelected ? 'Deseleccionar todos' : 'Seleccionar todos'}
+			</button>
+
 			{#each options as option}
 				<button
 					type="button"
@@ -89,6 +116,7 @@
         background-color: #fff;
 		position: relative;
 		width: 100%;
+		max-width: 24rem;
 		border: 1px solid var(--color-border);
 	}
 
@@ -98,13 +126,15 @@
 		width: 100%;
 		padding: 0.3rem;
 		background-color: transparent;
-		
+
 	}
 
 	.chips {
 		display: flex;
-		flex-wrap: wrap;
+		flex-wrap: nowrap;
 		gap: 0.3rem;
+		overflow: hidden;
+		white-space: nowrap;
 	}
 
 	.chip {
@@ -114,6 +144,11 @@
         border: 1px solid var(--color-border);
 		padding: .2rem .5rem;
 		font-size: 0.85rem;
+		white-space: nowrap;
+	}
+
+	.more-chip {
+		flex-shrink: 0;
 	}
 
 	.dropdown {
@@ -146,6 +181,11 @@
 				var(--color-theme-2) 10%,
 				transparent
 			);
+	}
+
+	.select-all-option {
+		font-weight: 600;
+		border-bottom: 1px solid var(--color-border);
 	}
 
 	.option:hover {

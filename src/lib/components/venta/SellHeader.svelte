@@ -2,15 +2,18 @@
     import { total } from "../../stores/UpdateSellMatrix";
     import SellFooter from "./SellFooter.svelte";
 
-    let { 
-        selectedDate = $bindable(), 
-        message = $bindable(), 
+    let {
+        selectedDate = $bindable(),
+        message = $bindable(),
         availableBets = $bindable(),
         selectedBet = $bindable(),
         prohibitedPercentage = $bindable()
     } = $props();
+    const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
 
-    let now = $state(new Date());
+    let now = $state(utcMinus6Date);
+	const today = utcMinus6Date.toISOString().split('T')[0];
+
     $effect(() => {
         const intervalId = setInterval(() => {
             now = new Date();
@@ -21,7 +24,12 @@
 
     const radioName = "sorteo";
 
-    const sortedBets = $derived.by(() => getSortedBets(availableBets ?? []));
+    const sortedBets = $derived.by(() => {
+        if (selectedDate !== today) {
+            return availableBets;
+        }
+        return getSortedBets(availableBets ?? []);
+    });
     const selectedBetIndex = $derived.by(() => sortedBets.findIndex((bet) => bet.schedule_id === selectedBet?.schedule_id));
     const previousBetIndex = $derived.by(() => {
         if (sortedBets.length < 2 || selectedBetIndex < 0) {
@@ -52,6 +60,15 @@
             return null;
         }
         return hours * 60 + minutes;
+    }
+    function daysUntilClose(dateFrom: string, dateTo: string): number {
+	const [y1, m1, d1] = dateFrom.split('-').map(Number);
+	const [y2, m2, d2] = dateTo.split('-').map(Number);
+
+	const from = Date.UTC(y1, m1 - 1, d1);
+	const to = Date.UTC(y2, m2 - 1, d2);
+
+	return Math.round((to - from) / (1000 * 60 * 60 * 24));
     }
 
     function minutesUntilClose(closeTime: string) {
@@ -84,15 +101,18 @@
         if (seconds === Number.MAX_SAFE_INTEGER) {
             return "N/A";
         }
-        const hours = Math.floor(seconds / 3600);
+        const days = daysUntilClose(today, selectedDate);
+        const hours = Math.floor((seconds % (3600 * 24)) / 3600);
         const minutes = Math.floor((seconds % 3600) / 60);
         const secs = Math.floor(seconds % 60);
-        if (hours === 0 && minutes === 0) {
+        if (days === 0 && hours === 0 && minutes === 0) {
             return `${secs}s`;
-        } else if (hours === 0) {
+        } else if (days === 0 && hours === 0) {
             return `${minutes}m ${secs}s`;
+        } else if (days === 0) {
+            return `${hours}h ${minutes}m ${secs}s`;
         }
-        return `${hours}h ${minutes}m ${secs}s`;
+        return `${days}d ${hours}h ${minutes}m ${secs}s`;
     }
 
     function getSortedBets(bets: typeof availableBets) {
@@ -134,7 +154,6 @@
         if ((target instanceof HTMLInputElement) && target.type !== "radio") {
             return;
         }
-        console.log("handleBetKeydown", event.key, event.target);
 
         if (sortedBets.length < 2) {
             return;
@@ -178,10 +197,10 @@
         <div class="header-content left">
             <div class="spans">
                 <span>Día:</span>
-                <input type="date" id="date" bind:value={selectedDate} />
+                <input type="date" id="date" bind:value={selectedDate} min={today} />
             </div>
             <div class="spans">
-                <span class="label">Total:</span> 
+                <span class="label">Total:</span>
                 <span>₡{formatAmount($total)}</span>
             </div>
                 <span class="label">Cierre: {selectedBet?.schedule_time}</span>
@@ -297,7 +316,7 @@
         gap: 1rem;
     }
     .right {
-        flex:3;   
+        flex:3;
         padding: 0;
         border: none;
     }
