@@ -32,7 +32,6 @@
     let lastTicketsRef = tickets;
     let showDeleteConfirm = $state(false);
     let ticketToDelete = $state<Ticket | null>(null);
-    let searchTerm = $state("");
     let selectedTicket = $state<Ticket | null>(null);
     let soldNumbersForSelectedTicket = $state<{number: string, price: number}[]>([]);
     let qrData = $state<string>('');
@@ -46,25 +45,14 @@
         }
     });
 
-    let normalizedSearch = $derived(searchTerm.trim().toLowerCase());
-
-    let filteredTickets = $derived(
-        normalizedSearch
-        ? localTickets.filter((ticket) => {
-            const haystack = `${ticket.id} ${ticket.total} ${ticket.details}`.toLowerCase();
-            return haystack.includes(normalizedSearch);
-            })
-        : localTickets
-    );
-
     let soldNumbersTotal = $derived(soldNumbersForSelectedTicket.reduce((sum, sold) => sum + (Number(sold.price) || 0), 0));
 
     $effect(() => {
-        if (filteredTickets.length === 0) {
+        if (tickets.length === 0) {
             selectedRowIndex = 0;
             return;
         }
-        if (selectedRowIndex >= filteredTickets.length) {
+        if (selectedRowIndex >= tickets.length) {
             selectedRowIndex = 0;
         }
         void focusSelectedRow();
@@ -96,23 +84,23 @@
     }
 
     function handleRowKeydown(event: KeyboardEvent) {
-        if (filteredTickets.length === 0) {
+        if (tickets.length === 0) {
             return;
         }
         if (event.key === "ArrowDown") {
             event.preventDefault();
-            selectedRowIndex = (selectedRowIndex + 1) % filteredTickets.length;
+            selectedRowIndex = (selectedRowIndex + 1) % tickets.length;
             void focusSelectedRow();
-            const ticket = filteredTickets[selectedRowIndex];
+            const ticket = tickets[selectedRowIndex];
             if (ticket) {
                 handleView(ticket);
             }
         }
         if (event.key === "ArrowUp") {
             event.preventDefault();
-            selectedRowIndex = (selectedRowIndex - 1 + filteredTickets.length) % filteredTickets.length;
+            selectedRowIndex = (selectedRowIndex - 1 + tickets.length) % tickets.length;
             void focusSelectedRow();
-            const ticket = filteredTickets[selectedRowIndex];
+            const ticket = tickets[selectedRowIndex];
             if (ticket) {
                 handleView(ticket);
             }
@@ -170,7 +158,7 @@
                 if (selectedTicket) {
                     loadSoldNumbers();
                 } else {
-                    const ticket = filteredTickets[selectedRowIndex];
+                    const ticket = tickets[selectedRowIndex];
                     if (ticket) {
                         handleView(ticket);
                     }
@@ -204,7 +192,7 @@
     >
         <div class="tickets-list">
 
-            {#if filteredTickets.length === 0}
+            {#if tickets.length === 0}
                 <p class="no-tickets">No hay tiquetes para mostrar.</p>
             {:else}
             <div class="ticket-scroll scroll-thin">
@@ -219,7 +207,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {#each filteredTickets as ticket, index}
+                        {#each tickets as ticket, index}
                             <tr
                                 bind:this={rowRefs[index]}
                                 tabindex="0"
@@ -230,7 +218,7 @@
                                     handleView(ticket);
                                 }}
                             >
-                                <td>{filteredTickets.length - index}</td>
+                                <td>{tickets.length - index}</td>
                                 <td>₡{ticket.total}</td>
                                 <td>{ticket.details}</td>
                                 <td>
@@ -263,7 +251,7 @@
                             subtitles: [
                                 `${selectedTicket.drawName} ${selectedTicket.scheduleName}`,
                                 selectedTicket.branchName, `Fecha: ${selectedTicket.date}`,
-                                `Hora: ${selectedTicket.printed_at.slice(0, 8)}`
+                                `Hora: ${selectedTicket.time.slice(0, 8)}`
                             ],
                             items: soldNumbersForSelectedTicket.map((sold) => ({
                                 number: sold.number,
@@ -277,7 +265,7 @@
                                 'Gracias por su compra',
                                 '¡Buena suerte!'
                             ],
-                            ticket_number: (filteredTickets.length - selectedRowIndex).toString().padStart(3, '0')
+                            ticket_number: (tickets.length - selectedRowIndex).toString().padStart(3, '0')
                         }}
                         groupedItems={true}
                         bind:qrData={qrData}

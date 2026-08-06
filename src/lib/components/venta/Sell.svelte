@@ -1,4 +1,6 @@
 <script lang="ts">
+    let {getTickets, getSoldNumbersForTicket, selectedBet, selectedDate} = $props();
+
     let sold= $state<Record<string, { price: number }>>({});
     let priceInput: HTMLInputElement;
     let randomCountInput: HTMLInputElement;
@@ -10,7 +12,6 @@
     let randomCount = $state(1);
     let isSubmitting = $state(false);
     let submitError = $state('');
-    let {getTickets, getSoldNumbersForTicket, selectedBet, handlePDFPrint, selectedDate} = $props();
     let selectedRowIndex = $state(0);
     let rowRefs: Array<HTMLTableRowElement | null> = [];
     let showTicketPreviewModal = $state(false);
@@ -209,6 +210,7 @@
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
+                date: selectedDate,
                 draw_schedule_id: drawScheduleId,
                 details: details,
                 numbers: buildNumbersPayload(soldSnapshot)
@@ -505,32 +507,7 @@
             case "Q":
                 hasProhibitedNumbers(sold);
                 break;
-            case "d":
-            case "D":
-                handleConfirmPDF();
-                break;
         }
-    }
-    async function handleConfirmPDF() {
-        if (createdTicket) {
-            const ticketRow = {
-                id: 0,
-                serial: createdTicket.ticket_serial,
-                total: Number(createdTicket.ticket_amount) || 0,
-                details: '',
-                time: createdTicket.printed_at ?? '',
-                date: selectedDate ?? '',
-                status: true
-            };
-            const soldNumbers = Object.entries(soldSnapshot).map(([number, price]) => ({
-                number: String(number).padStart(2, '0'),
-                price: price.price
-            }));
-            await handlePDFPrint(ticketRow, soldNumbers, createdTicket.ticket_number ?? null);
-            sold = {};
-            soldAmount = 0;
-        }
-
     }
 
     function closeQrModal() {
@@ -578,7 +555,6 @@
     createdTicket={createdTicket}
     bind:sold={soldSnapshot}
     details={detailsSnapshot}
-    handleConfirmPDF={handleConfirmPDF}
     selectedBet={selectedBet}
     selectedDate={selectedDate}
 />

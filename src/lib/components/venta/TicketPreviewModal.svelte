@@ -13,8 +13,7 @@
         selectedBet = null,
         selectedDate = '',
         details = $bindable(''),
-        createdTicket,
-        handleConfirmPDF
+        createdTicket
     } = $props();
 
     const receipt = $derived.by<Receipt>(() => {
