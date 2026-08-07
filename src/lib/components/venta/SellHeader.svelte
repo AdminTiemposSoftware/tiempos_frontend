@@ -20,15 +20,15 @@
     });
 
     const sortedBets = $derived.by(() => {
-        if (selectedDate !== today) {
-            return availableBets;
+        const bets = availableBets ?? [];
+        if (!Array.isArray(bets) || bets.length === 0) {
+            return [];
         }
-        return getSortedBets(availableBets ?? []);
+        if (selectedDate !== today) {
+            return [...bets];
+        }
+        return getSortedBets(bets);
     });
-    console.log(today);
-	console.log(selectedDate);
-	console.log(availableBets);
-	console.log(sortedBets);
 
     const selectedBetIndex = $derived.by(() => sortedBets.findIndex((bet) => bet.schedule_id === selectedBet?.schedule_id));
     const previousBetIndex = $derived.by(() => {
