@@ -1,4 +1,4 @@
-<script lang="ts">	
+<script lang="ts">
     let {
 		showModal = $bindable(),
 		input = $bindable(''),
@@ -8,10 +8,7 @@
 	} = $props();
     let inputElement = $state<HTMLInputElement | null>(null);
 	let ticket = $state <Ticket | null>(null);
-	
-	import ReceiptPreview from '../../printing/ReceiptPreview.svelte';
-	import type { Receipt } from '../../printing/types';
-	import { auth } from '../../stores/auth';
+
 	import { onMount } from 'svelte';
 	import {Notifications, acts} from '@tadashi/svelte-notification'
 
@@ -42,41 +39,6 @@
 		}
 	});
 
-	const receipt = $derived.by<Receipt>(() => {
-		if (!ticket) return null;
-
-        const items = ticket?.items
-            .map((item) => ({
-                number: String(item.number).padStart(2, '0'),
-                amount: Number(item.amount) || 0
-            }));
-
-        const total = items.reduce((sum, item) => sum + item.amount, 0);
-        const branchName = $auth.user?.branchName ? String($auth.user.branchName) : 'Sucursal';
-        const branchLocation = $auth.user?.branchLocation ? String($auth.user.branchLocation) : '';
-
-        const multiplierInfo = ticket?.multiplier ? `El primero paga al: ${ticket.multiplier}` : '';
-
-        const title = ticket?.draw_name
-            ? `${ticket.draw_name}${ticket.draw_schedule_name ? ` ${ticket.draw_schedule_name}` : ''}`
-            : 'Tiquete de venta';
-
-        const subtitleParts = [
-            `${branchName} - ${branchLocation}`,
-            ticket?.date ? `Fecha: ${ticket.date}` : '',
-            ticket?.printed_at ? `Hora: ${ticket.printed_at.slice(0, 8)}` : ''
-        ].filter(Boolean);
-
-        return {
-            title,
-            subtitles: subtitleParts,
-            items,
-            total,
-            footer: ["----------ATENCION----------", multiplierInfo, "----------------------------", '* * Gracias por su compra * *', '¡Buena suerte!'],
-            serial: `${ticket?.serial || ''}`,
-            ticket_number: ticket?.ticket_number?.toString().padStart(3, '0') || ''
-        };
-    });
 
 	$effect(() => {
 		showModal;
@@ -141,38 +103,19 @@
 		}
 	}
 
-	// TODO Globalize this function to a utility file since it's used in multiple places
-	function serializeData(data: { number: number; amount: number }[]): string {
-        const serialHex = ticket?.serial
-            ? BigInt(ticket.serial).toString(16).toUpperCase()
-            : '';
 
-        return data
-            .map((item) => {
-                const numberHex = Number(item.number).toString(16).toUpperCase().padStart(2, '0');
-                const priceHex = Number(item.amount).toString(16).toUpperCase().padStart(6, '0');
-
-                return `${numberHex}${priceHex}`;
-            })
-            .join('') + serialHex;
-    }
-	
-    function extractSerial(qr: string, ticketCount: number): string {
-        const serialStart = ticketCount * 8;
-        const serialHex = qr.slice(serialStart);
-
-        return BigInt(`0x${serialHex}`).toString();
-    }
-	
-    function countPossibleNumbers(qrData: string) {
+    function decodeQrData(qrData: string): { [key: string]: { price: number } } | null {
         const normalized = qrData.trim().toUpperCase();
 
         if (!normalized || /[^0-9A-F]/.test(normalized)) {
             return null;
         }
-		let count = 0;
 
         for (let prefixLength = normalized.length - 8; prefixLength >= 0; prefixLength -= 8) {
+
+            const decodedSold: Record<string, { price: number }> = {};
+
+
             for (let index = 0; index < prefixLength; index += 8) {
                 const chunk = normalized.slice(index, index + 8);
                 const number = Number.parseInt(chunk.slice(0, 2), 16);
@@ -182,47 +125,69 @@
                     continue;
                 }
 
-				count++;
+				decodedSold[String(number).padStart(2, '0')] = { price };
             }
 
-            return count;
+            return decodedSold;
         }
 
         return null;
     }
 
-	function onConfirm() {
+	async function onConfirm() {
 		if (input.trim() === '') {
 			return;
 		}
-		
-		if (input.length > 16) {
+
+		if (input.length > 6) {
 			let decodedData;
-			decodedData = countPossibleNumbers(input);
-			if (decodedData && decodedData > 0)
-				input = extractSerial(input, decodedData);
+			decodedData = decodeQrData(input);
+            if (!decodedData) {
+                acts.add({
+                    message: 'No se pudo leer el QR.',
+                    mode: 'error',
+                    lifetime: 3
+                });
+                return;
+            }
+            numbersSold = decodedData;
+            onClose();
+		} else if (input.length < 6) {
+			acts.add({
+				message: 'Entrada inválida',
+				mode: 'error',
+				lifetime: 3
+			});
+			return;
+		} else {
+			await jalarTicket();
+			if (!ticket) {
+				acts.add({
+					message: 'No se pudo obtener el tiquete',
+					mode: 'error',
+					lifetime: 3
+				});
+				return;
+			}
+
+			numbersSold = ticket?.items.reduce<Record<string, { price: number }>>(
+				(accumulator, sold) => {
+					accumulator[sold.number] = { price: sold.amount };
+					return accumulator;
+				},
+				{}
+			);
+			onClose();
 		}
-		
-		jalarTicket();
 	}
 
-    function loadSoldNumbers() {
-        numbersSold = ticket?.items?.reduce<Record<string, { price: number }>>(
-            (accumulator, sold) => {
-                accumulator[sold.number] = { price: sold.amount };
-                return accumulator;
-            },
-            {}
-        );
-		onClose();
-    }
+
 	function  handleKeyInput(event: KeyboardEvent) {
+	    if (!showModal) return;
+
 		switch (event.key) {
 			case "Enter":
-				if (ticket) 
-					loadSoldNumbers();
-				else
-					onConfirm();
+				onConfirm();
 				break;
 			case "Escape":
 				onClose();
@@ -233,11 +198,11 @@
 
 <svelte:window onkeydown={handleKeyInput} />
 {#if showModal}
-<div 
-	class="modal-backdrop" 
-	role="button" 
-	onclick={onClose} 
-	onkeydown={(e) => e.key === "Escape" && onClose()} 
+<div
+	class="modal-backdrop"
+	role="button"
+	onclick={onClose}
+	onkeydown={(e) => e.key === "Escape" && onClose()}
 	tabindex="0"
 >
 	<div
@@ -245,35 +210,20 @@
 		onclick={(e) => e.stopPropagation()}
 		role="presentation"
 	>
-		{#if ticket}
-			<div class="receipt-container scroll-thin">
-				<ReceiptPreview 
-					groupedItems={true} 
-					details={ticket?.details ?? ''}
-					qrData={serializeData(ticket?.items || {})} 
-					receipt={receipt}
-				/>
-			</div>
-			<button class="jalar-button"
-				onclick={loadSoldNumbers}>
-				Jalar (Enter)
-			</button>
-		{:else}
-			<p class="modal-text">Ingrese el serial del tiquete</p>
-			<div class="input-container">
-				<input
-					type="text"
-					placeholder="Ingrese el texto"
-					bind:value={input}
-					class="modal-input"
-					bind:this={inputElement}
-				/>
-				<button type="button" onclick={onConfirm}>
-					{confirmText}
-				</button>
-			</div>
-			<p class="modal-text subtitle">Ó escanee el código QR</p>
-		{/if}
+    	<p class="modal-text">Ingrese el serial del tiquete</p>
+    	<div class="input-container">
+    		<input
+    			type="text"
+    			placeholder="Ingrese el texto"
+    			bind:value={input}
+    			class="modal-input"
+    			bind:this={inputElement}
+    		/>
+    		<button type="button" onclick={onConfirm}>
+    			{confirmText}
+    		</button>
+    	</div>
+    	<p class="modal-text subtitle">Ó escanee el código QR</p>
 	</div>
 </div>
 {/if}

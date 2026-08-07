@@ -260,7 +260,6 @@
 	});
 
 	async function applyFilters() {
-		isLoading = true;
 		if (from > to) {
             acts.add({
                 message: "La fecha 'Desde' no puede ser mayor que la fecha 'Hasta'.",

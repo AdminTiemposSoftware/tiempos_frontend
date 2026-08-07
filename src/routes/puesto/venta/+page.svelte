@@ -7,10 +7,9 @@
     import { sellingMatrix } from "../../../lib/stores/UpdateSellMatrix";
     import { auth } from "$lib/stores/auth";
     import { total } from "../../../lib/stores/UpdateSellMatrix";
-    import { jsPDF } from 'jspdf';
 
     let { data } = $props();
-    
+
     type TicketSold = { number: string; price: number };
 
     type AvailableBet = {
@@ -118,23 +117,10 @@
                 return acc;
             }, {} as Record<number, any>)
         );
-        
-        const filteredBets = mappedBets.filter((bet) =>
-            isBetOpen(bet.schedule_time, now)
-        );
 
-        availableBets = filteredBets;
-
-        const selectedScheduleId =
-            selectedBet?.schedule_id ??
-            Number(data?.selectedScheduleId ?? null);
-            
-        const nextSelectedBet =
-            filteredBets.find(
-                (bet) => bet.schedule_id === selectedScheduleId
-            ) ??
-            filteredBets[0] ??
-            null;
+        availableBets = mappedBets;
+        const selectedScheduleId = selectedBet?.schedule_id;
+        const nextSelectedBet = mappedBets.find((bet) => bet.schedule_id === selectedScheduleId) ?? getFirstAvailableScheduleId(mappedBets) ?? null;
 
         if (selectedBet?.schedule_id !== nextSelectedBet?.schedule_id) {
             selectedBet = nextSelectedBet;
@@ -193,7 +179,7 @@
     });
 
     $effect(() => {
-        const intervalId = setInterval(() => {now = new Date(); }, 1000);        
+        const intervalId = setInterval(() => {now = new Date(); }, 1000);
         return () => clearInterval(intervalId);
     });
 
@@ -227,145 +213,11 @@
         return scheduleMinutes > currentMinutes;
     }
 
-    async function handlePDFPrint(ticket: TicketRow, soldNumbers: TicketSold[], position: number | null) {
-        const lineHeight = 6;
-        const leftX = 6;
-        const rightX = 74;
-        const minDotsStartX = 16;
-        const minDotsEndX = 60;
-
-        const groupedSoldNumbers = (() => {
-            const groups = new Map<number, string[]>();
-            for (const sold of soldNumbers) {
-                const price = Number(sold.price) || 0;
-                if (!groups.has(price)) {
-                    groups.set(price, []);
-                }
-                groups.get(price)?.push(String(sold.number).padStart(2, '0'));
-            }
-
-            return Array.from(groups.entries())
-                .sort((a, b) => a[0] - b[0])
-                .map(([price, numbers]) => ({ price, numbers }));
-        })();
-
-        const buildNumberLines = (doc: jsPDF, numbers: string[]) => {
-            if (numbers.length === 0) {
-                return [''];
-            }
-
-            const maxTextWidth = minDotsEndX - leftX - 2;
-            const lines: string[] = [];
-            let current = '';
-
-            for (const num of numbers) {
-                const next = current ? `${current} x ${num}` : num;
-                if (doc.getTextWidth(next) > maxTextWidth && current) {
-                    lines.push(current);
-                    current = num;
-                    continue;
-                }
-                current = next;
-            }
-
-            if (current) {
-                lines.push(current);
-            }
-
-            return lines;
-        };
-
-        const groupedSoldLines = (doc: jsPDF) =>
-            groupedSoldNumbers.map((group) => ({
-                price: group.price,
-                lines: buildNumberLines(doc, group.numbers)
-            }));
-
-        const estimateHeight = (lines: number, hasAddress: boolean) => {
-            let y = 10;
-            y += 6; // serial
-            y += 6; // nro
-            y += 6; // hora
-            y += 6; // fecha
-            y += 6; // branch name
-            if (hasAddress) {
-                y += 6;
-            }
-            y += 8; // gap before details
-            y += lines * lineHeight; // details
-            y += 2; // gap before sum line
-            y += 6; // total line
-            return y + 8; // bottom padding
-        };
-
-        const branchName = $auth.user?.branchName ? String($auth.user.branchName) : 'Sucursal';
-        const branchAddress = $auth.user?.branchLocation ? String($auth.user.branchLocation) : '';
-
-        const tempDoc = new jsPDF({ unit: 'mm', format: [80, 300] });
-        const measuredGroups = groupedSoldLines(tempDoc);
-        const totalDetailLines = measuredGroups.reduce((sum, group) => sum + group.lines.length, 0);
-        const pageHeight = Math.max(90, estimateHeight(totalDetailLines, !!branchAddress));
-        const doc = new jsPDF({ unit: 'mm', format: [80, pageHeight] });
-
-        const serial = ticket.serial ?? 'Sin serial';
-        const time = ticket.time ?? 'Sin hora';
-        const date = ticket.date ?? 'Sin fecha';
-        const total = Number.isFinite(ticket.total) ? ticket.total.toFixed(2) : '0.00';
-
-        let y = 10;
-        doc.setFontSize(10);
-        doc.text(`${serial}`, 6, y);
-        y += 6;
-        doc.text(`Nro: ${position ?? '-'} `, 6, y);
-        y += 6;
-        doc.text(`Hora: ${time}`, 6, y);
-        y += 6;
-        doc.text(`Fecha: ${date}`, 6, y);
-        y += 6;
-        doc.text(branchName, 6, y);
-        if (branchAddress) {
-            y += 6;
-            doc.text(branchAddress, 6, y);
-        }
-
-        y += 8;
-        doc.setFontSize(10);
-        for (const item of groupedSoldLines(doc)) {
-            const amountText = Number.isFinite(item.price) ? item.price.toFixed(2) : '0.00';
-            item.lines.forEach((line, index) => {
-                doc.text(line, leftX, y);
-                if (index === 0) {
-                    doc.text(amountText, rightX, y, { align: 'right' });
-                    const dotsStartX = Math.max(minDotsStartX, leftX + doc.getTextWidth(line) + 4);
-                    const dotsEndX = Math.min(minDotsEndX, rightX - doc.getTextWidth(amountText) - 4);
-                    doc.setLineWidth(0.2);
-                    doc.setLineDashPattern([1, 1], 0);
-                    if (dotsEndX > dotsStartX) {
-                        doc.line(dotsStartX, y - 1, dotsEndX, y - 1);
-                    }
-                }
-                y += lineHeight;
-            });
-        }
-        doc.setLineDashPattern([], 0);
-        y += 2;
-        doc.setLineWidth(0.3);
-        doc.line(leftX, y, rightX, y);
-        y += 6;
-        doc.setLineWidth(0.2);
-        doc.setLineDashPattern([1, 1], 0);
-        doc.text('Total', leftX, y);
-        doc.text(total, rightX, y, { align: 'right' });
-        const totalDotsStartX = Math.max(minDotsStartX, leftX + doc.getTextWidth('Total') + 4);
-        const totalDotsEndX = Math.min(minDotsEndX, rightX - doc.getTextWidth(total) - 4);
-        if (totalDotsEndX > totalDotsStartX) {
-            doc.line(totalDotsStartX, y - 1, totalDotsEndX, y - 1);
-        }
-        doc.setLineDashPattern([], 0);
-
-        const safeSerial = serial.replace(/[^A-Za-z0-9_-]/g, '_');
-        doc.save(`ticket-${safeSerial}.pdf`);
+    function getFirstAvailableScheduleId(bets: AvailableBet[]) {
+        const filteredBets = bets.filter((bet) => isBetOpen(bet.schedule_time, now));
+        return filteredBets[0];
     }
+
 
     async function getTickets() {
         const scheduleId = selectedBet?.schedule_id ?? null;
@@ -438,15 +290,14 @@
             bind:prohibitedPercentage={prohibitedPercentage}
         />
     <section class="set-section">
-        <Sell 
+        <Sell
             getTickets={getTickets}
             selectedDate={selectedDate}
             getSoldNumbersForTicket={getSoldNumbersForTicket}
             selectedBet={selectedBet}
             prohibitedPercentage={prohibitedPercentage}
-            handlePDFPrint={handlePDFPrint}
         />
-        <Matrix 
+        <Matrix
             rows={20}
             columns={5}
             animateKey={selectedBet?.schedule_id ?? "none"}
@@ -464,7 +315,7 @@
         flex: 1;
         align-items: start;
     }
-    
+
     .set-section {
         gap: 1rem;
         width: 100%;

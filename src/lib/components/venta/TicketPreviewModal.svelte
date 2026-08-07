@@ -13,8 +13,7 @@
         selectedBet = null,
         selectedDate = '',
         details = $bindable(''),
-        createdTicket,
-        handleConfirmPDF
+        createdTicket
     } = $props();
 
     const receipt = $derived.by<Receipt>(() => {
@@ -48,7 +47,7 @@
             subtitles: subtitleParts,
             items,
             total,
-            footer: ["----------ATENCION----------", multiplierInfo, "----------------------------", '* * Gracias por su compra * *', '¡Buena suerte!'],
+            footer: ["------- ATENCION -------", multiplierInfo, "------------------------", 'Gracias por su compra', '¡Buena suerte!'],
             serial: `${createdTicket?.ticket_serial || ''}`,
             ticket_number: createdTicket?.ticket_number?.toString().padStart(3, '0') || ''
         };
@@ -111,11 +110,11 @@
 
 <svelte:window onkeydown={handlekeyinput} />
 {#if showTicketPreviewModal}
-<div 
-    class="modal-backdrop" 
-    role="button" 
-    onclick={onClose} 
-    onkeydown={(e) => e.key === "Escape" && onClose()} 
+<div
+    class="modal-backdrop"
+    role="button"
+    onclick={onClose}
+    onkeydown={(e) => e.key === "Escape" && onClose()}
     tabindex="0"
 >
     <div
@@ -124,15 +123,15 @@
         role="presentation"
     >
         <div class="receipt-container scroll-thin">
-            <ReceiptPreview 
-                groupedItems={true} 
+            <ReceiptPreview
+                groupedItems={true}
                 details={details}
-                qrData={serializeData(sold)} 
+                qrData={serializeData(sold)}
                 receipt={receipt}
                 />
         </div>
 
-        <div class="actions">  
+        <div class="actions">
             <!-- <button type="button" onclick={handleConfirmPDF}>
                 <div class="button-name">Guardar P<p>D</p>F</div>
             </button> -->
@@ -149,7 +148,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 400px;    
+    width: 400px;
 }
 
 .actions {

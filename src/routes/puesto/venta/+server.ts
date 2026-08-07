@@ -12,7 +12,8 @@ type TicketDetail = {
 type TicketRequest = {
 	draw_schedule_id: number;
 	details: string;
-	numbers: TicketDetail[];
+    numbers: TicketDetail[];
+	date: string;
 };
 
 export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) => {
@@ -33,7 +34,8 @@ export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) 
 
 	const draw_schedule_id = Number(payload?.draw_schedule_id);
 	const details = payload?.details;
-	const numbers = Array.isArray(payload?.numbers) ? payload.numbers : [];
+    const numbers = Array.isArray(payload?.numbers) ? payload.numbers : [];
+	const date = payload?.date;
 
 	if (!Number.isFinite(draw_schedule_id) || draw_schedule_id <= 0) {
 		return json({ error: 'draw_schedule_id is required' }, { status: 400 });
@@ -50,7 +52,8 @@ export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) 
 			Authorization: `Bearer ${token}`,
 			'X-Auth-App': 'puesto'
 		},
-		body: JSON.stringify({
+        body: JSON.stringify({
+            date,
 			draw_schedule_id,
 			branch_id: branchId,
 			details,

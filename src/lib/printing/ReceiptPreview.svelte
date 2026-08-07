@@ -1,9 +1,8 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import QRCode from 'qrcode';
     import type { Receipt } from './types';
 
-    let { groupedItems, receipt, details, qrData, onReady = undefined } = $props<{
+    let { groupedItems, receipt, details, qrData = $bindable(), onReady = undefined } = $props<{
         groupedItems: boolean;
         receipt: Receipt;
         details?: string;
@@ -11,30 +10,10 @@
         onReady?: () => void;
     }>();
     let QrCode = $state<any>(null);
-    let qrImage = $state<string>('');
-    
-    export async function generateQrImage(
-        data: string,
-        size = 200,
-        errorCorrection: 'L' | 'M' | 'Q' | 'H' = 'M'
-    ): Promise<string> {
-        return await QRCode.toDataURL(data, {
-            width: size,
-            margin: 0,
-            errorCorrectionLevel: errorCorrection,
-            type: 'image/png'
-        });
-    }
 
-    
     onMount(async () => {
         const module = await import('@castlenine/svelte-qrcode');
         QrCode = module.default;
-        qrImage = await generateQrImage(
-            qrData,
-            180,
-            'L'
-        );
 
         onReady?.();
     });
@@ -62,7 +41,6 @@
     });
 
     onMount
-    
 </script>
 <div class="receipt">
 {#if receipt.ticket_number}
@@ -81,7 +59,7 @@
         {/each}
     {/if}
     <span class="space"> </span>
-    
+
     <div class="line">
         <span>Monto</span>
         <span>Numero</span>
@@ -107,8 +85,7 @@
 
     {#if QrCode}
     <div class="qr-code">
-        <QrCode data={qrData} size={160} errorCorrection="L" />
-        <!-- <img src={qrImage} alt="QR Code" width="120" height="120" /> -->
+        <QrCode data={qrData} size={120} errorCorrection="L" />
     </div>
     {/if}
     {#if receipt.footer}
@@ -121,7 +98,7 @@
 
 <style>
 .receipt {
-    width: 80mm;
+    width: 75mm;
     background: white;
     color: black;
     font-family: monospace;

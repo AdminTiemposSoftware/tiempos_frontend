@@ -2,7 +2,6 @@
     import { auth } from '../../stores/auth';
     import { onMount, tick } from "svelte";
     import ConfirmModal from "../ConfirmModal.svelte";
-    import JalarTicketModal from "./JalarTicketModal.svelte";
     import ReceiptPreview from "../../printing/ReceiptPreview.svelte";
 
     type Ticket = {
@@ -23,9 +22,9 @@
 
     let {
         showTicketModal = $bindable(false),
-        getSoldNumbersForTicket, 
-        tickets = $bindable(), 
-        numbersSold=$bindable(), 
+        getSoldNumbersForTicket,
+        tickets = $bindable(),
+        numbersSold=$bindable(),
         onClose
     } = $props();
 
@@ -33,13 +32,11 @@
     let lastTicketsRef = tickets;
     let showDeleteConfirm = $state(false);
     let ticketToDelete = $state<Ticket | null>(null);
-    let searchTerm = $state("");
     let selectedTicket = $state<Ticket | null>(null);
     let soldNumbersForSelectedTicket = $state<{number: string, price: number}[]>([]);
+    let qrData = $state<string>('');
     let selectedRowIndex = $state(0);
     let rowRefs: Array<HTMLTableRowElement | null> = [];
-    let showJalarModal = $state(false);
-    let ticketToJalar = $state<string>('');
 
     $effect(() => {
         if (tickets !== lastTicketsRef) {
@@ -48,25 +45,14 @@
         }
     });
 
-    let normalizedSearch = $derived(searchTerm.trim().toLowerCase());
-    
-    let filteredTickets = $derived(
-        normalizedSearch
-        ? localTickets.filter((ticket) => {
-            const haystack = `${ticket.id} ${ticket.total} ${ticket.details}`.toLowerCase();
-            return haystack.includes(normalizedSearch);
-            })
-        : localTickets
-    );
-
     let soldNumbersTotal = $derived(soldNumbersForSelectedTicket.reduce((sum, sold) => sum + (Number(sold.price) || 0), 0));
 
     $effect(() => {
-        if (filteredTickets.length === 0) {
+        if (tickets.length === 0) {
             selectedRowIndex = 0;
             return;
         }
-        if (selectedRowIndex >= filteredTickets.length) {
+        if (selectedRowIndex >= tickets.length) {
             selectedRowIndex = 0;
         }
         void focusSelectedRow();
@@ -83,6 +69,7 @@
 
     function handleView(ticket: Ticket) {
         soldNumbersForSelectedTicket = getSoldNumbersForTicket(ticket.id);
+        qrData = serializeData(soldNumbersForSelectedTicket);
         selectedTicket = ticket;
     }
 
@@ -97,23 +84,23 @@
     }
 
     function handleRowKeydown(event: KeyboardEvent) {
-        if (filteredTickets.length === 0) {
+        if (tickets.length === 0) {
             return;
         }
         if (event.key === "ArrowDown") {
             event.preventDefault();
-            selectedRowIndex = (selectedRowIndex + 1) % filteredTickets.length;
+            selectedRowIndex = (selectedRowIndex + 1) % tickets.length;
             void focusSelectedRow();
-            const ticket = filteredTickets[selectedRowIndex];
+            const ticket = tickets[selectedRowIndex];
             if (ticket) {
                 handleView(ticket);
             }
         }
         if (event.key === "ArrowUp") {
             event.preventDefault();
-            selectedRowIndex = (selectedRowIndex - 1 + filteredTickets.length) % filteredTickets.length;
+            selectedRowIndex = (selectedRowIndex - 1 + tickets.length) % tickets.length;
             void focusSelectedRow();
-            const ticket = filteredTickets[selectedRowIndex];
+            const ticket = tickets[selectedRowIndex];
             if (ticket) {
                 handleView(ticket);
             }
@@ -145,7 +132,7 @@
         );
         onClose();
     }
-    
+
     function serializeData(data: {number: string, price: number}[]): string {
         const serialHex = selectedTicket?.serial
             ? BigInt(selectedTicket.serial).toString(16).toUpperCase()
@@ -162,17 +149,8 @@
             .join('') + serialHex;
     }
 
-    function onJalar() {
-        showTicketModal = false;
-        showJalarModal = true;
-    }
-
     function handleKeyInput(event: KeyboardEvent) {
         switch (event.key) {
-            case "J":
-            case "j":
-                onJalar();
-                break;
             case "Enter":
                 if (!showTicketModal) {
                     return;
@@ -180,7 +158,7 @@
                 if (selectedTicket) {
                     loadSoldNumbers();
                 } else {
-                    const ticket = filteredTickets[selectedRowIndex];
+                    const ticket = tickets[selectedRowIndex];
                     if (ticket) {
                         handleView(ticket);
                     }
@@ -197,17 +175,14 @@
     confirm={confirmDelete}
 />
 
-<JalarTicketModal
-    bind:showModal={showJalarModal}
-    bind:numbersSold={numbersSold}
-/>
+
 <svelte:window onkeydown={handleKeyInput} />
 {#if showTicketModal}
-<div 
-    class="modal-backdrop" 
-    role="button" 
-    onclick={onClose} 
-    onkeydown={(e) => e.key === "Escape" && onClose()} 
+<div
+    class="modal-backdrop"
+    role="button"
+    onclick={onClose}
+    onkeydown={(e) => e.key === "Escape" && onClose()}
     tabindex="0"
 >
     <div
@@ -217,7 +192,7 @@
     >
         <div class="tickets-list">
 
-            {#if filteredTickets.length === 0}
+            {#if tickets.length === 0}
                 <p class="no-tickets">No hay tiquetes para mostrar.</p>
             {:else}
             <div class="ticket-scroll scroll-thin">
@@ -232,7 +207,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {#each filteredTickets as ticket, index}
+                        {#each tickets as ticket, index}
                             <tr
                                 bind:this={rowRefs[index]}
                                 tabindex="0"
@@ -243,7 +218,7 @@
                                     handleView(ticket);
                                 }}
                             >
-                                <td>{filteredTickets.length - index}</td>
+                                <td>{tickets.length - index}</td>
                                 <td>₡{ticket.total}</td>
                                 <td>{ticket.details}</td>
                                 <td>
@@ -264,21 +239,19 @@
                 </table>
             </div>
             {/if}
-            <button class="jalar" onclick={onJalar}>
-                <div class="button-name"><p>J</p>alar tiquete</div>
-            </button>
         </div>
         <div class="ticket-sold-numbers">
             {#if selectedTicket}
                 <div class="receipt-container scroll-thin">
-                    <ReceiptPreview 
+                    <!-- TODO: This component doesnt render the QR code correctly as it leaves the QR from the first ticket for all tickets -->
+                    <ReceiptPreview
                         receipt={{
                             serial: `${selectedTicket.serial.toString()}`,
                             title: "",
                             subtitles: [
-                                `${selectedTicket.drawName} ${selectedTicket.scheduleName}`, 
-                                selectedTicket.branchName, `Fecha: ${selectedTicket.date}`, 
-                                `Hora: ${selectedTicket.printed_at.slice(0, 8)}` 
+                                `${selectedTicket.drawName} ${selectedTicket.scheduleName}`,
+                                selectedTicket.branchName, `Fecha: ${selectedTicket.date}`,
+                                `Hora: ${selectedTicket.time.slice(0, 8)}`
                             ],
                             items: soldNumbersForSelectedTicket.map((sold) => ({
                                 number: sold.number,
@@ -286,16 +259,16 @@
                             })),
                             total: soldNumbersTotal,
                             footer: [
-                                "----------ATENCION----------", 
+                                "------- ATENCION -------",
                                 selectedTicket.multiplier ? `El primero paga al: ${selectedTicket.multiplier}` : '',
-                                "----------------------------",
-                                '* * Gracias por su compra * *',
+                                "------------------------",
+                                'Gracias por su compra',
                                 '¡Buena suerte!'
                             ],
-                            ticket_number: (filteredTickets.length - selectedRowIndex).toString().padStart(3, '0')
+                            ticket_number: (tickets.length - selectedRowIndex).toString().padStart(3, '0')
                         }}
                         groupedItems={true}
-                        qrData={serializeData(soldNumbersForSelectedTicket)}
+                        bind:qrData={qrData}
                         details={selectedTicket.details}
                     />
                 </div>
@@ -351,7 +324,7 @@
         flex: 1;
         align-items: center;
     }
-    
+
     .ticket-sold-numbers button{
         margin-top: auto;
         width: 100%;
@@ -383,7 +356,7 @@
     }
 
     .options-buttons button{
-        
+
         width: 100%;
     }
 
