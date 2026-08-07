@@ -45,24 +45,37 @@
 		if (prohibitedNumberToDelete == null) {
 			return;
 		}
+		try {
+    		const response = await fetch(`/number/prohibited/${prohibitedNumberToDelete.id}`, {
+    			method: 'DELETE',
+    			headers: { 'Content-Type': 'application/json' }
+    		});
 
-		const response = await fetch(`/number/prohibited/${prohibitedNumberToDelete.id}`, {
-			method: 'DELETE',
-			headers: { 'Content-Type': 'application/json' }
-		});
+    		if (!response.ok) {
+    			acts.add({
+    				message: "Error al eliminar el numero restringido.",
+    				mode: 'error',
+    				lifetime: 3
+    			});
+    			return;
+    		}
 
-		if (!response.ok) {
-			acts.add({
-				message: "Error al eliminar el numero restringido.",
-				mode: 'error',
-				lifetime: 3
-			});
-			return;
-		}
-
-		showUpdateProhibitedModal = false;
-		prohibitedNumbers = prohibitedNumbers.filter((item) => item.number !== prohibitedNumberToDelete?.number);
-		prohibitedNumberToDelete = null;
+    		showUpdateProhibitedModal = false;
+    		prohibitedNumbers = prohibitedNumbers.filter((item) => item.number !== prohibitedNumberToDelete?.number);
+    		prohibitedNumberToDelete = null;
+            acts.add({
+    			message: "Numero restringido eliminado.",
+    			mode: 'success',
+    			lifetime: 3
+    		});
+    	} catch (error) {
+    		acts.add({
+    			message: "Error al eliminar el numero restringido.",
+    			mode: 'error',
+    			lifetime: 3
+    		});
+            console.error(error);
+    	}
 	}
 
 	function openAddProhibitedModal() {
@@ -71,7 +84,11 @@
 
 	async function handleAddProhibitedNumber(payload: { number: string; amount: string, starter: string, can_sell_after_amount: boolean, by_amount: boolean, by_percentage: boolean }) {
 		if (prohibitedNumbers.some((item) => item.number === Number(payload.number))) {
-			// TODO el numero ya esta en la lista, mostrar mensaje de error
+		    acts.add({
+				message: 'El numero ya esta en la lista de numeros prohibidos.',
+				mode: 'error',
+				lifetime: 3
+			});
 			return;
 		}
 
@@ -84,59 +101,97 @@
 		if (!Number.isFinite(amount)) {
 			return;
 		}
-		const response = await fetch('/number/prohibited', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				number: value,
-				amount, starter,
-				can_sell_after_amount: can_sell_after_amount,
-				by_amount: by_amount,
-				by_percentage: by_percentage })
-		});
-		if (!response.ok) {
-			return;
+		try {
+			const response = await fetch('/number/prohibited', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					number: value,
+					amount, starter,
+					can_sell_after_amount: can_sell_after_amount,
+					by_amount: by_amount,
+					by_percentage: by_percentage })
+			});
+			if (!response.ok) {
+    			acts.add({
+    				message: 'Error al agregar el numero prohibido',
+    				mode: 'error',
+    				lifetime: 3
+    			});
+				return;
+			}
+
+    		const newProhibitedId = await response.json();
+
+    		prohibitedNumbers = prohibitedNumbers.some((item) => item.number === value)
+    			? prohibitedNumbers
+    			: [...prohibitedNumbers, {
+    				id: newProhibitedId.items[0].NewProhibitedId,
+    				number: value,
+    				amount,
+    				starter,
+    				can_sell_after_amount: can_sell_after_amount,
+    				by_amount: by_amount,
+    				by_percentage: by_percentage }].sort((a, b) => a.number - b.number);
+    		showAddProhibitedModal = false;
+            acts.add({
+                message: 'Numero prohibido agregado correctamente',
+                mode: 'success',
+                lifetime: 3
+            });
+		} catch (e) {
+			acts.add({
+				message: 'Error al agregar el numero prohibido',
+				mode: 'error',
+				lifetime: 3
+			});
+			console.error(e);
 		}
-
-		const newProhibitedId = await response.json();
-
-		prohibitedNumbers = prohibitedNumbers.some((item) => item.number === value)
-			? prohibitedNumbers
-			: [...prohibitedNumbers, {
-				id: newProhibitedId.items[0].NewProhibitedId,
-				number: value,
-				amount,
-				starter,
-				can_sell_after_amount: can_sell_after_amount,
-				by_amount: by_amount,
-				by_percentage: by_percentage }].sort((a, b) => a.number - b.number);
-		showAddProhibitedModal = false;
 	}
 
 	const handleUpdateProhibitedNumber = async (payload: { id: number; number: string; amount: string; starter: string; can_sell_after_amount: boolean; by_amount: boolean; by_percentage: boolean }) => {
+		try {
+			const response = await fetch(`/number/prohibited/${payload.id}`, {
+     			method: 'PUT',
+     			headers: { 'Content-Type': 'application/json' },
+     			body: JSON.stringify(payload)
+      		});
+      		if (!response.ok) {
+                acts.add ({
+                    message: 'Error al actualizar el numero prohibido',
+    			    mode: 'error',
+    				lifetime: 3
+    			});
+     			return;
+      		}
+      		prohibitedNumbers = prohibitedNumbers.map((item) =>
+     			item.id === payload.id
+     			? {
+      				...item,
+      				amount: Number(payload.amount),
+      				starter: Number(payload.starter),
+      				can_sell_after_amount: Boolean(payload.can_sell_after_amount),
+      				by_amount: Boolean(payload.by_amount),
+      				by_percentage: Boolean(payload.by_percentage)
+     			} : item
+      		);
+      		showUpdateProhibitedModal = false;
+            acts.add({
+                message: 'Numero prohibido actualizado correctamente',
+                mode: 'success',
+                lifetime: 3
+            });
 
-		const response = await fetch(`/number/prohibited/${payload.id}`, {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(payload)
-		});
-		if (!response.ok) {
-			//TODO send notification of error
-			return;
+		} catch (error) {
+		    console.error(error)
+			acts.add ({
+                message: 'Error al agregar el numero prohibido',
+			    mode: 'error',
+				lifetime: 3
+			});
 		}
-		prohibitedNumbers = prohibitedNumbers.map((item) =>
-			item.id === payload.id
-			? {
-				...item,
-				amount: Number(payload.amount),
-				starter: Number(payload.starter),
-				can_sell_after_amount: Boolean(payload.can_sell_after_amount),
-				by_amount: Boolean(payload.by_amount),
-				by_percentage: Boolean(payload.by_percentage)
-			} : item
-		);
-		showUpdateProhibitedModal = false;
 	}
+
 
     $effect(() => {
 		const prohibitedItems = Array.isArray(data?.prohibitedItems)
@@ -199,6 +254,9 @@
 			date: String(item.date)
 		})).filter((item) => Number.isFinite(item.number) && Number.isFinite(item.amount))
 		.sort((a, b) => a.number - b.number);
+
+
+
 	});
 
 	async function applyFilters() {
@@ -213,22 +271,21 @@
 
 		if (selectedBranch.length === 0) {
 		    acts.add({
-		        message: "Seleccione al menos un puesto",
-		        mode: 'error',
-		        lifetime: 3
-		    });
-		    return;
+                message: "Seleccione al menos un puesto",
+                mode: 'error',
+                lifetime: 3
+            });
+			return;
 		}
 		if (selectedDrawSchedule.length === 0) {
 		    acts.add({
-		        message: "Seleccione al menos un horario",
-		        mode: 'error',
-		        lifetime: 3
-		    });
-		    return;
+                message: "Seleccione al menos un horario",
+                mode: 'error',
+                lifetime: 3
+            });
+			return;
 		}
 
-		isLoading = true;
 		try {
     		const response = await fetch(`/banca/report?date_from=${from}&date_to=${to}&branches=${encodeURIComponent(selectedBranch.join(','))}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
                 method: 'GET',
@@ -243,7 +300,6 @@
     				mode: 'error',
     				lifetime: 3
     			});
-    			isLoading = false;
     			return;
     		}
 
@@ -275,7 +331,7 @@
 				mode: 'error',
 				lifetime: 3
 			});
-			isLoading = false;
+			console.error(error);
 		}
 	}
 
@@ -395,10 +451,6 @@
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
 <section class="inicio">
-    <!-- <div class="ganadores">
-        <h2>Aun tienes pendiente de asignar los ganadores de los sorteos:</h2>
-
-    </div> -->
     <div class="content">
         <div class="left">
             <div class="filters">
@@ -426,7 +478,6 @@
 						placeholder="Seleccione un sorteo"
 					/>
 	            </div>
-
 				<button type="button" class="option-button" onclick={applyFilters}>
 					Filtrar
 				</button>
@@ -478,7 +529,6 @@
 					aria-label={`Actualizar numero restringido`}
 				>
 					<span class="prohibited-number">Numero</span>
-
 					<span class="prohibited-amount">Monto</span>
 					<span class="prohibited-starter">Arranque</span>
 
@@ -491,7 +541,6 @@
                             aria-label={`Actualizar numero restringido ${prohibitedNumber.number}`}
                         >
 							<span class="prohibited-number">{prohibitedNumber.number}</span>
-
 							<span class="prohibited-amount">{prohibitedNumber.amount}</span>
 							<span class="prohibited-starter">{prohibitedNumber.starter}</span>
 
@@ -716,7 +765,4 @@
 		padding: .2rem .5rem;
 		font-size: 0.85rem;
 	}
-
-
-
 </style>

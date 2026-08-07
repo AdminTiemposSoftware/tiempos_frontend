@@ -11,7 +11,7 @@
 		sorteoId = $bindable(0),
         addSchedule
 	} = $props();
-	
+
 	type schedule = {
 		id: number | null;
 		name: string;
@@ -50,13 +50,13 @@
 				console.error('Failed to create schedule', responsePayload);
 				return;
 			}
-			console.log('Horario creado exitosamente', responsePayload);
+
 			const createdId = Array.isArray(responsePayload?.items)
 				? responsePayload.items[0]?.id
 				: null;
 			addSchedule({ sorteoId, name, time, id: createdId ?? undefined });
 			onClose();
-			
+
 			acts.add({
 				message: 'Horario creado exitosamente',
 				mode: 'success',

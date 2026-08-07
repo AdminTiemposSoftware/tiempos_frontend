@@ -9,7 +9,7 @@
 		by_amount: boolean;
 		by_percentage: boolean;
 	}
-	
+
 	let {
 		showModal = $bindable(),
 		prohibited = $bindable<ProhibitedNumber>({id: -1, number: 0, amount: 0, starter: 0, can_sell_after_amount: false, by_amount: false, by_percentage: true}),
@@ -35,8 +35,8 @@
 	}
 
 	function handleSubmit() {
-		if (prohibited.number === undefined || 
-			prohibited.amount === undefined || 
+		if (prohibited.number === undefined ||
+			prohibited.amount === undefined ||
 			prohibited.starter === undefined
 		) {
 			console.log('Número, monto y monto de arranque son requeridos');
@@ -88,7 +88,7 @@
 					handleSubmit();
 				}}
 			>
-					
+
 				<div class="row">
 					<div class="number-field">
 						<label class="modal-label" for="prohibited-number">Numero</label>
@@ -172,13 +172,13 @@
 						Eliminar numero restringido
 					</button>
 				{/if}
-			
+
 			</form>
 		</div>
 	</div>
 {/if}
 
-<style> 
+<style>
 	.modal {
 		width: 500px;
 	}
@@ -188,10 +188,7 @@
 		gap: 1rem;
 	}
 	.row {
-		display: flex;
-		flex-direction: row;
 		width: 100%;
-		gap: 1rem;
 	}
 	.row input {
 		width: 100%;

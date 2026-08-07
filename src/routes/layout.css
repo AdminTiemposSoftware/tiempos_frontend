@@ -18,7 +18,7 @@
 	--color-theme-6: #c0b235;
 	--color-theme-7: #7dbcff3d;
 	--color-theme-8: #dbedff;
-	
+
 	--color-text: rgba(0, 0, 0, 0.7);
 	--column-width: 42rem;
 	--column-margin-top: 4rem;
@@ -463,7 +463,7 @@ th {
 	display: flex;
 	gap: 1rem;
 	flex-wrap: wrap;
-}   
+}
 
 .scroll-thin {
 	scrollbar-width: thin;
@@ -529,12 +529,12 @@ button.prohibited-badge:focus-visible {
 .header-banking {
 	display: flex;
 	flex-direction: row;
-	
+
 	width: 100%;
 	align-items: flex-end;
 	justify-content: space-between;
 	gap: 1rem;
-	
+
 }
 .title {
 	color: rgba(0, 0, 0, 0.85);
@@ -637,3 +637,9 @@ button.prohibited-badge:focus-visible {
     }
 }
 
+.row {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 1rem;
+}
