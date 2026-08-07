@@ -156,7 +156,7 @@
 
         isMatrixLoading = true;
 
-        void goto(`?scheduleId=${scheduleId}`, {
+        void goto(`?scheduleId=${scheduleId}&date=${selectedDate}`, {
             replaceState: true,
             noScroll: true,
             keepFocus: true

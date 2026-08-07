@@ -8,39 +8,29 @@ export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
 
 
     if (!baseUrl || !bankingId) {
-        return { itemsPositions: [], itemsWinners: [] };
+        return { items: [] };
     }
 
     try {
-        const responsePosition = await fetch(`${baseUrl}/position/by-banking/${bankingId}`, {
+	    const selectedDateParam = url.searchParams.get('date');
+        const fallbackDate = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const selectedDate = selectedDateParam ?? fallbackDate;
+
+        const [response] = await Promise.all([fetch(`${baseUrl}/winner/by-banking/${bankingId}/${selectedDate}`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
                 'X-Auth-App': 'banca',
                 Authorization: `Bearer ${token}`
             }
-        });
+        })]);
 
-        const fallbackDate = new Date(Date.now() - 6 * 60 * 60 * 1000);
-        const formattedFallbackDate = fallbackDate.toISOString().split('T')[0];
+        const payload = response.ok ? await response.json().catch(() => null) : null;
 
-        const responseWinners = await fetch(`${baseUrl}/winner/by-banking-last-7-days/${bankingId}/${formattedFallbackDate}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Auth-App': 'banca',
-                Authorization: `Bearer ${token}`
-            }
-        });
+        const items = Array.isArray(payload?.items) ? payload.items : [];
 
-        const payloadPosition = responsePosition.ok ? await responsePosition.json().catch(() => null) : null;
-        const payloadWinners = responseWinners.ok ? await responseWinners.json().catch(() => null) : null;
-
-        const itemsPositions = Array.isArray(payloadPosition?.items) ? payloadPosition.items : [];
-        const itemsWinners = Array.isArray(payloadWinners?.items) ? payloadWinners.items : [];
-
-        return { itemsPositions, itemsWinners };
+        return { items };
     } catch {
-        return { itemsPositions: [], itemsWinners: [] };
+        return { items: [] };
     }
 };
