@@ -7,7 +7,6 @@
     import { sellingMatrix } from "../../../lib/stores/UpdateSellMatrix";
     import { auth } from "$lib/stores/auth";
     import { total } from "../../../lib/stores/UpdateSellMatrix";
-    import { jsPDF } from 'jspdf';
 
     let { data } = $props();
 
@@ -120,17 +119,8 @@
         );
 
         availableBets = mappedBets;
-
-        const selectedScheduleId =
-            selectedBet?.schedule_id ??
-            Number(data?.selectedScheduleId ?? null);
-
-        const nextSelectedBet =
-            mappedBets.find(
-                (bet) => bet.schedule_id === selectedScheduleId
-            ) ??
-            mappedBets[0] ??
-            null;
+        const selectedScheduleId = selectedBet?.schedule_id;
+        const nextSelectedBet = mappedBets.find((bet) => bet.schedule_id === selectedScheduleId) ?? getFirstAvailableScheduleId(mappedBets) ?? null;
 
         if (selectedBet?.schedule_id !== nextSelectedBet?.schedule_id) {
             selectedBet = nextSelectedBet;
@@ -207,6 +197,26 @@
         }
 
         return hours * 60 + minutes;
+    }
+
+    function isBetOpen(scheduleTime: string, currentTime: Date) {
+        const scheduleMinutes = parseScheduleTime(scheduleTime);
+
+        if (scheduleMinutes === null) {
+            return false;
+        }
+
+        const currentMinutes =
+            currentTime.getHours() * 60 +
+            currentTime.getMinutes();
+
+        return scheduleMinutes > currentMinutes;
+    }
+
+    function getFirstAvailableScheduleId(bets: AvailableBet[]) {
+        const filteredBets = bets.filter((bet) => isBetOpen(bet.schedule_time, now));
+        console.log(filteredBets);
+        return filteredBets[0];
     }
 
 
