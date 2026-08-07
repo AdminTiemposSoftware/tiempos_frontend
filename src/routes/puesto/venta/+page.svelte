@@ -215,7 +215,6 @@
 
     function getFirstAvailableScheduleId(bets: AvailableBet[]) {
         const filteredBets = bets.filter((bet) => isBetOpen(bet.schedule_time, now));
-        console.log(filteredBets);
         return filteredBets[0];
     }
 

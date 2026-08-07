@@ -13,9 +13,6 @@
 
     let now = $state(utcMinus6Date);
 	const today = utcMinus6Date.toISOString().split('T')[0];
-	console.log(today);
-	console.log(selectedDate);
-
 
     $effect(() => {
         const intervalId = setInterval(() => {now = new Date();}, 1000);
@@ -28,6 +25,10 @@
         }
         return getSortedBets(availableBets ?? []);
     });
+    console.log(today);
+	console.log(selectedDate);
+	console.log(availableBets);
+	console.log(sortedBets);
 
     const selectedBetIndex = $derived.by(() => sortedBets.findIndex((bet) => bet.schedule_id === selectedBet?.schedule_id));
     const previousBetIndex = $derived.by(() => {
