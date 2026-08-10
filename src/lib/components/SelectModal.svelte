@@ -116,6 +116,7 @@
         background-color: #fff;
 		position: relative;
 		width: 100%;
+
 		max-width: 24rem;
 		border: 1px solid var(--color-border);
 	}

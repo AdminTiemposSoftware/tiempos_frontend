@@ -4,6 +4,7 @@
     import ConfirmModal from '../../../lib/components/ConfirmModal.svelte';
     import Matrix from '../../../lib/components/venta/Matrix.svelte';
 	import ReportModal from '../../../lib/components/listas/ReportModal.svelte';
+	import ExportModal from '../../../lib/components/listas/ExportModal.svelte';
 	import {Notifications, acts} from '@tadashi/svelte-notification'
 	import SelectModal from '../../../lib/components/SelectModal.svelte';
 	import { GROUPING_OPTIONS, type GroupingMode, type ReportItem } from '../../../lib/components/venta/grouping';
@@ -23,12 +24,13 @@
 	let from =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let to =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let report = $state<ReportItem[]>([]);
+	let isLoading = $state<boolean>(false);
+	let showReportModal = $state<boolean>(false);
+	let showExportModal = $state<boolean>(false);
 	let reportQrData = $state<Record<number, number>>({});
 	let totalQr = $state<number>(0);
 	let puestosQr = $state<string[]>([]);
 	let sorteosQr = $state<string[]>([]);
-	let isLoading = $state<boolean>(false);
-	let showReportModal = $state<boolean>(false);
     let { data } = $props();
 
 	type prohibitedNumber = {
@@ -254,9 +256,6 @@
 			date: String(item.date)
 		})).filter((item) => Number.isFinite(item.number) && Number.isFinite(item.amount))
 		.sort((a, b) => a.number - b.number);
-
-
-
 	});
 
 	async function applyFilters() {
@@ -277,6 +276,7 @@
             });
 			return;
 		}
+
 		if (selectedDrawSchedule.length === 0) {
 		    acts.add({
                 message: "Seleccione al menos un horario",
@@ -287,6 +287,7 @@
 		}
 
 		try {
+		    isLoading = true;
     		const response = await fetch(`/banca/report?date_from=${from}&date_to=${to}&branches=${encodeURIComponent(selectedBranch.join(','))}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
                 method: 'GET',
                 headers: {
@@ -300,6 +301,7 @@
     				mode: 'error',
     				lifetime: 3
     			});
+     		    isLoading = false;
     			return;
     		}
 
@@ -311,6 +313,7 @@
     		report = dataItems.map((item) => ({
     			branch_id: Number(item.branch_id),
     			branch_name: String(item.branch_name),
+                brach_commission: Number(item.brach_commission),
     			draw_schedule_id: Number(item.draw_schedule_id),
     			draw_schedule_name: String(item.draw_schedule_name),
     			draw_id: Number(item.draw_id),
@@ -331,6 +334,7 @@
 				mode: 'error',
 				lifetime: 3
 			});
+			isLoading = false;
 			console.error(error);
 		}
 	}
@@ -382,8 +386,11 @@
 	}
 
 	async function handleShowReportModal() {
-		await applyFilters();
 		showReportModal = true;
+	}
+
+	async function handleShowExportModal() {
+		// await applyFilters();
 		if (report.length === 0) {
 			reportQrData = Object.fromEntries(
 				Array.from({ length: 100 }, (_, i) => [i, 0])
@@ -401,6 +408,7 @@
 		sorteosQr = selectedDrawSchedule.length === 0 || selectedDrawSchedule.includes(0)
 			? drawScheduleNames.slice(1).map((item) => item.label)
 			: drawScheduleNames.filter((item) => selectedDrawSchedule.includes(item.value)).map((item) => item.label);
+		showExportModal = true;
 	}
 </script>
 
@@ -439,14 +447,19 @@
 	handleAddProhibitedNumber={handleAddProhibitedNumber}
 />
 
-<ReportModal
-	bind:showModal={showReportModal}
+<ExportModal
+	bind:showModal={showExportModal}
 	data={reportQrData}
 	dateFrom={from}
 	puestos={puestosQr}
 	sorteos={sorteosQr}
 	dateTo={to}
 	total={totalQr}
+/>
+
+<ReportModal
+    bind:showModal={showReportModal}
+    report={report}
 />
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
@@ -483,9 +496,14 @@
 				</button>
             </div>
 	        <Matrix bind:report={report} bind:isLoading={isLoading} bind:groupingModes={groupingModes} />
-			<button type="button" class="option-button" onclick={handleShowReportModal}>
-				Obtener reporte
-			</button>
+			<div class="row">
+				<button type="button" class="option-button" onclick={handleShowExportModal}>
+				Exportar lista
+				</button>
+    			<button type="button" class="option-button" onclick={handleShowReportModal}>
+    				Obtener reporte
+    			</button>
+			</div>
         </div>
         <div class="right">
 			<div class="field grouping-field">
