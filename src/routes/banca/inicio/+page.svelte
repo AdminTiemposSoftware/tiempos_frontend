@@ -32,6 +32,17 @@
 	let puestosQr = $state<string[]>([]);
 	let sorteosQr = $state<string[]>([]);
     let { data } = $props();
+    let winnersFiltered = $state<WinnerItem[]>([]);
+
+    type WinnerItem = {
+        position_number: number;
+        date: string;
+        position_id: number;
+        position_multiplier: number;
+        schedule_id: number;
+        winner_id: number;
+        winner_number: number;
+    };
 
 	type prohibitedNumber = {
 		id: number;
@@ -245,6 +256,7 @@
 		report = reportTodayItems.map((item) => ({
 			branch_id: Number(item.branch_id),
 			branch_name: String(item.branch_name),
+			branch_comission: Number(item.branch_comission),
 			draw_schedule_id: Number(item.draw_schedule_id),
 			draw_schedule_name: String(item.draw_schedule_name),
 			draw_id: Number(item.draw_id),
@@ -258,34 +270,39 @@
 		.sort((a, b) => a.number - b.number);
 	});
 
-	async function applyFilters() {
-		if (from > to) {
+	function validFilters() {
+        if (from > to) {
+                acts.add({
+                    message: "La fecha 'Desde' no puede ser mayor que la fecha 'Hasta'.",
+                    mode: 'error',
+                    lifetime: 3
+                });
+       	return false;
+        }
+
+        if (selectedBranch.length === 0) {
             acts.add({
-                message: "La fecha 'Desde' no puede ser mayor que la fecha 'Hasta'.",
-                mode: 'error',
-                lifetime: 3
-            });
-			return;
-		}
+                    message: "Seleccione al menos un puesto",
+                    mode: 'error',
+                    lifetime: 3
+                });
+       	return false;
+        }
 
-		if (selectedBranch.length === 0) {
-		    acts.add({
-                message: "Seleccione al menos un puesto",
-                mode: 'error',
-                lifetime: 3
-            });
-			return;
-		}
+        if (selectedDrawSchedule.length === 0) {
+            acts.add({
+                    message: "Seleccione al menos un horario",
+                    mode: 'error',
+                    lifetime: 3
+                });
+       	return false;
+        }
 
-		if (selectedDrawSchedule.length === 0) {
-		    acts.add({
-                message: "Seleccione al menos un horario",
-                mode: 'error',
-                lifetime: 3
-            });
-			return;
-		}
+        return true;
+	}
 
+	async function applyFilters() {
+	    if (!validFilters()) return;
 		try {
 		    isLoading = true;
     		const response = await fetch(`/banca/report?date_from=${from}&date_to=${to}&branches=${encodeURIComponent(selectedBranch.join(','))}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
@@ -313,7 +330,7 @@
     		report = dataItems.map((item) => ({
     			branch_id: Number(item.branch_id),
     			branch_name: String(item.branch_name),
-                brach_commission: Number(item.brach_commission),
+                branch_comission: Number(item.branch_comission),
     			draw_schedule_id: Number(item.draw_schedule_id),
     			draw_schedule_name: String(item.draw_schedule_name),
     			draw_id: Number(item.draw_id),
@@ -326,7 +343,6 @@
     		})).filter(
     			(item) => Number.isFinite(item.number) && Number.isFinite(item.amount))
     		.sort((a, b) => a.number - b.number);
-
     		isLoading = false;
 		} catch (error) {
 			acts.add({
@@ -336,6 +352,31 @@
 			});
 			isLoading = false;
 			console.error(error);
+		}
+	}
+
+	async function fetchWinnersFiltered() {
+	    if (!validFilters()) return;
+		try {
+		    isLoading = true;
+			const response = await fetch(`/banca/ganadores/filtered?date_from=${from}&date_to=${to}&branches=${encodeURIComponent(selectedBranch.join(','))}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
+				method: 'GET',
+				headers: { 'Content-Type': 'application/json' }
+			});
+			const data = await response.json();
+			const winnerItems = Array.isArray(data.items) ? data.items as WinnerItem[] : [];
+			winnersFiltered = winnerItems;
+
+			showReportModal = true;
+		} catch (error) {
+			acts.add({
+				message: "Error al aplicar filtros.",
+				mode: 'error',
+				lifetime: 3
+			});
+			console.error(error);
+		} finally {
+			isLoading = false;
 		}
 	}
 
@@ -385,12 +426,7 @@
 		return GROUPING_OPTIONS.find((option: { value: GroupingMode; label: string }) => option.value === mode)?.label ?? mode;
 	}
 
-	async function handleShowReportModal() {
-		showReportModal = true;
-	}
-
 	async function handleShowExportModal() {
-		// await applyFilters();
 		if (report.length === 0) {
 			reportQrData = Object.fromEntries(
 				Array.from({ length: 100 }, (_, i) => [i, 0])
@@ -460,6 +496,7 @@
 <ReportModal
     bind:showModal={showReportModal}
     report={report}
+    winners={winnersFiltered}
 />
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
@@ -498,9 +535,9 @@
 	        <Matrix bind:report={report} bind:isLoading={isLoading} bind:groupingModes={groupingModes} />
 			<div class="row">
 				<button type="button" class="option-button" onclick={handleShowExportModal}>
-				Exportar lista
+				    Exportar lista
 				</button>
-    			<button type="button" class="option-button" onclick={handleShowReportModal}>
+    			<button type="button" class="option-button" onclick={fetchWinnersFiltered}>
     				Obtener reporte
     			</button>
 			</div>
@@ -605,90 +642,6 @@
 		align-items: flex-end;
 	}
 
-	.grouping-field {
-		flex: 1 1 100%;
-	}
-
-	.grouping-editor {
-		display: flex;
-		flex-direction: column;
-		gap: 0.65rem;
-		padding: 0.75rem;
-		border: 1px solid var(--color-border);
-		background-color: #fff;
-	}
-
-	.grouping-options {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		margin-bottom: 1rem;
-	}
-
-	.grouping-option {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.4rem;
-		padding: 0.45rem 0.65rem;
-		border: 1px solid var(--color-border);
-		background-color: white;
-		color: var(--color-text);
-		font-size: 0.85rem;
-	}
-
-	.grouping-option.selected {
-		border-color: var(--color-theme-2);
-		background: var(--color-theme-8);
-	}
-
-	.grouping-option input {
-		width: auto;
-		height: auto;
-	}
-
-	.grouping-order {
-		display: flex;
-		flex-direction: column;
-		gap: 0.35rem;
-	}
-
-	.grouping-order-label {
-		font-size: 0.9rem;
-		font-weight: 600;
-		color: var(--color-text);
-	}
-
-	.grouping-chip-list {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-	}
-
-	.grouping-chip {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.35rem 0.6rem;
-		border: 1px solid var(--color-border);
-		background-color: var(--color-box-background);
-	}
-
-	.grouping-chip-actions {
-		display: inline-flex;
-		gap: 0.25rem;
-	}
-
-	.grouping-chip-actions button {
-		padding: 0.15rem 0.35rem;
-		border: 1px solid var(--color-border);
-		background: #fff;
-		color: var(--color-text);
-	}
-
-	.grouping-chip-actions button:disabled {
-		opacity: 0.4;
-		cursor: not-allowed;
-	}
 
     .left {
 		border: 1px solid var(--color-border);
