@@ -29,7 +29,6 @@
 		position_multiplier: number;
 		winner_id: number;
 		winner_number: number;
-		winner_total: number;
 	};
 
 	// Represents a secondary row inside a grouped report section.
@@ -37,6 +36,7 @@
 		id: string;
 		label: string;
 		winners: Winner[];
+		winner_total: number;
 		total: number;
 		comission: number;
 	};
@@ -48,6 +48,7 @@
 		label: string;
 		rows: GroupRow[];
 		winners: Winner;
+		winner_total: number;
 		total: number;
 		comission: number;
 	};
@@ -172,8 +173,15 @@
 	): GroupSection[] {
 		// Maps each primary group to its secondary groups.
 		const primaryMap = new Map<string,{ label: string; secondary: Map<string, GroupRow> }>();
+		const winnersBySchedule = new Map<string, Winner[]>();
 
+		for (const winner of winners) {
+			const key = `${winner.date}|${winner.schedule_id}`;
+			const existing = winnersBySchedule.get(key) ?? [];
 
+			existing.push(winner);
+			winnersBySchedule.set(key, existing);
+		}
 
 		for (const item of items) {
 			const pId = config.primaryId(item);
@@ -181,23 +189,6 @@
 			const sId = config.secondaryId(item);
 			const sLabel = config.secondaryLabel(item);
 			const winnerKey = `${item.date}|${item.draw_schedule_id}`;
-			const winnersBySchedule = new Map<string, Winner[]>();
-
-			for (const winner of winners) {
-				const key = `${winner.date}|${winner.schedule_id}`;
-				const existing = winnersBySchedule.get(key) ?? [];
-				const soldAmount = report
-					.filter(
-						(item) =>
-							item.date === winner.date &&
-							item.draw_schedule_id === winner.schedule_id &&
-							item.number === winner.winner_number
-					)
-					.reduce((sum, item) => sum + item.amount, 0);
-				existing.push(winner);
-				winnersBySchedule.set(key, existing);
-			}
-
 
 			// Calculate the commission for this individual report item.
 			const comission = item.amount * (getcomissionPercentage(item) / 100);
@@ -212,6 +203,12 @@
 			const primary = primaryMap.get(pId)!;
 			const current = primary.secondary.get(sId);
 			const rowWinners = winnersBySchedule.get(winnerKey) ?? [];
+			let winner = 0;
+			// If current reportItem is a winner
+			if (item.number === rowWinners[0].winner_number) {
+				winner += item.amount;
+			}
+
 			if (current) {
 				// Add the current item's amount and commission
 				// to an already existing secondary group.
@@ -220,12 +217,14 @@
 				if (!current.winners.find(w => rowWinners.includes(w))) {
 					current.winners.push(...rowWinners);
 				}
+				current.winner_total += winner;
 			} else {
 				// Create a new secondary group for this item.
 				primary.secondary.set(sId, {
 					id: sId,
 					label: sLabel,
 					winners: rowWinners,
+					winner_total: winner,
 					total: item.amount,
 					comission
 				});
@@ -250,6 +249,7 @@
 					id,
 					label: value.label,
 					rows,
+					winner_total: rows.reduce((sum, row) => sum + row.winner_total, 0),
 					total,
 					comission
 				};
@@ -273,17 +273,12 @@
 		});
 	});
 
-	// Calculates the total sales amount across all visible groups.
-	const grandTotal = $derived(
-		visibleGroups.reduce((sum, group) => sum + group.total, 0)
-	);
 
-	// Calculates the total commission across all visible groups.
-	const grandcomissionTotal = $derived(
-		visibleGroups.reduce((sum, group) => sum + group.comission, 0)
-	);
-
-	// Closes the modal.
+	const grandTotal = $derived(visibleGroups.reduce((sum, group) => sum + group.total, 0));
+	const grandcomissionTotal = $derived(visibleGroups.reduce((sum, group) => sum + group.comission, 0));
+	//const allWinners = $derived(visibleGroups.flatMap((group) => group.winners));
+	const allWinners = $derived(visibleGroups.flatMap((group) => group.rows.flatMap((row) => row.winners)));
+	const granWinnerTotal = $derived(visibleGroups.reduce((sum, group) => sum + group.winner_total, 0));
 	function onClose() {
 		showModal = false;
 	}
@@ -351,9 +346,10 @@
 										<div class="totals">
 										    <strong>{formatCurrency(row.total)}</strong>
 											<strong>{formatCurrency(row.comission)}</strong>
+											<strong>{formatCurrency(row.winner_total)}</strong>
 											<strong>
 											{#each row.winners as winner, index}
-											    {`${winner.winner_number}${index < row.winners.length - 1 ? ', ' : ''}`}
+											    {`${winner.winner_number ? `${winner.winner_number}${index < row.winners.length - 1 ? ', ' : ''}` : ''}`}
 											{/each}
 											</strong>
 											<strong>{formatCurrency(row.total - row.comission)}</strong>
@@ -371,6 +367,10 @@
 				<div class="totals">
 				    <strong>{formatCurrency(grandTotal)}</strong>
 					<strong>{formatCurrency(grandcomissionTotal)}</strong>
+					<strong>{formatCurrency(granWinnerTotal)}</strong>
+					{#each allWinners as winner, index}
+					    {`${winner.winner_number ? `${winner.winner_number}${index < allWinners.length - 1 ? ', ' : ''}` : ''}`}
+					{/each}
 					<strong>{formatCurrency(grandTotal - grandcomissionTotal)}</strong>
 				</div>
 			</footer>
@@ -398,6 +398,7 @@
 		opacity: 0.85;
 		width: 60%;
 		margin-left: auto;
+		padding: 0 0.75rem;
 	}
 
 	.tabs {
@@ -438,11 +439,6 @@
 		padding: 0.75rem;
 	}
 
-	.totals-head {
-		display: flex;
-		justify-content: space-between;
-	}
-
 	ul {
 		list-style: none;
 		margin: 0;
@@ -465,6 +461,10 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+	}
+	.totals strong, .totals-head span {
+		flex: 1;
+		text-align: center;
 	}
 
 	.empty {
