@@ -34,10 +34,6 @@
 				return $sellingMatrix?.[prohibitedNumber.number] - prohibitedNumber.amount;
 			}
 		} else if (prohibitedNumber?.by_percentage){
-		    console.log(prohibitedNumber.number);
-			console.log($sellingMatrix?.[prohibitedNumber.number]);
-			console.log();
-			console.log($total * prohibitedPercentage*0.01);
 			if ($sellingMatrix?.[prohibitedNumber.number] && ($total * prohibitedPercentage*0.01) < $sellingMatrix?.[prohibitedNumber.number]) {
 				return $sellingMatrix?.[prohibitedNumber.number] - ($total * prohibitedPercentage*0.01);
 			}
