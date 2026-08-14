@@ -7,7 +7,7 @@
 		prohibitedPercentage = $bindable()
 	} = $props();
 
-	let availableAmountOnProhibited = $state($total * prohibitedPercentage);
+	let availableAmountOnProhibited = $state($total * prohibitedPercentage*0.01);
 
 	function formatAmount(value: number) {
 		if (!Number.isFinite(value)) {
@@ -33,9 +33,13 @@
 			if ($sellingMatrix?.[prohibitedNumber.number] > prohibitedNumber.amount) {
 				return $sellingMatrix?.[prohibitedNumber.number] - prohibitedNumber.amount;
 			}
-		}else if (prohibitedNumber?.by_percentage){
-			if ($sellingMatrix?.[prohibitedNumber.number] && ($total * prohibitedPercentage) < $sellingMatrix?.[prohibitedNumber.number]) {
-				return $sellingMatrix?.[prohibitedNumber.number] - ($total * prohibitedPercentage);
+		} else if (prohibitedNumber?.by_percentage){
+		    console.log(prohibitedNumber.number);
+			console.log($sellingMatrix?.[prohibitedNumber.number]);
+			console.log();
+			console.log($total * prohibitedPercentage*0.01);
+			if ($sellingMatrix?.[prohibitedNumber.number] && ($total * prohibitedPercentage*0.01) < $sellingMatrix?.[prohibitedNumber.number]) {
+				return $sellingMatrix?.[prohibitedNumber.number] - ($total * prohibitedPercentage*0.01);
 			}
 		}
 		return 0;

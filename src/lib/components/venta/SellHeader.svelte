@@ -193,8 +193,8 @@
                 <span class="label">Total:</span>
                 <span>₡{formatAmount($total)}</span>
             </div>
-                <span class="label">Cierre: {selectedBet?.schedule_time}</span>
-                <span class="label">Tiempo restante: {formatTimeRemaining(secondsUntilClose(selectedBet?.schedule_time, selectedDate))}</span>
+            <span class="label">Cierre: {selectedBet?.schedule_time}</span>
+            <span class="label">Tiempo restante: {formatTimeRemaining(secondsUntilClose(selectedBet?.schedule_time, selectedDate))}</span>
         </div>
         <div class="header-content right">
             <div class="header-content sorteo">
