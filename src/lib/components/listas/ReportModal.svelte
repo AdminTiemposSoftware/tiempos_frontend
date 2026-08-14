@@ -206,7 +206,7 @@
 			let winner = 0;
 			// If current reportItem is a winner
 			if (item.number === rowWinners[0].winner_number) {
-				winner += item.amount;
+				winner += item.amount * rowWinners[0].position_multiplier;
 			}
 
 			if (current) {
