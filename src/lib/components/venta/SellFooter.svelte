@@ -28,13 +28,13 @@
 		availableAmountOnProhibited = $total * prohibitedPercentage*0.01;
 	});
 
-	function getOverageAmountOnProhibited(prohibitedNumber: { id: number; number: number; by_amount?: boolean; amount: number; by_percentage?: boolean; can_sell_after_amount?: boolean;  }) {
+	function getOverageAmountOnProhibited(prohibitedNumber: { id: number; number: number; by_amount?: boolean; amount: number; by_percentage?: boolean; can_sell_after_amount?: boolean; starter: number }) {
 		if (prohibitedNumber?.by_amount) {
 			if ($sellingMatrix?.[prohibitedNumber.number] > prohibitedNumber.amount) {
 				return $sellingMatrix?.[prohibitedNumber.number] - prohibitedNumber.amount;
 			}
 		} else if (prohibitedNumber?.by_percentage){
-			if ($sellingMatrix?.[prohibitedNumber.number] && ($total * prohibitedPercentage*0.01) < $sellingMatrix?.[prohibitedNumber.number]) {
+			if ($sellingMatrix?.[prohibitedNumber.number] && ($total * prohibitedPercentage*0.01) < $sellingMatrix?.[prohibitedNumber.number] && $sellingMatrix?.[prohibitedNumber.number] > prohibitedNumber.starter) {
 				return $sellingMatrix?.[prohibitedNumber.number] - ($total * prohibitedPercentage*0.01);
 			}
 		}

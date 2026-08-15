@@ -30,8 +30,8 @@ export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) 
 
 	const response = await fetch(`${baseUrl}/number/prohibited`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json', 
-			Authorization: `Bearer ${token}`, 
+		headers: { 'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`,
 			'X-Auth-App': 'banca' },
 		body: JSON.stringify({
 			number,
@@ -50,3 +50,42 @@ export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) 
 		headers: { 'Content-Type': 'application/json' }
 	});
 };
+
+export const GET: RequestHandler = async ({ request, fetch, locals, cookies }) => {
+    const baseUrl = env.API_URL;
+	const bankingId = locals.user?.bankingId;
+	const token = cookies.get('session_banca') ?? null;
+
+	if (!baseUrl || !bankingId) {
+		return new Response(JSON.stringify({ error: 'Missing API_URL or bankingId.' }), {
+			status: 400,
+			headers: { 'Content-Type': 'application/json' }
+		});
+	}
+
+    const url = new URL(request.url);
+    const dateFrom = url.searchParams.get('date_from');
+    const dateTo = url.searchParams.get('date_to');
+    const branches = url.searchParams.get('branches');
+
+    if (!dateFrom || !dateTo || !branches) {
+        return new Response(JSON.stringify({ error: 'Payload must include date_from and date_to.' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
+
+    const response = await fetch(`${baseUrl}/number/prohibited/filtered?date_from=${dateFrom}&date_to=${dateTo}&banking_id=${bankingId}&branches=${encodeURIComponent(branches)}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            'X-Auth-App': 'banca' }
+    });
+
+    const responsePayload = await response.json().catch(() => null);
+
+    return new Response(JSON.stringify(responsePayload ?? { items: [] }), {
+        status: response.ok ? 200 : response.status,
+        headers: { 'Content-Type': 'application/json' }
+    });
+}

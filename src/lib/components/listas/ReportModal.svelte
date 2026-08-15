@@ -1,7 +1,7 @@
 <script lang="ts">
 	// Available grouping options and the type representing a grouping mode.
 	import { GROUPING_OPTIONS, type GroupingMode } from '../venta/grouping';
-	let { report = [], showModal = $bindable(false), winners } = $props<{report: ReportItem[];showModal: boolean;}>();
+	let { report = [], showModal = $bindable(false), winners, prohibitedNumbers } = $props<{report: ReportItem[];showModal: boolean;}>();
 
 	// Represents a single record from the report.
 	type ReportItem = {
@@ -31,12 +31,27 @@
 		winner_number: number;
 	};
 
+	type Prohibited = {
+	    banking_id: number;
+        number: number;
+        starter: number;
+        can_sell_after_amount: boolean;
+        by_amount: boolean;
+        by_percentage: boolean;
+        percentage: number;
+        branch_id: number;
+        amount: number;
+        date: string;
+	};
+
 	// Represents a secondary row inside a grouped report section.
 	type GroupRow = {
 		id: string;
 		label: string;
 		winners: Winner[];
 		winner_total: number;
+		overageNumbers: {number: number; amount: number; overage: number; prohibited: Prohibited}[];
+		devolution: number;
 		total: number;
 		comission: number;
 	};
@@ -49,13 +64,15 @@
 		rows: GroupRow[];
 		winners: Winner;
 		winner_total: number;
+		overageNumbers: {number: number; amount: number; overage: number; prohibited: Prohibited}[];
+		devolution: number;
 		total: number;
 		comission: number;
 	};
 
 	// Defines the active grouping hierarchy.
 	// By default, reports are grouped first by date and then by branch.
-	let groupingModes = $state<GroupingMode[]>(['date', 'branch']);
+	let groupingModes = $state<GroupingMode[]>(['date', 'draw_schedule']);
 
 	// Formatter used to display amounts as Costa Rican colones.
 	const currencyFormatter = new Intl.NumberFormat('es-CR', {style: 'currency', currency: 'CRC', maximumFractionDigits: 0});
@@ -79,6 +96,30 @@
 		return Number.isFinite(percentage) ? percentage : 0;
 	}
 
+	function getOverageAmountOnProhibited(prohibitedNumber: Prohibited, amount: number, total: number) {
+		if (prohibitedNumber?.by_amount) {
+			if (amount > prohibitedNumber.amount) {
+				return amount - prohibitedNumber.amount;
+			}
+		} else if (prohibitedNumber?.by_percentage){
+			if (amount && (total * prohibitedNumber.percentage*0.01) < amount && amount > prohibitedNumber.starter) {
+				return amount - (total * prohibitedNumber.percentage*0.01);
+			}
+		}
+		return 0;
+	}
+
+	function getDevolution(total: number, overageNumbers: { number: number; amount: number; overage: number; prohibited: Prohibited }[]) {
+		let devolution = 0;
+		console.log(total, overageNumbers);
+	    for (const overageNumber of overageNumbers) {
+	        if (overageNumber.prohibited) {
+	            devolution += getOverageAmountOnProhibited(overageNumber.prohibited, overageNumber.amount, total);
+	        }
+	    }
+	    return devolution;
+	}
+
 	// Returns the unique grouping key for a report item
 	// based on the selected grouping mode.
 	function getGroupingValue(item: ReportItem, mode: GroupingMode) {
@@ -95,15 +136,6 @@
 			case 'date':
 				return item.date || '-';
 		}
-	}
-
-	// TODO: Retrieves winner information for a grouped row.
-	function getWinnerForRow(row: GroupRow) {
-		console.log(row);
-		console.log(report);
-		console.log(winners);
-
-		return;
 	}
 
 	// Returns the human-readable label for a grouping value.
@@ -174,6 +206,7 @@
 		// Maps each primary group to its secondary groups.
 		const primaryMap = new Map<string,{ label: string; secondary: Map<string, GroupRow> }>();
 		const winnersBySchedule = new Map<string, Winner[]>();
+		const prohibitedByNumber = new Map<string, Prohibited>();
 
 		for (const winner of winners) {
 			const key = `${winner.date}|${winner.schedule_id}`;
@@ -183,12 +216,18 @@
 			winnersBySchedule.set(key, existing);
 		}
 
+		for (const prohibitedNumber of prohibitedNumbers) {
+			const key = `${prohibitedNumber.date.split('T')[0]}|${prohibitedNumber.branch_id}|${prohibitedNumber.number}`;
+			prohibitedByNumber.set(key, prohibitedNumber);
+		}
+
 		for (const item of items) {
 			const pId = config.primaryId(item);
 			const pLabel = config.primaryLabel(item);
 			const sId = config.secondaryId(item);
 			const sLabel = config.secondaryLabel(item);
 			const winnerKey = `${item.date}|${item.draw_schedule_id}`;
+			const prohibitedKey = `${item.date}|${item.branch_id}|${item.number}`;
 
 			// Calculate the commission for this individual report item.
 			const comission = item.amount * (getcomissionPercentage(item) / 100);
@@ -203,10 +242,19 @@
 			const primary = primaryMap.get(pId)!;
 			const current = primary.secondary.get(sId);
 			const rowWinners = winnersBySchedule.get(winnerKey) ?? [];
+			const prohibitedNumber = prohibitedByNumber.get(prohibitedKey);
 			let winner = 0;
+			let devolution = 0;
+			let overageNumber: { number: number; amount: number; overage: number; prohibited: Prohibited } | null = null;
+
 			// If current reportItem is a winner
 			if (item.number === rowWinners[0].winner_number) {
 				winner += item.amount * rowWinners[0].position_multiplier;
+			}
+
+			// If current number is prohibited push to overageNumbers
+			if (prohibitedNumber) {
+				overageNumber = { number: item.number, amount: item.amount, overage: 0, prohibited: prohibitedNumber };
 			}
 
 			if (current) {
@@ -218,14 +266,24 @@
 					current.winners.push(...rowWinners);
 				}
 				current.winner_total += winner;
+
+				if (overageNumber) {
+					current.overageNumbers.push(overageNumber);
+				}
+
+				// We have to calculate devolution after the current item is added to the group.
+				current.devolution = getDevolution(current.total, current.overageNumbers);
 			} else {
 				// Create a new secondary group for this item.
+				devolution = getDevolution(item.amount, overageNumber ? [overageNumber] : []);
 				primary.secondary.set(sId, {
 					id: sId,
 					label: sLabel,
 					winners: rowWinners,
 					winner_total: winner,
+					overageNumbers: overageNumber ? [overageNumber] : [],
 					total: item.amount,
+					devolution,
 					comission
 				});
 			}
@@ -240,16 +298,16 @@
 
 				// Calculate totals across all secondary rows.
 				const total = rows.reduce((sum, row) => sum + row.total, 0);
-				const comission = rows.reduce(
-					(sum, row) => sum + row.comission,
-					0
-				);
+				const comission = rows.reduce((sum, row) => sum + row.comission, 0);
+				const winner_total = rows.reduce((sum, row) => sum + row.winner_total, 0);
+				const devolution = rows.reduce((sum, row) => sum + row.devolution, 0);
 
 				return {
 					id,
 					label: value.label,
 					rows,
-					winner_total: rows.reduce((sum, row) => sum + row.winner_total, 0),
+					winner_total,
+					devolution,
 					total,
 					comission
 				};
@@ -276,9 +334,10 @@
 
 	const grandTotal = $derived(visibleGroups.reduce((sum, group) => sum + group.total, 0));
 	const grandcomissionTotal = $derived(visibleGroups.reduce((sum, group) => sum + group.comission, 0));
-	//const allWinners = $derived(visibleGroups.flatMap((group) => group.winners));
 	const allWinners = $derived(visibleGroups.flatMap((group) => group.rows.flatMap((row) => row.winners)));
 	const granWinnerTotal = $derived(visibleGroups.reduce((sum, group) => sum + group.winner_total, 0));
+	const grandDevolutionTotal = $derived(visibleGroups.reduce((sum, group) => sum + group.devolution, 0));
+
 	function onClose() {
 		showModal = false;
 	}
@@ -331,6 +390,7 @@
 					<div class="totals-head">
 					    <span>Total vendido</span>
 						<span>Comisión</span>
+						<span>Devolución</span>
 						<span>Premio</span>
 						<span>Numero ganador</span>
 						<span>Neto</span>
@@ -346,10 +406,11 @@
 										<div class="totals">
 										    <strong>{formatCurrency(row.total)}</strong>
 											<strong>{formatCurrency(row.comission)}</strong>
+											<strong>{formatCurrency(row.devolution)}</strong>
 											<strong>{formatCurrency(row.winner_total)}</strong>
 											<strong>
-											{#each row.winners as winner, index}
-											    {`${winner.winner_number ? `${winner.winner_number}${index < row.winners.length - 1 ? ', ' : ''}` : ''}`}
+											{#each row.winners.filter((winner) => winner.winner_number != null) as winner, index}
+												{winner.winner_number}{index < row.winners.filter((w) => w.winner_number != null).length - 1 ? ', ' : ''}
 											{/each}
 											</strong>
 											<strong>{formatCurrency(row.total - row.comission)}</strong>
@@ -364,13 +425,16 @@
 
 			<footer class="modal-footer">
 				<span class="label">Total</span>
-				<div class="totals">
+				<div class="totals footer">
 				    <strong>{formatCurrency(grandTotal)}</strong>
 					<strong>{formatCurrency(grandcomissionTotal)}</strong>
+					<strong>{formatCurrency(grandDevolutionTotal)}</strong>
 					<strong>{formatCurrency(granWinnerTotal)}</strong>
-					{#each allWinners as winner, index}
-					    {`${winner.winner_number ? `${winner.winner_number}${index < allWinners.length - 1 ? ', ' : ''}` : ''}`}
-					{/each}
+					<strong>
+    					{#each allWinners.filter((winner) => winner.winner_number != null) as winner, index}
+    					    {`${winner.winner_number != null ? `${winner.winner_number}${index < allWinners.filter((w) => w.winner_number != null).length - 1 ? ', ' : ''}` : ''}`}
+    					{/each}
+        			</strong>
 					<strong>{formatCurrency(grandTotal - grandcomissionTotal)}</strong>
 				</div>
 			</footer>
@@ -462,9 +526,16 @@
 		justify-content: space-between;
 		align-items: center;
 	}
+
 	.totals strong, .totals-head span {
 		flex: 1;
 		text-align: center;
+	}
+
+	.modal-footer .totals {
+		width: 60%;
+		margin-left: auto;
+		flex: initial;
 	}
 
 	.empty {

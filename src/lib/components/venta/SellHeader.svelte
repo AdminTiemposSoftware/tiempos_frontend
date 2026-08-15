@@ -242,6 +242,7 @@
         gap: 0.75rem;
         align-items: center;
         min-width: 0;
+        flex-wrap: wrap;
     }
     .sorteo-label {
         font-weight: 600;
@@ -297,24 +298,29 @@
         border: 1px solid var(--color-border);
         padding: 0.75rem;
     }
+
     span{
         font-size: 1.25rem;
     }
+
     .spans {
         display: flex;
         flex-direction: row;
         gap: 1rem;
     }
+
     .right {
         flex:3;
         padding: 0;
         border: none;
     }
+
     .sorteo {
         align-items: flex-start;
         text-align: left;
         flex-direction: row;
     }
+
     .left {
         flex: 1;
     }

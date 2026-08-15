@@ -33,6 +33,7 @@
 	let sorteosQr = $state<string[]>([]);
     let { data } = $props();
     let winnersFiltered = $state<WinnerItem[]>([]);
+    let prohibitedFiltered = $state<prohibitedItem[]>([]);
 
     type WinnerItem = {
         position_number: number;
@@ -42,6 +43,17 @@
         schedule_id: number;
         winner_id: number;
         winner_number: number;
+    };
+
+    type prohibitedItem = {
+        banking_id: number;
+        number: number;
+        starter: string;
+        can_sell_after_amount: boolean;
+        by_amount: boolean;
+        by_percentage: boolean;
+        amount: string;
+        date: string;
     };
 
 	type prohibitedNumber = {
@@ -380,6 +392,27 @@
 		}
 	}
 
+	async function fetchProhibitedNumbers() {
+		isLoading = true;
+		try {
+			const response = await fetch(`/number/prohibited?date_from=${from}&date_to=${to}&branches=${encodeURIComponent(selectedBranch.join(','))}`, {
+				method: 'GET',
+				headers: { 'Content-Type': 'application/json' }
+			});
+			const data = await response.json();
+			const prohibitedItems = Array.isArray(data.items) ? data.items as prohibitedItem[] : [];
+			prohibitedFiltered = prohibitedItems;
+		} catch (error) {
+			acts.add({
+				message: "Error al obtener números prohibidos.",
+				mode: 'error',
+				lifetime: 3
+			});
+			console.error(error);
+		} finally {
+			isLoading = false;
+		}
+	}
 
 	function showDeleteProhibitedNumber(value: prohibitedNumber) {
 		prohibitedNumberToDelete = value;
@@ -497,6 +530,7 @@
     bind:showModal={showReportModal}
     report={report}
     winners={winnersFiltered}
+    prohibitedNumbers={prohibitedFiltered}
 />
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
@@ -537,7 +571,7 @@
 				<button type="button" class="option-button" onclick={handleShowExportModal}>
 				    Exportar lista
 				</button>
-    			<button type="button" class="option-button" onclick={fetchWinnersFiltered}>
+    			<button type="button" class="option-button" onclick={() => { fetchWinnersFiltered(); fetchProhibitedNumbers(); }}>
     				Obtener reporte
     			</button>
 			</div>
