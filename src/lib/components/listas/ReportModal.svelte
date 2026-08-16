@@ -91,7 +91,7 @@
 
 	// Extracts and validates the branch commission percentage.
 	// Invalid or missing values default to 0%.
-	function getcomissionPercentage(item: ReportItem) {
+	function getComissionPercentage(item: ReportItem) {
 		const percentage = Number(item.branch_comission);
 		return Number.isFinite(percentage) ? percentage : 0;
 	}
@@ -111,7 +111,6 @@
 
 	function getDevolution(total: number, overageNumbers: { number: number; amount: number; overage: number; prohibited: Prohibited }[]) {
 		let devolution = 0;
-		console.log(total, overageNumbers);
 	    for (const overageNumber of overageNumbers) {
 	        if (overageNumber.prohibited) {
 	            devolution += getOverageAmountOnProhibited(overageNumber.prohibited, overageNumber.amount, total);
@@ -229,8 +228,6 @@
 			const winnerKey = `${item.date}|${item.draw_schedule_id}`;
 			const prohibitedKey = `${item.date}|${item.branch_id}|${item.number}`;
 
-			// Calculate the commission for this individual report item.
-			const comission = item.amount * (getcomissionPercentage(item) / 100);
 			// Create the primary group if it doesn't exist.
 			if (!primaryMap.has(pId)) {
 				primaryMap.set(pId, {
@@ -261,7 +258,6 @@
 				// Add the current item's amount and commission
 				// to an already existing secondary group.
 				current.total += item.amount;
-				current.comission += comission;
 				if (!current.winners.find(w => rowWinners.includes(w))) {
 					current.winners.push(...rowWinners);
 				}
@@ -273,6 +269,7 @@
 
 				// We have to calculate devolution after the current item is added to the group.
 				current.devolution = getDevolution(current.total, current.overageNumbers);
+				current.comission = (current.total - current.devolution) * getComissionPercentage(item)*0.01;
 			} else {
 				// Create a new secondary group for this item.
 				devolution = getDevolution(item.amount, overageNumber ? [overageNumber] : []);
@@ -284,7 +281,7 @@
 					overageNumbers: overageNumber ? [overageNumber] : [],
 					total: item.amount,
 					devolution,
-					comission
+					comission: (item.amount - devolution) * getComissionPercentage(item) * 0.01,
 				});
 			}
 		}
@@ -344,102 +341,103 @@
 </script>
 
 {#if showModal}
-	<div
-		class="modal-backdrop"
-		role="button"
-		onclick={onClose}
-		onkeydown={(e) => e.key === 'Escape' && onClose()}
-		tabindex="0"
-	>
-		<div class="modal" onclick={(e) => e.stopPropagation()} role="presentation">
-    		<div class="tabs">
-				<div class="field grouping-field">
-					<label for="agrupacion">Agrupar por</label>
-					<div class="grouping-options">
-						{#each GROUPING_OPTIONS as option}
-							<button
-								type="button"
-								class={`grouping-option ${groupingModes.includes(option.value) ? 'selected' : ''}`}
-								onclick={() => toggleGroupingMode(option.value)}
-							>
-								<input type="checkbox" checked={groupingModes.includes(option.value)} readonly />
-								<span>{option.label}</span>
-							</button>
+<div
+	class="modal-backdrop"
+	role="button"
+	onclick={onClose}
+	onkeydown={(e) => e.key === 'Escape' && onClose()}
+	tabindex="0"
+>
+	<div class="modal" onclick={(e) => e.stopPropagation()} role="presentation">
+  		<div class="tabs">
+			<div class="field grouping-field">
+				<label for="agrupacion">Agrupar por</label>
+				<div class="grouping-options">
+					{#each GROUPING_OPTIONS as option}
+						<button
+							type="button"
+							class={`grouping-option ${groupingModes.includes(option.value) ? 'selected' : ''}`}
+							onclick={() => toggleGroupingMode(option.value)}
+						>
+							<input type="checkbox" checked={groupingModes.includes(option.value)} readonly />
+							<span>{option.label}</span>
+						</button>
+					{/each}
+				</div>
+				<div class="grouping-order">
+					<div class="grouping-chip-list">
+						{#each groupingModes as mode, index}
+							<div class="chip">
+								<span>{index + 1}. {getGroupingModeLabel(mode)}</span>
+								<div class="grouping-chip-actions">
+									<button type="button" onclick={() => moveGroupingMode(mode, -1)} disabled={index === 0}>↑</button>
+									<button type="button" onclick={() => moveGroupingMode(mode, 1)} disabled={index === groupingModes.length - 1}>↓</button>
+								</div>
+							</div>
 						{/each}
 					</div>
-					<div class="grouping-order">
-						<div class="grouping-chip-list">
-							{#each groupingModes as mode, index}
-								<div class="chip">
-									<span>{index + 1}. {getGroupingModeLabel(mode)}</span>
-									<div class="grouping-chip-actions">
-										<button type="button" onclick={() => moveGroupingMode(mode, -1)} disabled={index === 0}>↑</button>
-										<button type="button" onclick={() => moveGroupingMode(mode, 1)} disabled={index === groupingModes.length - 1}>↓</button>
-									</div>
-								</div>
-							{/each}
-						</div>
-					</div>
 				</div>
-    		</div>
-
-			<div class="content">
-				{#if visibleGroups.length === 0}
-					<p class="empty">No hay datos para mostrar.</p>
-				{:else}
-					<div class="totals-head">
-					    <span>Total vendido</span>
-						<span>Comisión</span>
-						<span>Devolución</span>
-						<span>Premio</span>
-						<span>Numero ganador</span>
-						<span>Neto</span>
-					</div>
-
-					{#each visibleGroups as group}
-						<div class="group">
-							<h3>{group.label}</h3>
-							<ul>
-								{#each group.rows as row}
-									<li>
-										<span class="label">{row.label}</span>
-										<div class="totals">
-										    <strong>{formatCurrency(row.total)}</strong>
-											<strong>{formatCurrency(row.comission)}</strong>
-											<strong>{formatCurrency(row.devolution)}</strong>
-											<strong>{formatCurrency(row.winner_total)}</strong>
-											<strong>
-											{#each row.winners.filter((winner) => winner.winner_number != null) as winner, index}
-												{winner.winner_number}{index < row.winners.filter((w) => w.winner_number != null).length - 1 ? ', ' : ''}
-											{/each}
-											</strong>
-											<strong>{formatCurrency(row.total - row.comission)}</strong>
-										</div>
-									</li>
-								{/each}
-							</ul>
-						</div>
-					{/each}
-				{/if}
 			</div>
+  		</div>
 
-			<footer class="modal-footer">
-				<span class="label">Total</span>
-				<div class="totals footer">
-				    <strong>{formatCurrency(grandTotal)}</strong>
-					<strong>{formatCurrency(grandcomissionTotal)}</strong>
-					<strong>{formatCurrency(grandDevolutionTotal)}</strong>
-					<strong>{formatCurrency(granWinnerTotal)}</strong>
-					<strong>
-    					{#each allWinners.filter((winner) => winner.winner_number != null) as winner, index}
-    					    {`${winner.winner_number != null ? `${winner.winner_number}${index < allWinners.filter((w) => w.winner_number != null).length - 1 ? ', ' : ''}` : ''}`}
-    					{/each}
-        			</strong>
-					<strong>{formatCurrency(grandTotal - grandcomissionTotal)}</strong>
+		<div class="content">
+			{#if visibleGroups.length === 0}
+				<p class="empty">No hay datos para mostrar.</p>
+			{:else}
+				<div class="totals-head">
+				    <span>Total vendido</span>
+					<span>Comisión</span>
+					<span>Devolución</span>
+					<span>Premio</span>
+					<span>Numero ganador</span>
+					<span>Neto</span>
 				</div>
-			</footer>
+
+				{#each visibleGroups as group}
+					<div class="group">
+						<h3>{group.label}</h3>
+						<ul>
+							{#each group.rows as row}
+								<li>
+									<span class="label">{row.label}</span>
+									<div class="totals">
+									    <strong>{formatCurrency(row.total)}</strong>
+										<strong>{formatCurrency(row.comission)}</strong>
+										<strong>{formatCurrency(row.devolution)}</strong>
+										<strong>{formatCurrency(row.winner_total)}</strong>
+										<strong>
+										{#each row.winners.filter((winner) => winner.winner_number != null) as winner, index}
+											{winner.winner_number}{index < row.winners.filter((w) => w.winner_number != null).length - 1 ? ', ' : ''}
+										{/each}
+										</strong>
+
+										<strong>{formatCurrency(row.total - row.comission - row.winner_total)}</strong>
+									</div>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/each}
+			{/if}
 		</div>
+
+		<footer class="modal-footer">
+			<span class="label">Total</span>
+			<div class="totals footer">
+			    <strong>{formatCurrency(grandTotal)}</strong>
+				<strong>{formatCurrency(grandcomissionTotal)}</strong>
+				<strong>{formatCurrency(grandDevolutionTotal)}</strong>
+				<strong>{formatCurrency(granWinnerTotal)}</strong>
+				<strong>
+   					{#each allWinners.filter((winner) => winner.winner_number != null) as winner, index}
+   					    {`${winner.winner_number != null ? `${winner.winner_number}${index < allWinners.filter((w) => w.winner_number != null).length - 1 ? ', ' : ''}` : ''}`}
+   					{/each}
+     			</strong>
+				<strong>{formatCurrency(grandTotal - grandcomissionTotal - granWinnerTotal)}</strong>
+			</div>
+		</footer>
 	</div>
+</div>
 {/if}
 
 <style>

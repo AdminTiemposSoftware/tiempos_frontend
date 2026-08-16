@@ -377,6 +377,13 @@
 			});
 			const data = await response.json();
 			const winnerItems = Array.isArray(data.items) ? data.items as WinnerItem[] : [];
+			if (winnerItems.find(item => item.winner_number === null)) {
+				acts.add({
+					message: "No se han asignado algunos ganadores para los filtros seleccionados.",
+					mode: 'warning',
+					lifetime: 3
+				});
+			}
 			winnersFiltered = winnerItems;
 
 			showReportModal = true;
@@ -393,8 +400,9 @@
 	}
 
 	async function fetchProhibitedNumbers() {
-		isLoading = true;
+		if (!validFilters()) return;
 		try {
+		    isLoading = true;
 			const response = await fetch(`/number/prohibited?date_from=${from}&date_to=${to}&branches=${encodeURIComponent(selectedBranch.join(','))}`, {
 				method: 'GET',
 				headers: { 'Content-Type': 'application/json' }
@@ -651,7 +659,6 @@
     </header>
 </section>
 <Notifications />
-
 {/if}
 
 <style>
