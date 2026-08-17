@@ -75,7 +75,7 @@ export const GET: RequestHandler = async ({ request, fetch, locals, cookies }) =
         });
     }
 
-    const response = await fetch(`${baseUrl}/number/prohibited/filtered?date_from=${dateFrom}&date_to=${dateTo}&banking_id=${bankingId}&branches=${encodeURIComponent(branches)}`, {
+    const response = await fetch(`${baseUrl}/number/prohibited/filtered?date_from=${dateFrom}&date_to=${dateTo}&branches=${encodeURIComponent(branches)}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,

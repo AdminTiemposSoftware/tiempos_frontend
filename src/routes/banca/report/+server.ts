@@ -12,7 +12,7 @@ export const GET: RequestHandler = async ({ request, fetch, locals, cookies }) =
 			headers: { 'Content-Type': 'application/json' }
 		});
 	}
-    
+
     const url = new URL(request.url);
     const dateFrom = url.searchParams.get('date_from');
     const dateTo = url.searchParams.get('date_to');
