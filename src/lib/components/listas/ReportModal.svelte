@@ -70,6 +70,13 @@
 		comission: number;
 	};
 
+	const GROUPING_OPTIONS_LOCAL: { value: GroupingMode; label: string }[] = [
+		{ value: 'branch', label: 'Puesto' },
+		{ value: 'draw_schedule', label: 'Horario' },
+		{ value: 'draw', label: 'Sorteo' },
+		{ value: 'date', label: 'Fecha' }
+	];
+
 	// Defines the active grouping hierarchy.
 	// By default, reports are grouped first by date and then by branch.
 	let groupingModes = $state<GroupingMode[]>(['date', 'draw_schedule']);
@@ -77,17 +84,6 @@
 	// Formatter used to display amounts as Costa Rican colones.
 	const currencyFormatter = new Intl.NumberFormat('es-CR', {style: 'currency', currency: 'CRC', maximumFractionDigits: 0});
 	function formatCurrency(value: number) {return currencyFormatter.format(value);}
-
-	// Converts a date string into a localized date label.
-	// Returns '-' for empty values and the original value if parsing fails.
-	function normalizeDateLabel(value: string) {
-		if (!value) return '-';
-		const d = new Date(value);
-		if (Number.isNaN(d.getTime())) {
-			return value;
-		}
-		return new Intl.DateTimeFormat('es-CR').format(d);
-	}
 
 	// Extracts and validates the branch commission percentage.
 	// Invalid or missing values default to 0%.
@@ -147,7 +143,7 @@
 			case 'draw':
 				return item.draw_name;
 			case 'date':
-				return normalizeDateLabel(item.date);
+				return item.date || '-';
 		}
 	}
 
@@ -275,7 +271,7 @@
 				devolution = getDevolution(item.amount, overageNumber ? [overageNumber] : []);
 				primary.secondary.set(sId, {
 					id: sId,
-					label: sLabel,
+					label: `${sLabel}`,
 					winners: rowWinners,
 					winner_total: winner,
 					overageNumbers: overageNumber ? [overageNumber] : [],
@@ -331,7 +327,6 @@
 
 	const grandTotal = $derived(visibleGroups.reduce((sum, group) => sum + group.total, 0));
 	const grandcomissionTotal = $derived(visibleGroups.reduce((sum, group) => sum + group.comission, 0));
-	const allWinners = $derived(visibleGroups.flatMap((group) => group.rows.flatMap((row) => row.winners)));
 	const granWinnerTotal = $derived(visibleGroups.reduce((sum, group) => sum + group.winner_total, 0));
 	const grandDevolutionTotal = $derived(visibleGroups.reduce((sum, group) => sum + group.devolution, 0));
 
@@ -349,37 +344,6 @@
 	tabindex="0"
 >
 	<div class="modal" onclick={(e) => e.stopPropagation()} role="presentation">
-  		<div class="tabs">
-			<div class="field grouping-field">
-				<label for="agrupacion">Agrupar por</label>
-				<div class="grouping-options">
-					{#each GROUPING_OPTIONS as option}
-						<button
-							type="button"
-							class={`grouping-option ${groupingModes.includes(option.value) ? 'selected' : ''}`}
-							onclick={() => toggleGroupingMode(option.value)}
-						>
-							<input type="checkbox" checked={groupingModes.includes(option.value)} readonly />
-							<span>{option.label}</span>
-						</button>
-					{/each}
-				</div>
-				<div class="grouping-order">
-					<div class="grouping-chip-list">
-						{#each groupingModes as mode, index}
-							<div class="chip">
-								<span>{index + 1}. {getGroupingModeLabel(mode)}</span>
-								<div class="grouping-chip-actions">
-									<button type="button" onclick={() => moveGroupingMode(mode, -1)} disabled={index === 0}>↑</button>
-									<button type="button" onclick={() => moveGroupingMode(mode, 1)} disabled={index === groupingModes.length - 1}>↓</button>
-								</div>
-							</div>
-						{/each}
-					</div>
-				</div>
-			</div>
-  		</div>
-
 		<div class="content">
 			{#if visibleGroups.length === 0}
 				<p class="empty">No hay datos para mostrar.</p>
@@ -395,11 +359,10 @@
 
 				{#each visibleGroups as group}
 					<div class="group">
-						<h3>{group.label}</h3>
 						<ul>
 							{#each group.rows as row}
 								<li>
-									<span class="label">{row.label}</span>
+									<span class="label">{group.label} - {row.label}</span>
 									<div class="totals">
 									    <strong>{formatCurrency(row.total)}</strong>
 										<strong>{formatCurrency(row.comission)}</strong>
@@ -410,42 +373,75 @@
 											{winner.winner_number}{index < row.winners.filter((w) => w.winner_number != null).length - 1 ? ', ' : ''}
 										{/each}
 										</strong>
-
-										<strong>{formatCurrency(row.total - row.comission - row.winner_total)}</strong>
+										<strong>{formatCurrency(row.total - row.devolution - row.comission - row.winner_total)}</strong>
 									</div>
 								</li>
 							{/each}
 						</ul>
+						<div class="sub totals">
+						    <strong>{formatCurrency(group.total)}</strong>
+							<strong>{formatCurrency(group.comission)}</strong>
+							<strong>{formatCurrency(group.devolution)}</strong>
+							<strong>{formatCurrency(group.winner_total)}</strong>
+							<strong></strong>
+							<strong>{formatCurrency(group.total - group.devolution - group.comission - group.winner_total)}</strong>
+						</div>
 					</div>
 				{/each}
 			{/if}
-		</div>
-
-		<footer class="modal-footer">
-			<span class="label">Total</span>
-			<div class="totals footer">
-			    <strong>{formatCurrency(grandTotal)}</strong>
-				<strong>{formatCurrency(grandcomissionTotal)}</strong>
-				<strong>{formatCurrency(grandDevolutionTotal)}</strong>
-				<strong>{formatCurrency(granWinnerTotal)}</strong>
-				<strong>
-   					{#each allWinners.filter((winner) => winner.winner_number != null) as winner, index}
-   					    {`${winner.winner_number != null ? `${winner.winner_number}${index < allWinners.filter((w) => w.winner_number != null).length - 1 ? ', ' : ''}` : ''}`}
-   					{/each}
+			<footer class="modal-footer">
+				<span class="label">Total</span>
+				<div class="totals footer">
+				    <strong>{formatCurrency(grandTotal)}</strong>
+					<strong>{formatCurrency(grandcomissionTotal)}</strong>
+					<strong>{formatCurrency(grandDevolutionTotal)}</strong>
+					<strong>{formatCurrency(granWinnerTotal)}</strong>
+					<strong>
      			</strong>
-				<strong>{formatCurrency(grandTotal - grandcomissionTotal - granWinnerTotal)}</strong>
-			</div>
-		</footer>
+					<strong>{formatCurrency(grandTotal - grandDevolutionTotal - grandcomissionTotal - granWinnerTotal)}</strong>
+				</div>
+			</footer>
+		</div>
+       	<div class="field grouping-field">
+      		<label for="agrupacion">Agrupar por</label>
+      		<div class="grouping-options">
+ 			{#each GROUPING_OPTIONS as option}
+				<button
+   					type="button"
+   					class={`grouping-option ${groupingModes.includes(option.value) ? 'selected' : ''}`}
+   					onclick={() => toggleGroupingMode(option.value)}
+				>
+   					<input type="checkbox" checked={groupingModes.includes(option.value)} readonly />
+   					<span>{option.label}</span>
+				</button>
+ 			{/each}
+      		</div>
+      		<div class="grouping-order">
+     			<div class="grouping-chip-list">
+    				{#each groupingModes as mode, index}
+   					<div class="chip">
+  						<span>{index + 1}. {getGroupingModeLabel(mode)}</span>
+  						<div class="grouping-chip-actions">
+ 							<button type="button" onclick={() => moveGroupingMode(mode, -1)} disabled={index === 0}>↑</button>
+ 							<button type="button" onclick={() => moveGroupingMode(mode, 1)} disabled={index === groupingModes.length - 1}>↓</button>
+  						</div>
+   					</div>
+    				{/each}
+     			</div>
+      		</div>
+       	</div>
 	</div>
 </div>
 {/if}
 
 <style>
 	.modal {
-		width: 68vw;
-		max-height: 88vh;
+        margin-left: 13vw;
+		width: 80vw;
+		max-height: 90vh;
 		display: flex;
-		flex-direction: column;
+		flex-direction: row;
+		gap: 1rem;
 	}
 
 	.modal-footer {
@@ -458,47 +454,21 @@
 		align-items: center;
 		font-size: 0.85rem;
 		opacity: 0.85;
-		width: 60%;
+		width: 61%;
 		margin-left: auto;
-		padding: 0 0.75rem;
-	}
-
-	.tabs {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		padding: 0.75rem 1rem;
-		border-bottom: 1px solid var(--color-border);
-		width: 100%;
-	}
-
-	.tabs .row {
-	    width: 100%;
-	}
-
-	.tabs button {
-        width: 100%;
-		border: 1px solid var(--color-border);
-		color: var(--color-text);
-		background: #fff;
-	}
-
-	.tabs button.active {
-		background: var(--color-theme-8);
-		border-color: var(--color-theme-2);
+		padding: 0 1rem;
 	}
 
 	.content {
-		padding: 1rem 0;
 		overflow: auto;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
-		gap: 1rem;
 	}
 
 	.group {
-		border: 1px solid var(--color-border);
-		padding: 0.75rem;
+		padding: 0.5rem 1rem;
+		font-size: 1rem;
 	}
 
 	ul {
@@ -510,7 +480,7 @@
 	li, .modal-footer {
 		display: flex;
 		justify-content: space-between;
-		padding: 0.35rem 0;
+		padding: 0.15rem 0;
 		border-top: 1px solid var(--color-border);
 	}
 
@@ -543,8 +513,21 @@
 
 	.grouping-options {
 		display: flex;
-		flex-direction: row;
+		flex-direction: column;
 		flex-wrap: unset;
-
 	}
+
+	.grouping-field {
+        flex: initial;
+   	}
+
+    .grouping-chip-list {
+        flex-direction: column;
+    }
+
+    .sub.totals {
+        width: 60%;
+        margin-left: auto;
+        border-top: 1px solid var(--color-border);
+    }
 </style>
