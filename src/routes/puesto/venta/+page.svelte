@@ -48,6 +48,7 @@
 
     type TicketHeader = {
         id: number;
+        relative_id: number;
         serial: string;
         amount: string | number;
         time: string;
@@ -67,6 +68,7 @@
 
     type TicketRow = {
         id: number;
+        relative_id: number;
         total: number;
         details: string;
         status?: boolean;
@@ -218,7 +220,6 @@
         return filteredBets[0];
     }
 
-
     async function getTickets() {
         const scheduleId = selectedBet?.schedule_id ?? null;
         if (!scheduleId || !selectedDate) {
@@ -244,6 +245,7 @@
 
         tickets = items.map((item) => ({
             id: item.id,
+            relative_id: item.relative_id,
             scheduleName: selectedBet?.schedule_name ?? '',
             scheduleTime: selectedBet?.schedule_time ?? '',
             drawName: selectedBet?.draw_name ?? '',

@@ -9,6 +9,7 @@
 
     type Ticket = {
         id: number;
+        relative_id: number;
         serial: number;
         date: string;
         time: string;
@@ -27,8 +28,7 @@
         showTicketModal = $bindable(false),
         getSoldNumbersForTicket,
         tickets = $bindable(),
-        numbersSold=$bindable(),
-        onClose
+        numbersSold=$bindable()
     } = $props();
 
     let lastTicketsRef = tickets;
@@ -196,6 +196,11 @@
                 break;
         }
     }
+
+    function onClose() {
+        showTicketModal = false;
+        selectedTicket = null;
+    }
 </script>
 
 <ConfirmModal
@@ -248,7 +253,7 @@
                                     handleView(ticket);
                                 }}
                             >
-                                <td>{tickets.length - index}</td>
+                                <td>{ticket.relative_id}</td>
                                 <td>₡{ticket.total}</td>
                                 <td>{ticket.details}</td>
                                 <td>
@@ -295,7 +300,7 @@
                                 'Gracias por su compra',
                                 '¡Buena suerte!'
                             ],
-                            ticket_number: (tickets.length - selectedRowIndex).toString().padStart(3, '0')
+                            ticket_number: (selectedTicket.relative_id).toString().padStart(3, '0')
                         }}
                         groupedItems={true}
                         bind:qrData={qrData}

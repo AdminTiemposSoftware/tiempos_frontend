@@ -405,10 +405,6 @@
         showTicketsModal = true;
     }
 
-    function closeTicketsModal() {
-        showTicketsModal = false;
-    }
-
     function onJalar() {
         showJalarModal = true;
     }
@@ -590,7 +586,6 @@
     bind:showTicketModal={showTicketsModal}
     bind:tickets={tickets}
     bind:numbersSold={sold}
-    onClose={closeTicketsModal}
     getSoldNumbersForTicket={getSoldNumbersForTicket}
 />
 
