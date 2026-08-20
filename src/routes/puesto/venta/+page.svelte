@@ -302,6 +302,7 @@
             prohibitedPercentage={prohibitedPercentage}
         />
         <Matrix
+            mode={'20x5'}
             rows={20}
             columns={5}
             animateKey={selectedBet?.schedule_id ?? "none"}

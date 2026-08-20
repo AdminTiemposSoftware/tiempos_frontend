@@ -21,6 +21,7 @@
 	let selectedBranch = $state<number[]>([]);
 	let selectedDrawSchedule = $state<number[]>([]);
 	let groupingModes = $state<GroupingMode[]>(['branch']);
+	let matrixMode = $state<'20x5' | '5x20' | '10x10'>('10x10');
 	let from =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let to =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let report = $state<ReportItem[]>([]);
@@ -34,6 +35,7 @@
     let { data, user } = $props();
     let winnersFiltered = $state<WinnerItem[]>([]);
     let prohibitedFiltered = $state<prohibitedItem[]>([]);
+    let totalAmountReport = $derived(report.reduce((acc, item) => acc + item.amount, 0));
 
     type WinnerItem = {
         position_number: number;
@@ -364,6 +366,8 @@
     		})).filter(
     			(item) => Number.isFinite(item.number) && Number.isFinite(item.amount))
     		.sort((a, b) => a.number - b.number);
+
+    		totalAmountReport = report.reduce((acc, item) => acc + item.amount, 0);
     		isLoading = false;
 		} catch (error) {
 			acts.add({
@@ -518,6 +522,21 @@
 		await fetchWinnersFiltered();
 		await fetchProhibitedNumbers();
 	}
+
+ function formatAmount(value: number) {
+        if (!Number.isFinite(value)) {
+            return "0";
+        }
+
+        const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+        const [integerPart, decimalPart] = Math.abs(rounded).toFixed(2).split(".");
+        const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+        const sign = rounded < 0 ? "-" : "";
+
+        return decimalPart === "00"
+            ? `${sign}${groupedInteger}`
+            : `${sign}${groupedInteger},${decimalPart}`;
+    }
 </script>
 
 <svelte:head>
@@ -576,7 +595,7 @@
     <div class="content">
         <div class="left">
             <div class="filters">
-                <div class="field">
+                <div class="total">
                     <label for="from">Desde</label>
                     <input id="from" type="date" bind:value={from}/>
                 </div>
@@ -602,21 +621,41 @@
 						placeholder="Seleccione un sorteo"
 					/>
 	            </div>
-				<button type="button" class="option-button" onclick={applyFilters}>
-					Filtrar
-				</button>
+	            <div class="total-amount">
+	                <p class="total-label">Total en esta lista</p>
+	                <p class="total-amount-label">₡{formatAmount(totalAmountReport)} </p>
+	            </div>
             </div>
-	        <Matrix bind:report={report} bind:isLoading={isLoading} bind:groupingModes={groupingModes} />
-			<div class="row">
+	        <Matrix bind:report={report} bind:isLoading={isLoading} bind:groupingModes={groupingModes} mode={matrixMode} />
+        </div>
+        <div class="right">
+            <div class="column">
+			    <button type="button" class="option-button" onclick={applyFilters}>
+   					Filtrar
+                </button>
 				<button type="button" class="option-button" onclick={handleShowExportModal}>
 				    Exportar lista
 				</button>
-    			<button type="button" class="option-button" onclick={showReport}>
-    				Obtener reporte
-    			</button>
+				<button type="button" class="option-button" onclick={showReport}>
+				    Obtener reporte
+ 			    </button>
 			</div>
-        </div>
-        <div class="right">
+			<div class="row view">
+                <button
+                    type="button"
+                    class={`option-button ${matrixMode === '20x5' ? 'selected-mode' : ''}`}
+                    onclick={() => { matrixMode = '20x5'; }}
+                >
+                20x5
+                </button>
+                <button
+                    type="button"
+                    class={`option-button ${matrixMode === '10x10' ? 'selected-mode' : ''}`}
+                    onclick={() => { matrixMode = '10x10'; }}
+                >
+                10x10
+                </button>
+            </div>
 			<div class="field grouping-field">
 				<label for="agrupacion">Agrupación</label>
 					<div class="grouping-options">
@@ -717,7 +756,6 @@
 		align-items: flex-end;
 	}
 
-
     .left {
 		border: 1px solid var(--color-border);
 		display: flex;
@@ -755,12 +793,14 @@
 		display: flex;
 		width: 100%;
 	}
+
 	.prohibited {
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
 		align-items: start;
 	}
+
 	.prohibited-badge {
 		display: flex;
 		flex-direction: column;
@@ -810,5 +850,46 @@
         border: 1px solid var(--color-border);
 		padding: .2rem .5rem;
 		font-size: 0.85rem;
+		width: 100%;
+		justify-content: space-between;
+		display: flex;
+		align-items: center;
 	}
+
+	.column {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.matrix-mode-buttons {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+
+	.selected-mode {
+		background-color: var(--color-theme-1);
+		color: #fff;
+	}
+
+	.grouping-option {
+		width: 100%;
+	}
+
+	.total-amount {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		margin-left: auto;
+		width: 10rem;
+		text-align: center;
+		font-size: 1.2rem;
+	}
+
+	.total-label {
+		font-weight: 600;
+	}
+
+
 </style>
