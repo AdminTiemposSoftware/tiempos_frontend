@@ -10,6 +10,7 @@
     type Ticket = {
         id: number;
         relative_id: number;
+        username: string;
         serial: number;
         date: string;
         time: string;
@@ -285,7 +286,9 @@
                             title: "",
                             subtitles: [
                                 `${selectedTicket.drawName} ${selectedTicket.scheduleName}`,
-                                selectedTicket.branchName, `Fecha: ${selectedTicket.date}`,
+                                selectedTicket.branchName,
+                                selectedTicket.username,
+                                `Fecha: ${selectedTicket.date}`,
                                 `Hora: ${selectedTicket.time.slice(0, 8)}`
                             ],
                             items: soldNumbersForSelectedTicket.map((sold) => ({

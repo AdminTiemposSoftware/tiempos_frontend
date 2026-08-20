@@ -5,7 +5,7 @@
 
 	import { onMount } from 'svelte';
 	import { auth } from '$lib/stores/auth';
-    
+
     onMount(() => {
         currentPath = window.location.pathname;
     });
@@ -13,6 +13,7 @@
     function toggleSidebar() {
         isExpanded = !isExpanded;
     }
+
 
     async function handleLogout() {
 		let response;
@@ -37,7 +38,7 @@
 		}
 
     }
-	
+
 	const navItems = [
 		{ label: 'Venta', path: '/puesto/venta', roles: ['branch'] },
         { label: 'Inicio', path: '/banca/inicio', roles: ['banking']},
@@ -47,10 +48,10 @@
 		// Probablemente sea mejor cambiar el nombre a "Bancas"
         // { label: 'Administradores', path: '/administradores'},
         { label: 'Bancas', path: '/banca/bancas', roles: ['banking'] },
-		// Esta funcionalidad se debio de unir con la de "Sorteos" 
+		// Esta funcionalidad se debio de unir con la de "Sorteos"
         // { label: 'Sorteos Base', path: '/sorteos-base'},
 		// TODO : Esta funcionalidad es para cuando el admin quiera alquilar el software
-        // { label: 'Usuarios', path: '/usuarios'}, 
+        // { label: 'Usuarios', path: '/usuarios'},
         { label: 'Puestos', path: '/banca/puestos', roles: ['banking'] },
         { label: 'Sorteos', path: '/banca/sorteos', roles: ['banking'] },
         { label: 'Ganadores', path: '/banca/ganadores', roles: ['banking'] },
@@ -79,8 +80,12 @@
                     </a>
                 </li>
             {/each}
-			<div 
-				class="logout" 
+			<div class="sidebar-header">
+				<h2>{$auth.user?.username}</h2>
+				<h2>{$auth.user?.branchName}</h2>
+			</div>
+			<div
+				class="logout"
 				onclick={handleLogout}
 				role="button"
 				onkeydown={(e) => e.key === "Enter" && handleLogout()}
@@ -102,8 +107,7 @@
 		display: flex;
 		flex-direction: column;
 		border-right: 1px solid #e5e7eb;
-		width: 240px;
-		min-width: 240px;
+		width: 16rem;
 		overflow: hidden;
 	}
 
@@ -119,7 +123,7 @@
 		transition: all 0.2s ease;
 		display: flex;
 		justify-content: center;
-		border-bottom: 1px solid #e5e7eb;
+		border-bottom:  1px solid var(--color-border);
 	}
 
 	.icon {
@@ -143,7 +147,6 @@
 		width: 100%;
 		height: 2px;
 		background: currentColor;
-		border-radius: 999px;
 	}
 
 	.icon::before {
@@ -176,7 +179,20 @@
 		margin: 0;
 	}
 
-	a, .logout{
+	.sidebar-header {
+		flex-direction: column;
+	    gap: 1rem;
+		text-transform: initial !important;
+		text-align: left;
+		border-bottom: 1px solid var(--color-border);
+		border-top: 1px solid var(--color-border);
+		position: absolute;
+		bottom: 4rem;
+		left: 0;
+		right: 0;
+	}
+
+	a, .logout, .sidebar-header {
 		display: flex;
 		align-items: center;
 		gap: 1rem;
@@ -203,13 +219,10 @@
 		transition: opacity 0.3s ease;
 	}
 
-	.sidebar.collapsed a span {
+	.sidebar.collapsed a, .sidebar.collapsed .logout , .sidebar.collapsed .sidebar-header {
 		display: none;
 	}
 
-	.sidebar.collapsed .logout {
-		display: none;
-	}
 
 	.logout {
 		position: absolute;

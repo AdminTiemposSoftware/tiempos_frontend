@@ -512,6 +512,12 @@
 			: drawScheduleNames.filter((item) => selectedDrawSchedule.includes(item.value)).map((item) => item.label);
 		showExportModal = true;
 	}
+
+	async function showReport() {
+		await applyFilters();
+		await fetchWinnersFiltered();
+		await fetchProhibitedNumbers();
+	}
 </script>
 
 <svelte:head>
@@ -605,7 +611,7 @@
 				<button type="button" class="option-button" onclick={handleShowExportModal}>
 				    Exportar lista
 				</button>
-    			<button type="button" class="option-button" onclick={() => { fetchWinnersFiltered(); fetchProhibitedNumbers(); }}>
+    			<button type="button" class="option-button" onclick={showReport}>
     				Obtener reporte
     			</button>
 			</div>

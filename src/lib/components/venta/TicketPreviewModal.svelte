@@ -28,16 +28,16 @@
 
         const total = items.reduce((sum, item) => sum + item.amount, 0);
         const branchName = $auth.user?.branchName ? String($auth.user.branchName) : 'Sucursal';
-        const branchLocation = $auth.user?.branchLocation ? String($auth.user.branchLocation) : '';
+        const username = $auth.user?.username ? String($auth.user.username) : '';
 
         const multiplierInfo = selectedBet?.multiplier ? `El primero paga al: ${selectedBet.multiplier}` : '';
 
-        const title = selectedBet?.draw_name
-            ? `${selectedBet.draw_name}${selectedBet.schedule_name ? ` ${selectedBet.schedule_name}` : ''}`
-            : 'Tiquete de venta';
+        const title = '';
 
         const subtitleParts = [
-            `${branchName} - ${branchLocation}`,
+            `${selectedBet.draw_name} ${selectedBet.schedule_name}`,
+            branchName,
+            username,
             selectedDate ? `Fecha: ${selectedDate}` : '',
             createdTicket?.printed_at ? `Hora: ${createdTicket.printed_at.slice(0, 8)}` : ''
         ].filter(Boolean);

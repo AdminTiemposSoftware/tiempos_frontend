@@ -85,7 +85,7 @@
 
     {#if QrCode}
     <div class="qr-code">
-        <QrCode data={qrData} size={120} errorCorrection="L" />
+        <QrCode data={qrData} size={100} errorCorrection="L" />
     </div>
     {/if}
     {#if receipt.footer}

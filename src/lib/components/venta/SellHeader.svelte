@@ -141,9 +141,9 @@
         }
 
         const target = event.target;
-        if ((target instanceof HTMLInputElement) && target.type !== "radio") {
-            return;
-        }
+        //if ((target instanceof HTMLInputElement) && target.type !== "radio") {
+        //    return;
+        //}
 
         if (sortedBets.length < 2) {
             return;

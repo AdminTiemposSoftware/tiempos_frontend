@@ -11,7 +11,6 @@
     let numberInput: HTMLInputElement;
     let randomCount = $state(1);
     let isSubmitting = $state(false);
-    let submitError = $state('');
     let selectedRowIndex = $state(0);
     let rowRefs: Array<HTMLTableRowElement | null> = [];
     let showTicketPreviewModal = $state(false);

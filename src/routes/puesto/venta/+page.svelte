@@ -49,6 +49,7 @@
     type TicketHeader = {
         id: number;
         relative_id: number;
+        username: string;
         serial: string;
         amount: string | number;
         time: string;
@@ -246,6 +247,7 @@
         tickets = items.map((item) => ({
             id: item.id,
             relative_id: item.relative_id,
+            username: item.username,
             scheduleName: selectedBet?.schedule_name ?? '',
             scheduleTime: selectedBet?.schedule_time ?? '',
             drawName: selectedBet?.draw_name ?? '',

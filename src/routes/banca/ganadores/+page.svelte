@@ -282,14 +282,14 @@
                                 {/if}
                             </div>
                         </td>
-                        <td>
-                            <!-- {#if winner.position_number === 2}
+                        <!-- { <td>
+                           #if winner.position_number === 2}
                                 <div class= "horizontal-cell">
                                     <button class="ball red">Roja</button>
                                     <button class="ball white">Blanca</button>
                                 </div>
-                            {/if} -->
-                        </td>
+                            {/if}
+                            </td>-->
                     </tr>
                 {/each}
             </tbody>
