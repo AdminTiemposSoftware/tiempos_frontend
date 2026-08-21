@@ -6,11 +6,9 @@
 		input = $bindable(''),
 		confirmText = 'Confirmar (Enter)',
 		ticketWinner=$bindable({}),
-		cancelText = 'Cancelar'
 	} = $props();
 
     let inputElement: HTMLInputElement;
-	let responseMessage = $state<string>('');
 
 	import {Notifications, acts} from '@tadashi/svelte-notification'
 	import type { Receipt } from '../../printing/types';
@@ -49,7 +47,6 @@
 
         const total = items.reduce((sum, item) => sum + item.amount, 0);
         const branchName = $auth.user?.branchName ? String($auth.user.branchName) : 'Sucursal';
-        const branchLocation = $auth.user?.branchLocation ? String($auth.user.branchLocation) : '';
 
         const multiplierInfo = ticketWinner?.multiplier ? `El primero paga al: ${ticketWinner.multiplier}` : '';
 
@@ -58,7 +55,8 @@
             : 'Tiquete de venta';
 
         const subtitleParts = [
-            `${branchName} - ${branchLocation}`,
+            branchName,
+            ticketWinner?.username ? ticketWinner.username : '',
             ticketWinner?.date ? `Fecha: ${ticketWinner.date}` : '',
             ticketWinner?.printed_at ? `Hora: ${ticketWinner.printed_at.slice(0, 8)}` : ''
         ].filter(Boolean);
@@ -70,7 +68,7 @@
             total,
             footer: ["------- ATENCION -------", multiplierInfo, "------------------------", 'Gracias por su compra', '¡Buena suerte!'],
             serial: `${ticketWinner?.serial || ''}`,
-            ticket_number: ticketWinner?.ticket_number?.toString().padStart(3, '0') || ''
+            ticket_number: ticketWinner?.relative_id?.toString().padStart(3, '0') || ''
         };
     });
 

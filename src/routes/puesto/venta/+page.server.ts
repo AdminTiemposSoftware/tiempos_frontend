@@ -5,7 +5,7 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
 	const baseUrl = env.API_URL;
 	const branchId = locals.user?.branchId;
-	const token = cookies.get('session_puesto') ?? '';
+    const token = cookies.get('session_puesto') ?? '';
 
 	const selectedScheduleIdParam = url.searchParams.get('scheduleId');
 
@@ -72,4 +72,3 @@ export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
 		return { drawItems: [], prohibitedItems: [], numbers: [], selectedScheduleId: null };
 	}
 };
-

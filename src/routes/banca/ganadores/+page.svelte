@@ -1,29 +1,19 @@
 <script lang="ts">
 	import {Notifications, acts} from '@tadashi/svelte-notification'
     import { auth } from '$lib/stores/auth';
-    import SorteoWinnerCard from '$lib/components/ganadores/SorteoWinnerCard.svelte';
-    import CalendarRow from '$lib/components/ganadores/CalendarRow.svelte';
-    import AssignWinner from '$lib/components/ganadores/AssignWinner.svelte';
-    import UpdateMultiplierModal from '$lib/components/ganadores/UpdateMultiplierModal.svelte';
+    import { PenSolid, TrashBinSolid } from 'flowbite-svelte-icons';
+    import { goto } from '$app/navigation';
 
     let { data } = $props();
-    const
-    utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
+
+    const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
     let selectedDate = $state(utcMinus6Date.toISOString().split('T')[0]);
     let winners = $state<Winner[]>([]);
     let editingWinner = $state<Record<number, number>>({});
     let assignedWinner = $state<Record<number, boolean>>({});
-    let selectedWinner = $state<Winner>();
-    let showUpdateModal = $state(false);
-    let winnerMultiplier = $state();
-    let reventadoMultiplier = $state();
-    let megareventadoMultiplier = $state();
-    let winnerReventadoMultiplier = $state();
-
-    type Position = {
-        id: number;
-        multiplier: number;
-    };
+    let editingMultiplierMode = $state<Record<number, boolean>>({});
+    let originalMultiplier = $state<Record<number, number>>({});
+    let editingMultiplier = $state<Record<number, number>>({});
 
     type Winner = {
         date: string;
@@ -31,42 +21,64 @@
         draw_is_megareventado: boolean;
         draw_is_reventado: boolean;
         draw_schedule_name: string;
-        positions: Record<number, Position>;
+        position_id: number;
+        position_number: number;
+        position_multiplier: number;
         schedule_id: number;
         schedule_time: string;
+        winner_id: number;
+        winner_number: number;
     };
 
     $effect(() => {
-        const itemsPositions = Array.isArray(data?.itemsPositions) ? data.itemsPositions : [];
-        const itemsWinners = Array.isArray(data?.itemsWinners) ? data.itemsWinners : [];
-        winners = Object.values(itemsPositions.reduce((acc, item) => {
-            if (!acc[item.schedule_id]) {
-                acc[item.schedule_id] = {
-                    draw_id: item.draw_id,
-                    draw_is_megareventado: item.draw_is_megareventado,
-                    draw_is_reventado: item.draw_is_reventado,
-                    draw_schedule_name: `${item.draw_name} ${item.schedule_name}`,
-                    positions: {},
-                    schedule_id: item.schedule_id,
-                    schedule_time: item.schedule_time
-                };
-            }
-            acc[item.schedule_id].positions[item.position_number] = {
-                id: item.position_id,
-                multiplier: item.position_multiplier
-            };
-
-            return acc;
-        }, {} as Record<string, Winner>));
-
-        if (selectedWinner === undefined && winners.length > 0) {
-            selectedWinner = winners[0];
-        }
+        void goto(`?date=${selectedDate}`, {
+            replaceState: true,
+            noScroll: true,
+            keepFocus: true
+        });
     });
 
-    async function selectWinner(winnerId: number) {
-        selectedWinner = winners.find(winner => winner.schedule_id === winnerId);
-    }
+    $effect(() => {
+        const items = Array.isArray(data?.items) ? data.items : [];
+        winners = items.map((item: any) => ({
+            date: item.date,
+            draw_id: item.draw_id,
+            draw_is_megareventado: item.draw_is_megareventado,
+            draw_is_reventado: item.draw_is_reventado,
+            draw_schedule_name: `${item.draw_name} ${item.schedule_name}`,
+            position_id: item.position_id,
+            position_number: item.position_number,
+            position_multiplier: item.position_multiplier,
+            schedule_id: item.schedule_id,
+            schedule_time: item.schedule_time,
+            winner_id: item.winner_id,
+            winner_number: item.winner_number
+        }));
+
+        editingWinner = items.reduce((acc: Record<number, number>, item: any) => {
+            acc[item.position_id] = item.winner_number;
+            return acc;
+        }, {});
+        assignedWinner = items.reduce((acc: Record<number, boolean>, item: any) => {
+            acc[item.position_id] = item.winner_number !== null;
+            return acc;
+        }, {});
+
+        editingMultiplierMode = items.reduce((acc: Record<number, boolean>, item: any) => {
+            acc[item.position_id] = false;
+            return acc;
+        }, {});
+
+        originalMultiplier = items.reduce((acc: Record<number, number>, item: any) => {
+            acc[item.position_id] = item.position_multiplier;
+            return acc;
+        }, {});
+
+        editingMultiplier = items.reduce((acc: Record<number, number>, item: any) => {
+            acc[item.position_id] = item.position_multiplier;
+            return acc;
+        }, {});
+    });
 
     async function requestAssignWinner(winner: Winner) {
         const numberToAssign = editingWinner[winner.position_id];
@@ -109,20 +121,28 @@
         assignedWinner[winner.position_id] = true;
     }
 
-    async function requestUpdateMultiplier(positionId: number, newMultiplier: number) {
-        try {
-            console.log(positionId, newMultiplier);
-            const response = await fetch('/banca/ganadores/position', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    id: positionId,
-                    multiplier: newMultiplier
-                })
+    function requestUpdateMultiplier(winner: Winner) {
+        const newMultiplier = editingMultiplier[winner.position_id];
+        if (newMultiplier === undefined || newMultiplier === null) {
+            acts.add({
+                message: 'Por favor, ingrese un multiplicador antes de guardar.',
+                mode: 'error',
+                lifetime: 3
             });
+            return;
+        }
+        console.log(winners)
 
+        fetch('/banca/ganadores/position', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                id: winner.position_id,
+                multiplier: newMultiplier
+            })
+        }).then(response => {
             if (!response.ok) {
                 acts.add({
                     message: 'Error al actualizar el multiplicador. Por favor, inténtelo de nuevo.',
@@ -132,50 +152,30 @@
                 return;
             }
 
-            winners = winners.map((winner) => {
-                if (winner.schedule_id !== selectedWinner?.schedule_id)  return winner;
-                return {
-                    ...winner,
-                    positions: Object.fromEntries(
-                        Object.entries(winner.positions).map(([key, position]) => [
-                            key,
-                            position.id === positionId
-                                ? { ...position, multiplier: newMultiplier }
-                                : position
-                        ])
-                    )
-                };
-            });
+            originalMultiplier[winner.position_id] = newMultiplier;
+            editingMultiplierMode[winner.position_id] = false;
 
-        } catch (error) {
+            acts.add({
+                message: 'Multiplicador actualizado correctamente.',
+                mode: 'success',
+                lifetime: 3
+            });
+        }).catch(() => {
             acts.add({
                 message: 'Error al actualizar el multiplicador. Por favor, inténtelo de nuevo.',
                 mode: 'error',
                 lifetime: 3
             });
-            console.error(error);
-        }
+        });
     }
 
-    function updateMultiplier() {
-        requestUpdateMultiplier(selectedWinner.positions[1]?.id, winnerMultiplier);
+    function enableMultiplierEdit(positionId: number) {
+        editingMultiplierMode[positionId] = true;
+    }
 
-        if (selectedWinner?.draw_is_reventado) {
-            requestUpdateMultiplier(selectedWinner.positions[2]?.id, reventadoMultiplier);
-            requestUpdateMultiplier(selectedWinner.positions[4]?.id, winnerReventadoMultiplier);
-        }
-        if (selectedWinner?.draw_is_megareventado) {
-            requestUpdateMultiplier(selectedWinner.positions[3]?.id, megareventadoMultiplier);
-        }
-
-        showUpdateModal = false;
-
-        acts.add({
-            message: 'Multiplicador actualizado correctamente.',
-            mode: 'success',
-            lifetime: 3
-        });
-
+    function cancelMultiplierEdit(positionId: number) {
+        editingMultiplierMode[positionId] = false;
+        editingMultiplier[positionId] = originalMultiplier[positionId];
     }
 
     function canAssignWinner(winner: Winner): boolean {
@@ -189,35 +189,11 @@
         }
         return false;
     }
-
-    function closeUpdateModal() {
-        showUpdateModal = false;
-    }
-
-    function handleEditMultiplier(winner: Winner) {
-        winnerMultiplier = winner.positions[1]?.multiplier;
-        reventadoMultiplier = winner.positions[2]?.multiplier;
-        megareventadoMultiplier = winner.positions[3]?.multiplier;
-        winnerReventadoMultiplier = winner.positions[4]?.multiplier;
-        selectedWinner = winner;
-        showUpdateModal = true;
-    }
 </script>
 
 <svelte:head>
 	<title>Ganadores</title>
 </svelte:head>
-
-<UpdateMultiplierModal
-    bind:showModal={showUpdateModal}
-    selectedWinner={selectedWinner}
-    bind:winnerMultiplier={winnerMultiplier}
-    bind:reventadoMultiplier={reventadoMultiplier}
-    bind:megareventadoMultiplier={megareventadoMultiplier}
-    bind:winnerReventadoMultiplier={winnerReventadoMultiplier}
-    onClose={closeUpdateModal}
-    onSubmit={updateMultiplier}
-/>
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
 <section class="ganadores">
@@ -228,27 +204,96 @@
                 <p class="subtitle">Asigna el numero ganador por sorteo.</p>
             </div>
         </div>
+        <div class="filters">
+            <div class="field">
+                <label for="desde">Fecha</label>
+                <input id="desde" type="date" bind:value={selectedDate} />
+            </div>
+        </div>
     </header>
-    <div class="winners-content">
-        <div class="winners-list left">
-            {#each winners as winner}
-                <SorteoWinnerCard
-                    winner={winner}
-                    onSelect={() => selectWinner(winner.schedule_id)}
-                    handleEditMultiplier={() => handleEditMultiplier(winner)}
-                    selectedWinner={selectedWinner?.schedule_id}
-                />
-            {/each}
-        </div>
-        <div class="questions right">
-            <CalendarRow
-                existingDates={[]}
-                bind:selectedDateString={selectedDate}
-                />
-            <AssignWinner
-                selectedWinner={selectedWinner}
-            />
-        </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Sorteo</th>
+                    <th>Multiplicador</th>
+                    <th>Ganador</th>
+                    <!-- <th>Cayó bola</th> TODO -->
+                </tr>
+            </thead>
+            <tbody>
+                {#each winners as winner}
+                    <tr>
+                        <td>
+                            {winner.date ? winner.date.split('T')[0].split('-').reverse().join('/') : ''}
+                        </td>
+                        <td>{winner.draw_schedule_name} {winner.position_number === 2 ? "reventado" : ""} {winner.position_number === 3 ? "megareventado" : ""} ({winner.schedule_time})</td>
+                        <td>
+                            <div class="horizontal-cell">
+                                <input
+                                    type="text"
+                                    bind:value={editingMultiplier[winner.position_id]}
+                                    class="winner-input"
+                                    disabled={!editingMultiplierMode[winner.position_id]}
+                                />
+                                {#if !editingMultiplierMode[winner.position_id]}
+                                    <button
+                                        type="button"
+                                        class="neutral"
+                                        onclick={() => enableMultiplierEdit(winner.position_id)}
+                                    >
+                                        <PenSolid class="shrink-0 h-4 w-4" />
+                                    </button>
+                                {:else}
+                                    <button
+                                        type="button"
+                                        onclick={() => requestUpdateMultiplier(winner)}
+                                    >
+                                        ✓
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onclick={() => cancelMultiplierEdit(winner.position_id)}
+                                    >
+                                        X
+                                    </button>
+                                {/if}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="horizontal-cell">
+                                {#if winner.position_multiplier !== null && canAssignWinner(winner)}
+                                    <input
+                                        type="number"
+                                        bind:value={editingWinner[winner.position_id]}
+                                        disabled={assignedWinner[winner.position_id]}
+                                        class="winner-input"
+                                    />
+                                    {#if !assignedWinner[winner.position_id]}
+                                        <button
+                                            onclick={() => requestAssignWinner(winner)}
+                                            disabled={editingWinner[winner.position_id] === undefined || editingWinner[winner.position_id] === null}
+                                        >
+                                            ✓
+                                        </button>
+                                    {/if}
+                                {/if}
+                            </div>
+                        </td>
+                        <!-- { <td>
+                           #if winner.position_number === 2}
+                                <div class= "horizontal-cell">
+                                    <button class="ball red">Roja</button>
+                                    <button class="ball white">Blanca</button>
+                                </div>
+                            {/if}
+                            </td>-->
+                    </tr>
+                {/each}
+            </tbody>
+        </table>
     </div>
 <Notifications/>
 </section>
@@ -264,16 +309,6 @@
         box-sizing: border-box;
     }
 
-    .winners-content {
-        display: flex;
-        gap: 1rem;
-        flex-direction: row;
-    }
-
-    .winners-list {
-        gap: 0.5rem;
-    }
-
     .header-title {
         display: flex;
         gap: 1rem;
@@ -281,22 +316,45 @@
         justify-content: space-between;
         flex-wrap: wrap;
     }
-
-    .questions {
-        background-color: var(--color-box-background);
-        border: 1px solid var(--color-border);
-        padding: 1rem;
-        border-radius: 0.5rem;
-        max-height: 20rem;
+    .field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
     }
 
-    .right, .left {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-	}
+    .field label {
+        font-size: 0.85rem;
+        color: var(--color-text);
+    }
 
-	.right {
-		gap: 1rem;
-	}
+    .winner-input {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        width: 50px;
+    }
+
+    .horizontal-cell {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .ball {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: var(--color-theme-4);
+        color: white;
+        font-size: 0.75rem;
+        border: 1px solid black;
+        /* box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); */
+    }
+
+    .ball.white {
+        background-color: white;
+        color: black;
+    }
 </style>

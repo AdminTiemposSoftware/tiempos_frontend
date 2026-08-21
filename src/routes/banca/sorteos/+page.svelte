@@ -375,11 +375,22 @@
 	}
 
 	async function handleConfirmDeleteSorteo() {
-		await fetch(`/banca/sorteos/${sorteoToDelete?.id}`, {
-			method: 'DELETE'
-		}).then((res) => {
-			if (!res.ok) {
-				console.error('Error deleting sorteo', res.statusText);
+	    await toggleSorteo(sorteoToDelete?.id)
+		if (sorteoToDelete?.id === -1) return;
+
+		if (draws.find((sorteo) => sorteo.id === sorteoToDelete?.id)?.schedule.length) {
+			acts.add({
+				message: 'No se puede eliminar un sorteo con horarios asignados.',
+				mode: 'error',
+				lifetime: 3
+			})
+			return;
+		}
+		try {
+			let response = await fetch(`/banca/sorteos/${sorteoToDelete?.id}`, {method: 'DELETE'})
+
+			if (!response.ok) {
+				console.error('Error deleting sorteo', response.statusText);
 				acts.add({
 					message: 'Ha ocurrido un error al eliminar el sorteo.',
 					mode: 'error',
@@ -387,22 +398,25 @@
 				})
 				return;
 			}
+
 			acts.add({
 				message: 'Sorteo eliminado correctamente.',
 				mode: 'success',
 				lifetime: 3
 			})
-		}).catch((error) => {
+			draws = draws.filter((sorteo) => sorteo.id !== sorteoToDelete?.id);
+			sorteoToDelete = {id: -1, name: '', is_reventado: false, is_megareventado: false, days: [], schedule: []};
+			expandedSorteo = expandedSorteo.filter((id) => id !== sorteoToDelete?.id);
+
+		} catch (error) {
 			console.error('Error deleting sorteo', error);
 			acts.add({
 				message: 'Ha ocurrido un error al eliminar el sorteo.',
 				mode: 'error',
 				lifetime: 3
 			})
-		});
-
-		draws = draws.filter((sorteo) => sorteo.id !== sorteoToDelete?.id);
-		sorteoToDelete = {id: -1, name: '', is_reventado: false, is_megareventado: false, days: [], schedule: []};
+			return;
+		}
 	}
 
 	function openAssignSorteoModal() {

@@ -115,7 +115,7 @@
 	.multi-select {
         background-color: #fff;
 		position: relative;
-		width: 100%;
+		width: 23rem;
 		max-width: 24rem;
 		border: 1px solid var(--color-border);
 	}
@@ -154,12 +154,11 @@
 	.dropdown {
 		position: absolute;
 		top: calc(100% + .25rem);
-        max-width: 12rem;
-		width: 100%;
+		width: 18rem;
 		border: 1px solid var(--color-border);
 		background-color: #fff;
 		z-index: 10;
-		max-height: 16rem;
+		max-height: 50rem;
 		overflow: auto;
 	}
 

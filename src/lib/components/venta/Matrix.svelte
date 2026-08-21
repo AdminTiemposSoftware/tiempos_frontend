@@ -8,6 +8,7 @@
     } from './grouping';
 
     let {
+        mode = $bindable<'20x5' | '5x20' | '10x10'>('10x10'),
         rows = $bindable(10),
         columns = $bindable(10),
         animateKey = $bindable<string | number | null>(null),
@@ -33,6 +34,19 @@
     );
 
     $effect(() => {
+        if (mode === '20x5') {
+            rows = 20;
+            columns = 5;
+        } else if (mode === '5x20') {
+            rows = 5;
+            columns = 20;
+        } else {
+            rows = 10;
+            columns = 10;
+        }
+    });
+
+    $effect(() => {
         groupedNumbers = groupReportByNumber(report);
     });
 
@@ -43,7 +57,11 @@
     function clearTooltip() {
         hoveredIndex = null;
     }
-    
+
+    function getAmount(index: number) {
+        return groupedNumbers[index]?.reduce((sum, item) => sum + item.amount, 0) || $sellingMatrix[index] || 0;
+    }
+
 </script>
 
 <section class="matrix-container">
@@ -55,13 +73,13 @@
                 </div>
             {/if}
             <div class="matrix" style="--cols: {columns}">
-                {#each Array.from({ length: rows }) as _, rowIndex}           
+                {#each Array.from({ length: rows }) as _, rowIndex}
                     {#each Array.from({ length: columns }) as _, colIndex}
                         {@const index = colIndex * rows + rowIndex}
 
-                        <div 
-                            class={`matrix-cell 
-                                ${$prohibitedNumbers.some((n) => n.number === index) ? "prohibited-number" : ""} 
+                        <div
+                            class={`matrix-cell
+                                ${$prohibitedNumbers.some((n) => n.number === index) ? "prohibited-number" : ""}
                                 ${groupedNumbers[index]?.length > 0 ? "has-report" : ""
                             }`}
                             role="group"
@@ -88,10 +106,10 @@
                                 class="price price-animated"
                                 class:price-loading={isLoading}
                                 style={`--delay: ${index * 4}ms;`}
-                                value={groupedNumbers[index]?.reduce((sum, item) => sum + item.amount, 0) || $sellingMatrix[index] || 0}
+                                value={getAmount(index)}
                                 disabled={true}
                             />
-                            <div 
+                            <div
                                 class="report-info"
                                 hidden
                             >
@@ -99,6 +117,20 @@
                             </div>
                         </div>
                     {/each}
+                {/each}
+                {#each Array.from({ length: columns }) as _, colIndex}
+                    <div
+                        class="matrix-cell"
+                        style={`grid-column: ${colIndex + 1}; grid-row: ${rows + 1};`}
+                    >
+                        <input
+                            type="number"
+                            class="price price-animated"
+                            value={Array.from({ length: rows }, (_, rowIndex) => getAmount(colIndex * rows + rowIndex))
+                                .reduce((sum, amount) => sum + amount, 0)}
+                            disabled={true}
+                        />
+                    </div>
                 {/each}
             </div>
         </div>
@@ -213,7 +245,7 @@
         transform: scale(1.05);
         transition: transform 0.2s ease-in-out;
     }
-    
+
     .has-report input[type="number"]:first-child {
         width: 32px;
         padding: 0.1rem !important;
@@ -221,7 +253,7 @@
     }
 
     .price {
-        width: 100% !important; 
+        width: 100% !important;
         background-color: #ffffff;
         color: var(--color-text);
     }

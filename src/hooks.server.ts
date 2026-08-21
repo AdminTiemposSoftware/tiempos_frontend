@@ -15,7 +15,7 @@ type AuthUser = {
 
 const publicPrefixes = ['/_app', '/puesto/login', '/banca/login', '/robots.txt', '/favicon'];
 
-const baseUrl = env.API_URL;	
+const baseUrl = env.API_URL;
 
 function resolveApp(pathname: string) {
 	if (pathname.startsWith('/puesto')) {
@@ -45,7 +45,6 @@ async function fetchUser(token: string, fetchFn: typeof fetch): Promise<AuthUser
 		if (!user?.id) {
 			return null;
 		}
-
 		if (user.role === 'branch') {
 			const branchResponse = await fetchFn(`${baseUrl}/branch/by-user/${user.id}`, {
 				headers: {

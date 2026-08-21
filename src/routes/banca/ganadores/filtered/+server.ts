@@ -26,7 +26,7 @@ export const GET: RequestHandler = async ({ request, fetch, locals, cookies }) =
         });
     }
 
-    const response = await fetch(`${baseUrl}/report/filtered?date_from=${dateFrom}&date_to=${dateTo}&branches=${encodeURIComponent(branches)}&draw_schedules=${encodeURIComponent(drawSchedules)}`, {
+    const response = await fetch(`${baseUrl}/winner/filtered?date_from=${dateFrom}&date_to=${dateTo}&branches=${encodeURIComponent(branches)}&draw_schedules=${encodeURIComponent(drawSchedules)}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,

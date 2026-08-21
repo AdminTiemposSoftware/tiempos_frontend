@@ -11,7 +11,6 @@
     let numberInput: HTMLInputElement;
     let randomCount = $state(1);
     let isSubmitting = $state(false);
-    let submitError = $state('');
     let selectedRowIndex = $state(0);
     let rowRefs: Array<HTMLTableRowElement | null> = [];
     let showTicketPreviewModal = $state(false);
@@ -25,6 +24,8 @@
         return Object.values(sold).reduce((sum, item) => sum + item.price, 0);
     });
     let showJalarModal = $state(false);
+    const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
+	const today = utcMinus6Date.toISOString().split('T')[0];
 
     import { onMount } from 'svelte';
     import { TrashBinSolid, CubeSolid, QuestionCircleSolid, PrinterSolid, EyeSolid, ReceiptSolid, CameraPhotoSolid } from "flowbite-svelte-icons";
@@ -194,50 +195,60 @@
     }
 
     async function processTicket() {
-        submitError = '';
-
         const drawScheduleId = selectedBet?.schedule_id ?? selectedBet?.draw_schedule_id;
         if (!canSellSelectedNumbers(drawScheduleId)) return;
-
         if (hasProhibitedNumbers(soldSnapshot)) return;
 
         soldSnapshot = { ...sold };
         isSubmitting = true;
+        try {
+            const response = await fetch('/puesto/venta', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    date: selectedDate,
+                    draw_schedule_id: drawScheduleId,
+                    details: details,
+                    numbers: buildNumbersPayload(soldSnapshot)
+                })
+            });
 
-        const response = await fetch('/puesto/venta', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                date: selectedDate,
-                draw_schedule_id: drawScheduleId,
-                details: details,
-                numbers: buildNumbersPayload(soldSnapshot)
-            })
-        });
+            isSubmitting = false;
 
-        isSubmitting = false;
-
-        if (!response.ok) {
-            submitError = 'No se pudo crear el tiquete.';
-            return;
-        }
-
-        const responseBody = await response.json().catch(() => null);
-        createdTicket = Array.isArray(responseBody?.items) ? responseBody.items[0] : null;
-
-        sellingMatrix.update((matrix) => {
-            for (const [number, price] of Object.entries(soldSnapshot)) {
-                matrix[number] = (matrix[number] || 0) + price.price;
+            if (!response.ok) {
+                acts.add({
+                    message: 'Hubo un error al crear el tiquete.',
+                    mode: 'error',
+                    lifetime: 3
+                });
+                return;
             }
-            return matrix;
-        });
-        total.update((n) => n + Object.values(soldSnapshot).reduce((sum, item) => sum + item.price, 0));
-        showTicketPreviewModal = true;
-        sold = {};
-        detailsSnapshot = details;
-        details = '';
+
+            const responseBody = await response.json().catch(() => null);
+            createdTicket = Array.isArray(responseBody?.items) ? responseBody.items[0] : null;
+            if (selectedDate === today) {
+                sellingMatrix.update((matrix) => {
+                    for (const [number, price] of Object.entries(soldSnapshot)) {
+                        matrix[number] = (matrix[number] || 0) + price.price;
+                    }
+                    return matrix;
+                });
+                total.update((n) => n + Object.values(soldSnapshot).reduce((sum, item) => sum + item.price, 0));
+            }
+            showTicketPreviewModal = true;
+            sold = {};
+            detailsSnapshot = details;
+            details = '';
+        } catch (error) {
+            isSubmitting = false;
+            acts.add({
+                message: 'Hubo un error al crear el tiquete.',
+                mode: 'error',
+                lifetime: 3
+            });
+        }
     }
 
     function deleteNumber(number: string) {
@@ -391,10 +402,6 @@
     async function viewTickets() {
         tickets = await getTickets();
         showTicketsModal = true;
-    }
-
-    function closeTicketsModal() {
-        showTicketsModal = false;
     }
 
     function onJalar() {
@@ -578,7 +585,6 @@
     bind:showTicketModal={showTicketsModal}
     bind:tickets={tickets}
     bind:numbersSold={sold}
-    onClose={closeTicketsModal}
     getSoldNumbersForTicket={getSoldNumbersForTicket}
 />
 
@@ -688,9 +694,6 @@
             <div class="button-name">Imp<p>r</p>imir</div>
         </button>
     </form>
-    {#if submitError}
-        <div class="form-error">{submitError}</div>
-    {/if}
     <div class="buttons-group">
             <button
                 onclick={viewQR} disabled={Object.keys(sold).length === 0}

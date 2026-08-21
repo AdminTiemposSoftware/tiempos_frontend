@@ -1,11 +1,16 @@
 <script lang="ts">
     import { auth } from '../../stores/auth';
     import { onMount, tick } from "svelte";
+    import { acts } from '@tadashi/svelte-notification';
     import ConfirmModal from "../ConfirmModal.svelte";
     import ReceiptPreview from "../../printing/ReceiptPreview.svelte";
+    import { sellingMatrix } from '../../stores/UpdateSellMatrix';
+    import { total } from "../../stores/UpdateSellMatrix";
 
     type Ticket = {
         id: number;
+        relative_id: number;
+        username: string;
         serial: number;
         date: string;
         time: string;
@@ -24,11 +29,9 @@
         showTicketModal = $bindable(false),
         getSoldNumbersForTicket,
         tickets = $bindable(),
-        numbersSold=$bindable(),
-        onClose
+        numbersSold=$bindable()
     } = $props();
 
-    let localTickets: Ticket[] = $state([]);
     let lastTicketsRef = tickets;
     let showDeleteConfirm = $state(false);
     let ticketToDelete = $state<Ticket | null>(null);
@@ -37,10 +40,11 @@
     let qrData = $state<string>('');
     let selectedRowIndex = $state(0);
     let rowRefs: Array<HTMLTableRowElement | null> = [];
+    const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
+	const today = utcMinus6Date.toISOString().split('T')[0];
 
     $effect(() => {
         if (tickets !== lastTicketsRef) {
-            localTickets = tickets;
             lastTicketsRef = tickets;
         }
     });
@@ -62,8 +66,9 @@
         void focusSelectedRow();
     });
 
-    function handleDelete(ticket: Ticket) {
+    async function handleDelete(ticket: Ticket) {
         ticketToDelete = ticket;
+        soldNumbersForSelectedTicket = getSoldNumbersForTicket(ticket.id);
         showDeleteConfirm = true;
     }
 
@@ -110,16 +115,42 @@
         }
     }
 
-    function confirmDelete() {
-        if (!ticketToDelete) {
-            return;
+    async function confirmDelete() {
+        if (!ticketToDelete) return;
+
+        try {
+            const response = await fetch(`/puesto/venta/tickets/${ticketToDelete.serial}`, { method: 'DELETE', });
+            if (!response.ok) {
+                acts.add({
+                    message: "Error al eliminar el tiquete.",
+                    mode: 'error',
+                    lifetime: 3
+                })
+                return;
+            }
+
+            tickets = tickets.map(item =>
+                item.id === ticketToDelete?.id
+                    ? { ...item, status: false }
+                    : item
+            );
+            if (ticketToDelete.date === today) {
+                sellingMatrix.update((matrix) => {
+                    for (const soldNumber of soldNumbersForSelectedTicket) {
+                        matrix[soldNumber.number] = (matrix[soldNumber.number] || 0) - soldNumber.price;
+                    }
+                    return matrix;
+                });
+                total.update((n) => n - Object.values(soldNumbersForSelectedTicket).reduce((sum, item) => sum + item.price, 0));
+            }
+            ticketToDelete = null;
+        } catch (error) {
+            acts.add({
+                message: "Error al eliminar el tiquete.",
+                mode: 'error',
+                lifetime: 3 });
+            console.error(error);
         }
-        localTickets = localTickets.map((ticket) =>
-            ticket.id === ticketToDelete?.id
-                ? { ...ticket, status: false }
-                : ticket
-        );
-        ticketToDelete = null;
     }
 
     function loadSoldNumbers() {
@@ -166,11 +197,16 @@
                 break;
         }
     }
+
+    function onClose() {
+        showTicketModal = false;
+        selectedTicket = null;
+    }
 </script>
 
 <ConfirmModal
     bind:showModal={showDeleteConfirm}
-    message={ticketToDelete ? `Eliminar ticket ${ticketToDelete.id}?` : "Eliminar ticket?"}
+    message={ticketToDelete ? `Eliminar tiquete ${ticketToDelete.serial}?` : "Eliminar ticket?"}
     confirmText="Eliminar"
     confirm={confirmDelete}
 />
@@ -218,7 +254,7 @@
                                     handleView(ticket);
                                 }}
                             >
-                                <td>{tickets.length - index}</td>
+                                <td>{ticket.relative_id}</td>
                                 <td>₡{ticket.total}</td>
                                 <td>{ticket.details}</td>
                                 <td>
@@ -250,7 +286,9 @@
                             title: "",
                             subtitles: [
                                 `${selectedTicket.drawName} ${selectedTicket.scheduleName}`,
-                                selectedTicket.branchName, `Fecha: ${selectedTicket.date}`,
+                                selectedTicket.branchName,
+                                selectedTicket.username,
+                                `Fecha: ${selectedTicket.date}`,
                                 `Hora: ${selectedTicket.time.slice(0, 8)}`
                             ],
                             items: soldNumbersForSelectedTicket.map((sold) => ({
@@ -265,7 +303,7 @@
                                 'Gracias por su compra',
                                 '¡Buena suerte!'
                             ],
-                            ticket_number: (tickets.length - selectedRowIndex).toString().padStart(3, '0')
+                            ticket_number: (selectedTicket.relative_id).toString().padStart(3, '0')
                         }}
                         groupedItems={true}
                         bind:qrData={qrData}

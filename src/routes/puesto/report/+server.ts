@@ -3,11 +3,11 @@ import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ request, fetch, locals, cookies }) => {
     const baseUrl = env.API_URL;
-	const bankingId = locals.user?.bankingId;
-	const token = cookies.get('session_banca') ?? null;
+	const branchId = locals.user?.branchId;
+	const token = cookies.get('session_puesto') ?? null;
 
-	if (!baseUrl || !bankingId) {
-		return new Response(JSON.stringify({ error: 'Missing API_URL or bankingId.' }), {
+	if (!baseUrl || !branchId) {
+		return new Response(JSON.stringify({ error: 'Missing API_URL or branchId.' }), {
 			status: 400,
 			headers: { 'Content-Type': 'application/json' }
 		});
@@ -16,17 +16,16 @@ export const GET: RequestHandler = async ({ request, fetch, locals, cookies }) =
     const url = new URL(request.url);
     const dateFrom = url.searchParams.get('date_from');
     const dateTo = url.searchParams.get('date_to');
-    const branches = url.searchParams.get('branches');
     const drawSchedules = url.searchParams.get('draw_schedules');
 
-    if (!dateFrom || !dateTo || !branches || !drawSchedules) {
-        return new Response(JSON.stringify({ error: 'Payload must include date_from, date_to, branches, and draw_schedules.' }), {
+    if (!dateFrom || !dateTo || !drawSchedules) {
+        return new Response(JSON.stringify({ error: 'Payload must include date_from, date_to, and draw_schedules.' }), {
             status: 400,
             headers: { 'Content-Type': 'application/json' }
         });
     }
 
-    const response = await fetch(`${baseUrl}/report/filtered?date_from=${dateFrom}&date_to=${dateTo}&branches=${encodeURIComponent(branches)}&draw_schedules=${encodeURIComponent(drawSchedules)}`, {
+    const response = await fetch(`${baseUrl}/report/filtered?date_from=${dateFrom}&date_to=${dateTo}&branches=${encodeURIComponent(branchId)}&draw_schedules=${encodeURIComponent(drawSchedules)}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
