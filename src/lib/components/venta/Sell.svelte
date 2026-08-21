@@ -9,6 +9,7 @@
     let showTicketsModal = $state(false);
     let tickets = $state([]);
     let numberInput: HTMLInputElement;
+    let numberValue = $state('');
     let randomCount = $state(1);
     let isSubmitting = $state(false);
     let selectedRowIndex = $state(0);
@@ -26,6 +27,7 @@
     let showJalarModal = $state(false);
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
 	const today = utcMinus6Date.toISOString().split('T')[0];
+	let reventadoNumber = $state<boolean>(false);
 
     import { onMount } from 'svelte';
     import { TrashBinSolid, CubeSolid, QuestionCircleSolid, PrinterSolid, EyeSolid, ReceiptSolid, CameraPhotoSolid } from "flowbite-svelte-icons";
@@ -39,6 +41,8 @@
     import TicketPreviewModal from './TicketPreviewModal.svelte';
     import ConfirmModalWithInput from '../ConfirmModalWithInput.svelte';
     import JalarTicketModal from './JalarTicketModal.svelte';
+    import Reventado from './Reventado.svelte';
+
 
     onMount(() => {
         priceInput?.focus();
@@ -89,7 +93,7 @@
             }
         }
         if (target.value !== result) {
-            target.value = result;
+            numberValue = result;
         }
     }
 
@@ -521,28 +525,6 @@
         showQrModal = false;
     }
 
-    function isValidTicketSerial(serial: string) {
-        if (!/^\d{16}$/.test(serial)) {
-            return false;
-        }
-
-        const year = Number(serial.slice(0, 2));
-        const month = Number(serial.slice(2, 4));
-        const day = Number(serial.slice(4, 6));
-        const hour = Number(serial.slice(6, 8));
-        const minute = Number(serial.slice(8, 10));
-        const second = Number(serial.slice(10, 12));
-
-        return (
-            Number.isInteger(year) &&
-            month >= 1 && month <= 12 &&
-            day >= 1 && day <= 31 &&
-            hour >= 0 && hour <= 23 &&
-            minute >= 0 && minute <= 59 &&
-            second >= 0 && second <= 59
-        );
-    }
-
     async function handlePrint() {
         const drawScheduleId = selectedBet?.schedule_id ?? selectedBet?.draw_schedule_id;
         if(!showTicketPreviewModal && canSellSelectedNumbers(drawScheduleId) && !hasProhibitedNumbers(sold)) {
@@ -554,7 +536,6 @@
         showConfirmModal = false;
         await processTicket();
     }
-
 </script>
 
 <TicketPreviewModal
@@ -595,8 +576,16 @@
 
 <svelte:window onkeydown={handlekeyinput} />
 <section class="sell">
-    <span class="sold-amount">Tiquete: ₡{soldAmount}</span>
-
+    <div class="row">
+        <span class="sold-amount">Tiquete: ₡{soldAmount}</span>
+        {#if selectedBet.draw_is_reventado}
+            <Reventado
+                bind:number={numberValue}
+                bind:price={priceValue}
+                bind:reventado={reventadoNumber}
+                />
+        {/if}
+    </div>
     <form onsubmit={onSubmit} bind:this={formElement}>
         <div class="question monto">
             <label for="price">Monto:</label>
@@ -611,6 +600,21 @@
                 oninput={handlePriceInput}
             />
         </div>
+        {#if reventadoNumber}
+            <div class="question monto">
+                <label for="price">Monto Reventado:</label>
+                <input
+                    type="text"
+                    inputmode="numeric"
+                    pattern="[0-9.]*"
+                    id="price"
+                    name="price"
+                    bind:this={priceInput}
+                    bind:value={priceValue}
+                    oninput={handlePriceInput}
+                />
+            </div>
+        {/if}
         <div class="question numero">
             <label for="number">Numero:</label>
             <input
@@ -621,6 +625,7 @@
                 min="0"
                 max="99"
                 bind:this={numberInput}
+                bind:value={numberValue}
                 oninput={handleNumberInput}
             />
         </div>
@@ -848,15 +853,16 @@
         text-align: center;
     }
 
-    .form-error {
-        margin: 0.5rem 0 0;
-        color: #b91c1c;
-        font-size: 0.9rem;
-    }
-
     .selected-row {
         outline: 2px solid var(--color-theme-1);
         outline-offset: -2px;
+    }
+    .row {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
     }
 
 </style>

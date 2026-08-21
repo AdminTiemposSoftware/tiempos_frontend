@@ -1,87 +1,84 @@
 <script lang="ts">
 	let {
-		winnerNumber = $bindable<number | null>(null),
-		reventadoColor = $bindable<'red' | 'white' | null>(null),
-		megaReventadoNumber = $bindable<number | null>(null),
-		showReventado = false,
-		showMegareventado = false,
-		selectedWinner = $bindable(null),
+		assignWinner,
+		position,
 	} = $props();
 
+	let winnerNumber: number | null = $state(position?.winner_number);
+	let reventadoColor: 'red' | 'white' | null = $state(null);
+	let megaReventadoNumber: number | null = $state(null);
+
+
 	function canSave() {
-		return winnerNumber !== null && reventadoColor !== null;
+	    if (position?.draw_is_reventado){
+			if (position?.draw_is_megareventado)
+				return reventadoColor !== null && winnerNumber !== null && megaReventadoNumber !== null;
+			return reventadoColor !== null && winnerNumber !== null;}
+		else
+			return winnerNumber !== null;
 	}
 </script>
 
-<div class="winner-inputs">
-    <div class="inputs-row">
-    	<div class="row">
-    		<label for="winner-number">Número ganador</label>
-    		<input
-    			id="winner-number"
-    			type="number"
-    			min="0"
-    			max="90"
-    			bind:value={winnerNumber}
-    		/>
-    	</div>
-    	{#if showReventado}
-    		<div class="row">
-    			<label>Cayó bola </label>
-    			<div class="color-options">
-    				{#if reventadoColor !== 'white'}
-    					<button
-    						type="button"
-    						class="color-ball red"
-    						class:selected={reventadoColor === 'red'}
-    						aria-label="Rojo"
-    						onclick={() => (reventadoColor = 'red')}
-    					></button>
-    				{/if}
-    				{#if reventadoColor !== 'red'}
-    					<button
-    						type="button"
-    						class="color-ball white"
-    						class:selected={reventadoColor === 'white'}
-    						aria-label="Blanco"
-    						onclick={() => (reventadoColor = 'white')}
-    					></button>
-    				{/if}
-    			</div>
-    		</div>
-    	{/if}
-    	{#if showMegareventado}
-    		<div class="row">
-    			<label for="mega-reventado-number">Número megareventado</label>
-    			<input
-    				id="mega-reventado-number"
-    				type="number"
-    				min="0"
-    				max="90"
-    				bind:value={megaReventadoNumber}
-    			/>
-    		</div>
-    	{/if}
-    </div>
-	<button type="button" class="save" disabled={!canSave()}>
-		Guardar
-	</button>
+<div class="winner-inputs row">
+  		<label for="winner-number">Número ganador</label>
+  		<input
+ 			id="winner-number"
+ 			type="number"
+ 			min="0"
+ 			max="90"
+ 			bind:value={winnerNumber}
+  		/>
+   	{#if position?.draw_is_reventado}
+  		<div class="row">
+ 			<label>Cayó bola </label>
+ 			<div class="color-options">
+				{#if reventadoColor !== 'white'}
+   					<button
+  						type="button"
+  						class="color-ball red"
+  						class:selected={reventadoColor === 'red'}
+  						aria-label="Rojo"
+  						onclick={() => (reventadoColor = 'red')}
+   					></button>
+				{/if}
+				{#if reventadoColor !== 'red'}
+   					<button
+  						type="button"
+  						class="color-ball white"
+  						class:selected={reventadoColor === 'white'}
+  						aria-label="Blanco"
+  						onclick={() => (reventadoColor = 'white')}
+   					></button>
+				{/if}
+ 			</div>
+  		</div>
+   	{/if}
+   	{#if position?.draw_is_megareventado}
+  		<div class="row">
+ 			<label for="mega-reventado-number">Número megareventado</label>
+ 			<input
+				id="mega-reventado-number"
+				type="number"
+				min="0"
+				max="90"
+				bind:value={megaReventadoNumber}
+ 			/>
+  		</div>
+   	{/if}
+    {#if !position.winner_number}
+        <button type="button" class="save" onclick={() => assignWinner(position, winnerNumber, reventadoColor, megaReventadoNumber)} disabled={!canSave()}>
+      		Guardar
+       	</button>
+    {/if}
 </div>
 
 <style>
 .winner-inputs {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
 	gap: 1rem;
 	justify-content: space-around;
-	flex: 1;
-}
-
-.inputs-row {
-	display: flex;
-	flex-direction: row;
-	width: 100%;
-	justify-content: space-around;
+	margin-left: auto;
 }
 
 .color-options {
@@ -119,5 +116,9 @@
 .color-ball.selected {
 	border: 3px solid #111827;
 	box-shadow: 0 0 0 2px white, 0 0 0 4px #111827;
+}
+
+.save {
+	padding: 0.3rem 0.7rem ;
 }
 </style>
