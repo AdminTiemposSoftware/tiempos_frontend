@@ -3,12 +3,8 @@
     import ReceiptPreview from '../../printing/ReceiptPreview.svelte';
     import type { Receipt } from '../../printing/types';
 
-    type SoldItem = {
-        price: number;
-    };
-
     let {
-        sold = $bindable<Record<string, SoldItem>>(),
+        sold = $bindable<Record<string, number>>(),
         showTicketPreviewModal = $bindable(false),
         selectedBet = null,
         selectedDate = '',
@@ -17,13 +13,13 @@
     } = $props();
 
     const receipt = $derived.by<Receipt>(() => {
-        const soldEntries = Object.entries(sold) as Array<[string, SoldItem]>;
+        const soldEntries = Object.entries(sold) as Array<[string, number]>;
 
         const items = soldEntries
             .sort(([leftNumber], [rightNumber]) => Number(leftNumber) - Number(rightNumber))
             .map(([number, item]) => ({
                 number: String(number).padStart(2, '0'),
-                amount: Number(item.price) || 0
+                amount: Number(item) || 0
             }));
 
         const total = items.reduce((sum, item) => sum + item.amount, 0);
@@ -53,7 +49,7 @@
         };
     });
 
-    function serializeData(data: Record<string, SoldItem>): string {
+    function serializeData(data: Record<string, number>): string {
         const serialHex = createdTicket?.ticket_serial
             ? BigInt(createdTicket.ticket_serial).toString(16).toUpperCase()
             : '';
@@ -62,7 +58,7 @@
             .sort(([leftNumber], [rightNumber]) => Number(leftNumber) - Number(rightNumber))
             .map(([number, item]) => {
                 const numberHex = Number(number).toString(16).toUpperCase().padStart(2, '0');
-                const priceHex = Number(item.price).toString(16).toUpperCase().padStart(6, '0');
+                const priceHex = Number(item).toString(16).toUpperCase().padStart(6, '0');
 
                 return `${numberHex}${priceHex}`;
             })

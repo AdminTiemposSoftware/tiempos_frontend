@@ -5,8 +5,6 @@
         reventado = $bindable()
     } = $props();
 
-    import { acts } from '@tadashi/svelte-notification';
-
     function onCheck(checked: boolean) {
         const hasNumber = !!number?.trim();
         const hasPrice = !!price?.trim();
@@ -14,9 +12,16 @@
         reventado = checked;
     }
 
+    function handlekeyinput(event: KeyboardEvent) {
+        if (event.key === 'e' || event.key === 'E') {
+            onCheck(!reventado);
+        }
+    }
+
     console.log(number, price);
 </script>
 
+<svelte:window onkeydown={handlekeyinput} />
 <div class="reventado">
     <span class="sold-amount">Reventado</span>
     <input

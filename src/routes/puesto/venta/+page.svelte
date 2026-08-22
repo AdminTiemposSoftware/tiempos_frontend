@@ -10,8 +10,6 @@
 
     let { data } = $props();
 
-    type TicketSold = { number: string; price: number };
-
     type AvailableBet = {
         draw_schedule_branch_id: number;
         comission: string | number;

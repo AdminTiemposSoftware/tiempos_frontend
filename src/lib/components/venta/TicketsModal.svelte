@@ -141,7 +141,7 @@
                     }
                     return matrix;
                 });
-                total.update((n) => n - Object.values(soldNumbersForSelectedTicket).reduce((sum, item) => sum + item.price, 0));
+                total.update((n) => n - Object.values(soldNumbersForSelectedTicket).reduce((sum, item) => sum + item, 0));
             }
             ticketToDelete = null;
         } catch (error) {
@@ -154,9 +154,9 @@
     }
 
     function loadSoldNumbers() {
-        numbersSold = soldNumbersForSelectedTicket.reduce<Record<string, { price: number }>>(
+        numbersSold = soldNumbersForSelectedTicket.reduce<Record<string, number>>(
             (accumulator, sold) => {
-                accumulator[sold.number] = { price: sold.price };
+                accumulator[sold.number] = sold.price;
                 return accumulator;
             },
             {}
