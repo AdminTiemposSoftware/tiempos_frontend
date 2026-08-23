@@ -7,8 +7,7 @@
         message = $bindable(),
         availableBets = $bindable(),
         selectedBet = $bindable(),
-        prohibitedPercentage = $bindable(),
-        showingModal,
+        prohibitedPercentage = $bindable()
     } = $props();
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
 
@@ -138,7 +137,6 @@
 
     function handleBetKeydown(event: KeyboardEvent) {
         if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
-        if (showingModal) return;
         const target = event.target;
 
         if (sortedBets.length < 2) {

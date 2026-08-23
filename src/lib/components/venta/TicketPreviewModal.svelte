@@ -16,9 +16,6 @@
         createdTicket
     } = $props();
 
-    let initialSelectedBet = $state(selectedBet); // This is to inhabilitate the possibility of changing the bet after the modal is open
-    let initialSelectedDate = $state(selectedDate); // This is to inhabilitate the possibility of changing the date after the modal is open
-
     const receipt = $derived.by<Receipt>(() => {
         const soldEntries = Object.entries(sold) as Array<[string, SoldItem]>;
 
@@ -33,15 +30,15 @@
         const branchName = $auth.user?.branchName ? String($auth.user.branchName) : 'Sucursal';
         const username = $auth.user?.username ? String($auth.user.username) : '';
 
-        const multiplierInfo = initialSelectedBet?.multiplier ? `El primero paga al: ${initialSelectedBet.multiplier}` : '';
+        const multiplierInfo = selectedBet?.multiplier ? `El primero paga al: ${selectedBet.multiplier}` : '';
 
         const title = '';
 
         const subtitleParts = [
-            `${initialSelectedBet.draw_name} ${initialSelectedBet.schedule_name}`,
+            `${selectedBet.draw_name} ${selectedBet.schedule_name}`,
             branchName,
             username,
-            initialSelectedDate ? `Fecha: ${initialSelectedDate}` : '',
+            selectedDate ? `Fecha: ${selectedDate}` : '',
             createdTicket?.printed_at ? `Hora: ${createdTicket.printed_at.slice(0, 8)}` : ''
         ].filter(Boolean);
 

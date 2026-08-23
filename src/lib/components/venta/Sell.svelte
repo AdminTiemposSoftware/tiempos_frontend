@@ -1,33 +1,29 @@
 <script lang="ts">
-    let {getTickets,
-        getSoldNumbersForTicket,
-        selectedBet,
-        selectedDate,
-        showTicketPreviewModal = $bindable(false),
-        showQrModal = $bindable(false),
-        showConfirmModal = $bindable(false),
-        showJalarModal = $bindable(false),
-        showTicketsModal = $bindable(false)
-    } = $props();
+    let {getTickets, getSoldNumbersForTicket, selectedBet, selectedDate} = $props();
 
     let sold= $state<Record<string, { price: number }>>({});
     let priceInput: HTMLInputElement;
     let randomCountInput: HTMLInputElement;
     let priceValue = $state('');
+    let showQrModal = $state(false);
+    let showTicketsModal = $state(false);
     let tickets = $state([]);
     let numberInput: HTMLInputElement;
     let randomCount = $state(1);
     let isSubmitting = $state(false);
     let selectedRowIndex = $state(0);
     let rowRefs: Array<HTMLTableRowElement | null> = [];
+    let showTicketPreviewModal = $state(false);
     let details = $state('');
     let detailsSnapshot = $state('');
     let soldSnapshot: Record<string, { price: number }> = $state({});
+    let showConfirmModal = $state(false);
     let createdTicket: { ticket_serial: string; ticket_amount: number; printed_at: string; ticket_number: string } | null = $state(null);
     let formElement: HTMLFormElement;
     let soldAmount = $derived.by(() => {
         return Object.values(sold).reduce((sum, item) => sum + item.price, 0);
     });
+    let showJalarModal = $state(false);
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
 	const today = utcMinus6Date.toISOString().split('T')[0];
 

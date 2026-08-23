@@ -10,6 +10,8 @@
 
     let { data } = $props();
 
+    type TicketSold = { number: string; price: number };
+
     type AvailableBet = {
         draw_schedule_branch_id: number;
         comission: string | number;
@@ -78,7 +80,6 @@
 
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
     let selectedDate = $state(utcMinus6Date.toISOString().split('T')[0]);
-    let showingModal = $derived.by(() => showTicketPreviewModal || showQrModal || showConfirmModal || showJalarModal || showTicketsModal);
     let selectedBet = $state<AvailableBet | null>(null);
     let prohibitedPercentage = $state();
     let availableBets = $state<AvailableBet[]>([]);
@@ -86,11 +87,6 @@
     let tickets = $state<TicketRow[]>([]);
     let ticketNumbers = $state<Numbers[]>([]);
     let now = $state(new Date());
-    let showTicketPreviewModal = $state(false);
-    let showQrModal = $state(false);
-    let showConfirmModal = $state(false);
-    let showJalarModal = $state(false);
-    let showTicketsModal = $state(false);
 
     function formatCloseTime(scheduleTime: string) {
         return scheduleTime.slice(0, 5);
@@ -296,7 +292,6 @@
             bind:availableBets={availableBets}
             bind:selectedBet={selectedBet}
             bind:prohibitedPercentage={prohibitedPercentage}
-            bind:showingModal={showingModal}
         />
     <section class="set-section">
         <Sell
@@ -305,12 +300,6 @@
             getSoldNumbersForTicket={getSoldNumbersForTicket}
             selectedBet={selectedBet}
             prohibitedPercentage={prohibitedPercentage}
-            bind:showingModal={showingModal}
-            bind:showTicketPreviewModal={showTicketPreviewModal}
-            bind:showQrModal={showQrModal}
-            bind:showConfirmModal={showConfirmModal}
-            bind:showJalarModal={showJalarModal}
-            bind:showTicketsModal={showTicketsModal}
         />
         <Matrix
             mode={'20x5'}
