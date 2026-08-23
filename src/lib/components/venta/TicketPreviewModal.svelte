@@ -57,7 +57,9 @@
         const serialHex = createdTicket?.ticket_serial
             ? BigInt(createdTicket.ticket_serial).toString(16).toUpperCase()
             : '';
+        const count = Object.keys(data).length;
 
+        if (count >= 25) return '';
         return Object.entries(data)
             .sort(([leftNumber], [rightNumber]) => Number(leftNumber) - Number(rightNumber))
             .map(([number, item]) => {

@@ -168,7 +168,9 @@
         const serialHex = selectedTicket?.serial
             ? BigInt(selectedTicket.serial).toString(16).toUpperCase()
             : '';
+        const count = data.length;
 
+        if (count >= 25) return '';
         return Object.entries(data)
             .sort(([leftNumber], [rightNumber]) => Number(leftNumber) - Number(rightNumber))
             .map(([number, item]) => {
@@ -328,13 +330,6 @@
     .no-tickets {
         text-align: center;
         font-size: 1.2rem;
-    }
-
-    .jalar {
-        position: absolute;
-        bottom: 0;
-        margin-top: auto;
-        width: 100%;
     }
 
     .tickets-table th {

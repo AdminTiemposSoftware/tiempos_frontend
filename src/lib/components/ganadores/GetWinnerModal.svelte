@@ -111,6 +111,10 @@
             ? BigInt(ticketWinner.serial).toString(16).toUpperCase()
             : '';
 
+        const count = data.length;
+
+        if (count >= 25) return '';
+
         return data
             .map((item) => {
                 const numberHex = Number(item.number).toString(16).toUpperCase().padStart(2, '0');

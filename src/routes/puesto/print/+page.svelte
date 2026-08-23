@@ -28,9 +28,9 @@
     }
 </script>
 
-<ReceiptPreview 
+<ReceiptPreview
     receipt={data?.receipt}
-    groupedItems={true} 
+    groupedItems={true}
     qrData={data?.qrData}
     details={data?.details}
     onReady={handleReady}
@@ -38,8 +38,8 @@
 
 <style>
     @page {
-	size: 40mm auto;
-	margin: 0;
+        size: 80mm auto;
+        margin: 0;
     }
 
     html,
