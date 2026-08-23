@@ -132,6 +132,7 @@
 
     $effect(() => {
         const items = Array.isArray(data?.numbers) ? (data.numbers as NumberTotal[]) : [];
+        console.log(items);
 
         const matrix = Object.fromEntries(
             Array.from({ length: 100 }, (_, i) => [i, 0])

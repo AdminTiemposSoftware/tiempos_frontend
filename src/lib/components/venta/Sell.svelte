@@ -1,7 +1,6 @@
 <script lang="ts">
     let {getTickets, getSoldNumbersForTicket, selectedBet, selectedDate} = $props();
-
-    let sold= $state<Record<string, number>>({});
+    let sold = $state<Sale[]>([]);
     let priceInput: HTMLInputElement;
     let randomCountInput: HTMLInputElement;
     let priceValue = $state('');
@@ -16,12 +15,12 @@
     let showTicketPreviewModal = $state(false);
     let details = $state('');
     let detailsSnapshot = $state('');
-    let soldSnapshot: Record<string, number> = $state({});
+    let soldSnapshot: Sale[] = $state([]);
     let createdTicket: { ticket_serial: string; ticket_amount: number; printed_at: string; ticket_number: string } | null = $state(null);
     let showConfirmModal = $state(false);
     let formElement: HTMLFormElement;
     let soldAmount = $derived.by(() => {
-        return Object.values(sold).reduce((sum, item) => sum + item, 0);
+        return sold.reduce((sum, item) => sum + item.amount, 0);
     });
     let showJalarModal = $state(false);
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
@@ -45,37 +44,48 @@
     import TicketTable from './TicketTable.svelte';
     import TicketActions from './TicketActions.svelte';
 
+    type Sale = {
+        number: number;
+        amount: number;
+        is_reventado: boolean;
+        is_megareventado: boolean;
+    };
+
     onMount(() => {
         priceInput?.focus();
     });
 
-    function updateSalesData(numbers: string[], price: number) {
-        const newSelled = { ...sold };
-        numbers.forEach((num) => {
-            if (newSelled[num]) {
-                newSelled[num] += price;
+    function updateSalesData(sales: Sale[]) {
+        const newSold = [...sold];
+
+        for (const sale of sales) {
+            const existingIndex = newSold.findIndex(
+                (existing) =>
+                    existing.number === sale.number &&
+                    existing.is_reventado === sale.is_reventado &&
+                    existing.is_megareventado === sale.is_megareventado
+            );
+
+            if (existingIndex !== -1) {
+                newSold[existingIndex] = {
+                    ...newSold[existingIndex],
+                    amount: newSold[existingIndex].amount + sale.amount
+                };
             } else {
-                newSelled[num] = price;
+                newSold.push(sale);
             }
-        });
-        sold = newSelled;
+        }
+
+        sold = newSold;
+
         formElement.reset();
         priceInput?.focus();
         priceValue = '';
     }
 
-    function buildNumbersPayload(values: Record<string, number>) {
-        return Object.entries(values).map(([number, price]) => ({
-            number: parseInt(number, 10),
-            amount: price,
-            is_reventado: 0,
-            is_megareventado: 0
-        }));
-    }
-
-    function hasProhibitedNumbers(soldSnapshot: Record<string, number>) {
+    function hasProhibitedNumbers(soldSnapshot: Sale[]) {
         const prohibitedInSold = $prohibitedNumbers.filter( (p) =>
-            soldSnapshot[p.number] !== undefined && p.can_sell_after_amount === false
+            soldSnapshot.some((s) => s.number === p.number) && p.can_sell_after_amount === false
         );
         if (prohibitedInSold.length === 0) return false;
 
@@ -155,7 +165,7 @@
         if (!canSellSelectedNumbers(drawScheduleId)) return;
         if (hasProhibitedNumbers(soldSnapshot)) return;
 
-        soldSnapshot = { ...sold };
+        soldSnapshot = [...sold];
         isSubmitting = true;
         try {
             const response = await fetch('/puesto/venta', {
@@ -167,7 +177,7 @@
                     date: selectedDate,
                     draw_schedule_id: drawScheduleId,
                     details: details,
-                    numbers: buildNumbersPayload(soldSnapshot)
+                    numbers: soldSnapshot
                 })
             });
 
@@ -194,7 +204,7 @@
                 total.update((n) => n + Object.values(soldSnapshot).reduce((sum, item) => sum + item, 0));
             }
             showTicketPreviewModal = true;
-            sold = {};
+            sold = [];
             detailsSnapshot = details;
             details = '';
         } catch (error) {
@@ -207,8 +217,8 @@
         }
     }
 
-    function deleteNumber(number: string) {
-        const { [number]: _, ...rest } = sold;
+    function deleteNumber(number: number) {
+        const rest = sold.filter((item) => item.number !== number);
         sold = rest;
     }
 
