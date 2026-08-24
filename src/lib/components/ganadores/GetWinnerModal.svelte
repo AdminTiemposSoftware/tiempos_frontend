@@ -13,6 +13,7 @@
 	import {Notifications, acts} from '@tadashi/svelte-notification'
 	import type { Receipt } from '../../printing/types';
 	import ReceiptPreview from '../../printing/ReceiptPreview.svelte';
+	import { serializeData } from '../../printing/printing';
 	import { auth } from '../../stores/auth';
 	import { onMount } from 'svelte';
 
@@ -104,25 +105,6 @@
         }
 
         return null;
-    }
-
-    function serializeData(data): string {
-        const serialHex = ticketWinner?.serial
-            ? BigInt(ticketWinner.serial).toString(16).toUpperCase()
-            : '';
-
-        const count = data.length;
-
-        if (count >= 25) return '';
-
-        return data
-            .map((item) => {
-                const numberHex = Number(item.number).toString(16).toUpperCase().padStart(2, '0');
-                const priceHex = Number(item.amount).toString(16).toUpperCase().padStart(6, '0');
-
-                return `${numberHex}${priceHex}`;
-            })
-            .join('') + serialHex;
     }
 
 	function onConfirm() {
@@ -302,7 +284,15 @@
 						<ReceiptPreview
 							groupedItems={true}
 							details={ticketWinner?.details ?? ''}
-							qrData={serializeData(ticketWinner?.items || {})}
+							qrData={serializeData(
+								Object.fromEntries(
+									(ticketWinner?.items ?? []).map((item) => [
+										String(item.number),
+										Number(item.amount) || 0
+									])
+								),
+								ticketWinner?.serial || ''
+							)}
 							receipt={receipt}
 						/>
 					{/if}

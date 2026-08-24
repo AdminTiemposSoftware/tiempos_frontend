@@ -1,7 +1,7 @@
 <script lang="ts">
     let {getTickets, getSoldNumbersForTicket, selectedBet, selectedDate} = $props();
 
-    let sold= $state<Record<string, { price: number }>>({});
+    let sold= $state<Record<string, number>>({});
     let priceInput: HTMLInputElement;
     let randomCountInput: HTMLInputElement;
     let priceValue = $state('');
@@ -16,13 +16,11 @@
     let showTicketPreviewModal = $state(false);
     let details = $state('');
     let detailsSnapshot = $state('');
-    let soldSnapshot: Record<string, { price: number }> = $state({});
+    let soldSnapshot: Record<string, number> = $state({});
     let showConfirmModal = $state(false);
     let createdTicket: { ticket_serial: string; ticket_amount: number; printed_at: string; ticket_number: string } | null = $state(null);
     let formElement: HTMLFormElement;
-    let soldAmount = $derived.by(() => {
-        return Object.values(sold).reduce((sum, item) => sum + item.price, 0);
-    });
+    let soldAmount = $derived.by(() => {return Object.values(sold).reduce((sum, item) => sum + item, 0);});
     let showJalarModal = $state(false);
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
 	const today = utcMinus6Date.toISOString().split('T')[0];
@@ -97,9 +95,9 @@
         const newSelled = { ...sold };
         numbers.forEach((num) => {
             if (newSelled[num]) {
-                newSelled[num].price += price;
+                newSelled[num] += price;
             } else {
-                newSelled[num] = { price };
+                newSelled[num] = price;
             }
         });
         sold = newSelled;
@@ -108,16 +106,16 @@
         priceValue = '';
     }
 
-    function buildNumbersPayload(values: Record<string, { price: number }>) {
+    function buildNumbersPayload(values: Record<string, number>) {
         return Object.entries(values).map(([number, price]) => ({
             number: parseInt(number, 10),
-            amount: price.price,
+            amount: price,
             is_reventado: 0,
             is_megareventado: 0
         }));
     }
 
-    function hasProhibitedNumbers(soldSnapshot: Record<string, { price: number }>) {
+    function hasProhibitedNumbers(soldSnapshot: Record<string, number>) {
         const prohibitedInSold = $prohibitedNumbers.filter( (p) =>
             soldSnapshot[p.number] !== undefined && p.can_sell_after_amount === false
         );
@@ -231,11 +229,11 @@
             if (selectedDate === today) {
                 sellingMatrix.update((matrix) => {
                     for (const [number, price] of Object.entries(soldSnapshot)) {
-                        matrix[number] = (matrix[number] || 0) + price.price;
+                        matrix[number] = (matrix[number] || 0) + price;
                     }
                     return matrix;
                 });
-                total.update((n) => n + Object.values(soldSnapshot).reduce((sum, item) => sum + item.price, 0));
+                total.update((n) => n + Object.values(soldSnapshot).reduce((sum, item) => sum + item, 0));
             }
             showTicketPreviewModal = true;
             sold = {};
@@ -518,28 +516,6 @@
         showQrModal = false;
     }
 
-    function isValidTicketSerial(serial: string) {
-        if (!/^\d{16}$/.test(serial)) {
-            return false;
-        }
-
-        const year = Number(serial.slice(0, 2));
-        const month = Number(serial.slice(2, 4));
-        const day = Number(serial.slice(4, 6));
-        const hour = Number(serial.slice(6, 8));
-        const minute = Number(serial.slice(8, 10));
-        const second = Number(serial.slice(10, 12));
-
-        return (
-            Number.isInteger(year) &&
-            month >= 1 && month <= 12 &&
-            day >= 1 && day <= 31 &&
-            hour >= 0 && hour <= 23 &&
-            minute >= 0 && minute <= 59 &&
-            second >= 0 && second <= 59
-        );
-    }
-
     async function handlePrint() {
         const drawScheduleId = selectedBet?.schedule_id ?? selectedBet?.draw_schedule_id;
         if(!showTicketPreviewModal && canSellSelectedNumbers(drawScheduleId) && !hasProhibitedNumbers(sold)) {
@@ -673,7 +649,7 @@
 
                         >
                             <td>{number}</td>
-                            <td>₡{price.price}</td>
+                            <td>₡{price}</td>
                             <td>
                                 <button class="negative" onclick={() => deleteNumber(number)}>X</button>
                             </td>
@@ -782,8 +758,8 @@
         border-collapse: collapse;
     }
 
-    .sold th,
-    .sold td {
+    :global(.set-section th),
+    :global(.set-section td) {
         padding: 0.25rem 0.5rem;
         text-align: left;
         border: 1px solid #ccc;
@@ -807,7 +783,7 @@
         width: 100%;
     }
 
-    .negative {
+    :global(.set-section  .negative) {
         padding: 0.25rem 0rem;
     }
 
@@ -843,12 +819,6 @@
         width: 2rem;
         padding: 0rem;
         text-align: center;
-    }
-
-    .form-error {
-        margin: 0.5rem 0 0;
-        color: #b91c1c;
-        font-size: 0.9rem;
     }
 
     .selected-row {

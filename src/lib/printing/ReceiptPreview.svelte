@@ -99,7 +99,7 @@
         <p>{details}</p>
     {/if}
 
-    {#if QrCode}
+    {#if QrCode && qrData}
     <div class="qr-code">
         <QrCode data={qrData} size={100} errorCorrection="L" />
     </div>

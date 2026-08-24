@@ -1,14 +1,11 @@
 <script lang="ts">
     import { auth } from '../../stores/auth';
     import ReceiptPreview from '../../printing/ReceiptPreview.svelte';
+    import { serializeData } from '../../printing/printing';
     import type { Receipt } from '../../printing/types';
 
-    type SoldItem = {
-        price: number;
-    };
-
     let {
-        sold = $bindable<Record<string, SoldItem>>(),
+        sold = $bindable<Record<string, number>>(),
         showTicketPreviewModal = $bindable(false),
         selectedBet = null,
         selectedDate = '',
@@ -16,14 +13,15 @@
         createdTicket
     } = $props();
 
+
     const receipt = $derived.by<Receipt>(() => {
-        const soldEntries = Object.entries(sold) as Array<[string, SoldItem]>;
+        const soldEntries = Object.entries(sold) as Array<[string, number]>;
 
         const items = soldEntries
             .sort(([leftNumber], [rightNumber]) => Number(leftNumber) - Number(rightNumber))
             .map(([number, item]) => ({
                 number: String(number).padStart(2, '0'),
-                amount: Number(item.price) || 0
+                amount: Number(item) || 0
             }));
 
         const total = items.reduce((sum, item) => sum + item.amount, 0);
@@ -53,28 +51,11 @@
         };
     });
 
-    function serializeData(data: Record<string, SoldItem>): string {
-        const serialHex = createdTicket?.ticket_serial
-            ? BigInt(createdTicket.ticket_serial).toString(16).toUpperCase()
-            : '';
-        const count = Object.keys(data).length;
-
-        if (count >= 25) return '';
-        return Object.entries(data)
-            .sort(([leftNumber], [rightNumber]) => Number(leftNumber) - Number(rightNumber))
-            .map(([number, item]) => {
-                const numberHex = Number(number).toString(16).toUpperCase().padStart(2, '0');
-                const priceHex = Number(item.price).toString(16).toUpperCase().padStart(6, '0');
-
-                return `${numberHex}${priceHex}`;
-            })
-            .join('') + serialHex;
-    }
 
     function printReceipt() {
         const receiptData = {
             receipt,
-            qrData: serializeData(sold),
+            qrData: serializeData(sold, createdTicket?.ticket_serial || ''),
             details
         };
         const encoded = encodeURIComponent(
@@ -128,7 +109,7 @@
             <ReceiptPreview
                 groupedItems={true}
                 details={details}
-                qrData={serializeData(sold)}
+                qrData={serializeData(sold, createdTicket?.ticket_serial || '')}
                 receipt={receipt}
                 />
         </div>

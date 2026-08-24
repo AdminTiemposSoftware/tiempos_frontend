@@ -4,6 +4,7 @@
     import { acts } from '@tadashi/svelte-notification';
     import ConfirmModal from "../ConfirmModal.svelte";
     import ReceiptPreview from "../../printing/ReceiptPreview.svelte";
+    import { serializeData } from '../../printing/printing';
     import { sellingMatrix } from '../../stores/UpdateSellMatrix';
     import { total } from "../../stores/UpdateSellMatrix";
 
@@ -11,7 +12,7 @@
         id: number;
         relative_id: number;
         username: string;
-        serial: number;
+        serial: string;
         date: string;
         time: string;
         scheduleName: string;
@@ -36,7 +37,7 @@
     let showDeleteConfirm = $state(false);
     let ticketToDelete = $state<Ticket | null>(null);
     let selectedTicket = $state<Ticket | null>(null);
-    let soldNumbersForSelectedTicket = $state<{number: string, price: number}[]>([]);
+    let soldNumbersForSelectedTicket = $state<Record<string, number>>({});
     let qrData = $state<string>('');
     let selectedRowIndex = $state(0);
     let rowRefs: Array<HTMLTableRowElement | null> = [];
@@ -49,7 +50,7 @@
         }
     });
 
-    let soldNumbersTotal = $derived(soldNumbersForSelectedTicket.reduce((sum, sold) => sum + (Number(sold.price) || 0), 0));
+    let soldNumbersTotal = $derived(Object.values(soldNumbersForSelectedTicket).reduce((sum, sold) => sum + (Number(sold) || 0), 0));
 
     $effect(() => {
         if (tickets.length === 0) {
@@ -74,7 +75,7 @@
 
     function handleView(ticket: Ticket) {
         soldNumbersForSelectedTicket = getSoldNumbersForTicket(ticket.id);
-        qrData = serializeData(soldNumbersForSelectedTicket);
+        qrData = serializeData(soldNumbersForSelectedTicket, ticket.serial);
         selectedTicket = ticket;
     }
 
@@ -136,12 +137,12 @@
             );
             if (ticketToDelete.date === today) {
                 sellingMatrix.update((matrix) => {
-                    for (const soldNumber of soldNumbersForSelectedTicket) {
-                        matrix[soldNumber.number] = (matrix[soldNumber.number] || 0) - soldNumber.price;
+                    for (const [number, price] of Object.entries(soldNumbersForSelectedTicket)) {
+                        matrix[number] = (matrix[number] || 0) - price;
                     }
                     return matrix;
                 });
-                total.update((n) => n - Object.values(soldNumbersForSelectedTicket).reduce((sum, item) => sum + item.price, 0));
+                total.update((n) => n - Object.values(soldNumbersForSelectedTicket).reduce((sum, item) => sum + item, 0));
             }
             ticketToDelete = null;
         } catch (error) {
@@ -154,32 +155,14 @@
     }
 
     function loadSoldNumbers() {
-        numbersSold = soldNumbersForSelectedTicket.reduce<Record<string, { price: number }>>(
-            (accumulator, sold) => {
-                accumulator[sold.number] = { price: sold.price };
+        numbersSold = Object.entries(soldNumbersForSelectedTicket).reduce<Record<string, number>>(
+            (accumulator, [number, price]) => {
+                accumulator[number] = price;
                 return accumulator;
             },
             {}
         );
         onClose();
-    }
-
-    function serializeData(data: {number: string, price: number}[]): string {
-        const serialHex = selectedTicket?.serial
-            ? BigInt(selectedTicket.serial).toString(16).toUpperCase()
-            : '';
-        const count = data.length;
-
-        if (count >= 25) return '';
-        return Object.entries(data)
-            .sort(([leftNumber], [rightNumber]) => Number(leftNumber) - Number(rightNumber))
-            .map(([number, item]) => {
-                const numberHex = Number(item.number).toString(16).toUpperCase().padStart(2, '0');
-                const priceHex = Number(item.price).toString(16).toUpperCase().padStart(6, '0');
-
-                return `${numberHex}${priceHex}`;
-            })
-            .join('') + serialHex;
     }
 
     function handleKeyInput(event: KeyboardEvent) {
@@ -293,9 +276,9 @@
                                 `Fecha: ${selectedTicket.date}`,
                                 `Hora: ${selectedTicket.time.slice(0, 8)}`
                             ],
-                            items: soldNumbersForSelectedTicket.map((sold) => ({
-                                number: sold.number,
-                                amount: sold.price
+                            items: Object.entries(soldNumbersForSelectedTicket).map(([number, price]) => ({
+                                number,
+                                amount: price
                             })),
                             total: soldNumbersTotal,
                             footer: [
@@ -365,7 +348,7 @@
     }
 
     .ticket-scroll{
-        max-height: 380px;
+        max-height: 70vh;
         overflow-y: auto;
     }
 

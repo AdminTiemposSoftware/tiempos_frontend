@@ -10,8 +10,6 @@
 
     let { data } = $props();
 
-    type TicketSold = { number: string; price: number };
-
     type AvailableBet = {
         draw_schedule_branch_id: number;
         comission: string | number;
@@ -134,7 +132,6 @@
 
     $effect(() => {
         const items = Array.isArray(data?.numbers) ? (data.numbers as NumberTotal[]) : [];
-
         const matrix = Object.fromEntries(
             Array.from({ length: 100 }, (_, i) => [i, 0])
         ) as Record<number, number>;
@@ -152,7 +149,6 @@
     $effect(() => {
         const scheduleId = selectedBet?.schedule_id ?? null;
         const activeScheduleId = Number(data?.selectedScheduleId ?? null);
-
         if (!scheduleId || scheduleId === activeScheduleId) {
             return;
         }
@@ -266,18 +262,18 @@
         return tickets;
     }
 
-    function getSoldNumbersForTicket(ticketId: number) {
+    function getSoldNumbersForTicket(ticketId: number): Record<string, number> {
         const ticket = tickets.find((item) => item.id === ticketId);
-        if (!ticket) {
-            return [];
-        }
+        if (!ticket) return {};
 
         return ticketNumbers
             .filter((number) => number.ticket_header_serial === ticket.serial)
-            .map((number) => ({
-                number: String(number.number).padStart(2, '0'),
-                price: Number(number.amount) || 0
-            }));
+            .reduce<Record<string, number>>((sold, number) => {
+                const key = String(number.number).padStart(2, '0');
+                const price = Number(number.amount) || 0;
+                sold[key] = (sold[key] ?? 0) + price;
+                return sold;
+            }, {});
     }
 </script>
 
