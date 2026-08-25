@@ -4,6 +4,7 @@ import type {RequestHandler} from './$types';
 export const POST: RequestHandler = async ({request, locals, cookies}) => {
     const baseUrl = env.API_URL;
     const branchId = locals.user?.branchId;
+    const userId = locals.user?.id;
     const token = cookies.get('session_puesto') ?? null;
 
     if (!branchId || !token) {
@@ -12,7 +13,7 @@ export const POST: RequestHandler = async ({request, locals, cookies}) => {
 
     try {
         const {serial} = await request.json();
-        
+
         const response = await fetch(`${baseUrl}/winner/pay`, {
             method: 'POST',
             headers: {
@@ -20,7 +21,7 @@ export const POST: RequestHandler = async ({request, locals, cookies}) => {
                 'Content-Type': 'application/json',
                 'X-Auth-App': 'puesto'
             },
-            body: JSON.stringify({serial, branch_id: branchId})
+            body: JSON.stringify({serial, branch_id: branchId, user_id: userId})
         });
 
         if (!response.ok) {

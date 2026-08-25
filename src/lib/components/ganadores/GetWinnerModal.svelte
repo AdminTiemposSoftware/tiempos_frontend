@@ -16,6 +16,7 @@
 	import { serializeData } from '../../printing/printing';
 	import { auth } from '../../stores/auth';
 	import { onMount } from 'svelte';
+	import { formatAmount } from '../../printing/printing';
 
 	onMount(() => {
 		if (showModal) {
@@ -121,21 +122,6 @@
 
 		confirm();
 	}
-
-    function formatAmount(value: number) {
-        if (!Number.isFinite(value)) {
-            return "0";
-        }
-
-        const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
-        const [integerPart, decimalPart] = Math.abs(rounded).toFixed(2).split(".");
-        const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-        const sign = rounded < 0 ? "-" : "";
-
-        return decimalPart === "00"
-            ? `${sign}${groupedInteger}`
-            : `${sign}${groupedInteger},${decimalPart}`;
-    }
 
 	function handleKeyInput(event: KeyboardEvent) {
 		switch (event.key) {

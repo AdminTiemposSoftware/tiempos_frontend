@@ -37,6 +37,7 @@
     import TicketPreviewModal from './TicketPreviewModal.svelte';
     import ConfirmModalWithInput from '../ConfirmModalWithInput.svelte';
     import JalarTicketModal from './JalarTicketModal.svelte';
+    import { formatAmount } from '../../printing/printing';
 
     onMount(() => {
         priceInput?.focus();
@@ -568,8 +569,7 @@
 
 <svelte:window onkeydown={handlekeyinput} />
 <section class="sell">
-    <span class="sold-amount">Tiquete: ₡{soldAmount}</span>
-
+    <span class="sold-amount">Tiquete: ₡{formatAmount(soldAmount)}</span>
     <form onsubmit={onSubmit} bind:this={formElement}>
         <div class="question monto">
             <label for="price">Monto:</label>

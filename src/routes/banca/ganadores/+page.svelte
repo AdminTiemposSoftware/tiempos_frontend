@@ -3,9 +3,10 @@
     import { auth } from '$lib/stores/auth';
     import { PenSolid, TrashBinSolid } from 'flowbite-svelte-icons';
     import { goto } from '$app/navigation';
+    import WinnerTicketsModal from '$lib/components/ganadores/WinnerTicketsModal.svelte';
 
     let { data } = $props();
-
+    let winnerTickets: WinnerTicketRow[] = $state([]);
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
     let selectedDate = $state(utcMinus6Date.toISOString().split('T')[0]);
     let winners = $state<Winner[]>([]);
@@ -14,6 +15,7 @@
     let editingMultiplierMode = $state<Record<number, boolean>>({});
     let originalMultiplier = $state<Record<number, number>>({});
     let editingMultiplier = $state<Record<number, number>>({});
+    let showWinnerTicketsModal = $state(false);
 
     type Winner = {
         date: string;
@@ -28,6 +30,29 @@
         schedule_time: string;
         winner_id: number;
         winner_number: number;
+    };
+
+    type WinnerTicketRow = {
+        date: string;
+        detail: string;
+        paid_by: string;
+        amount: number;
+        number: number;
+        draw_name: string;
+        draw_schedule_name: string;
+        enabled: boolean;
+        is_megareventado: boolean;
+        is_reventado: boolean;
+        multiplier: number;
+        numbersSold: Record<number, number>;
+        paid: boolean;
+        printed_at: string;
+        relative_id: number;
+        serial: string;
+        time: string;
+        username: string;
+        winner_number: number;
+        total: number;
     };
 
     $effect(() => {
@@ -90,35 +115,48 @@
             });
             return;
         }
+        try {
+            const response = await fetch('/banca/ganadores/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    position_id: winner.position_id,
+                    number: numberToAssign,
+                    date: winner.date
+                })
+            });
+            if (!response.ok) {
+                acts.add({
+                    message: 'Error al asignar el ganador. Por favor, inténtelo de nuevo.',
+                    mode: 'error',
+                    lifetime: 3
+                });
+                return;
+            }
+            const data = await response.json();
+            const winnerId = data.items[0].winner_id;
+            winners = winners.map(winner => {
+                if (winner.position_id === winner.position_id) {
+                    return { ...winner, winner_id: winnerId, winner_number: numberToAssign };
+                }
+                return winner;
+            });
+            assignedWinner[winner.position_id] = true;
 
-        const response = await fetch('/banca/ganadores/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                position_id: winner.position_id,
-                number: numberToAssign,
-                date: winner.date
-            })
-        });
-
-        if (!response.ok) {
+            acts.add({
+                message: 'Ganador asignado correctamente.',
+                mode: 'success',
+                lifetime: 3
+            });
+        } catch (error) {
             acts.add({
                 message: 'Error al asignar el ganador. Por favor, inténtelo de nuevo.',
                 mode: 'error',
                 lifetime: 3
             });
-            return;
         }
-
-        acts.add({
-            message: 'Ganador asignado correctamente.',
-            mode: 'success',
-            lifetime: 3
-        });
-
-        assignedWinner[winner.position_id] = true;
     }
 
     function requestUpdateMultiplier(winner: Winner) {
@@ -131,7 +169,6 @@
             });
             return;
         }
-        console.log(winners)
 
         fetch('/banca/ganadores/position', {
             method: 'PUT',
@@ -189,11 +226,51 @@
         }
         return false;
     }
+
+    async function showWinners(winner: Winner) {
+        try {
+            const response = await fetch(`/banca/ganadores/${winner.schedule_id}/${selectedDate}`);
+            const payload = response.ok ? await response.json().catch(() => null) : null;
+            const items = Array.isArray(payload?.items) ? payload.items as WinnerTicketRow[] : [];
+            winnerTickets = items.reduce<WinnerTicketRow[]>((acc, row) => {
+                let ticket = acc.find(item => item.serial === row.serial);
+                if (!ticket) {
+                    ticket = {
+                        ...row,
+                        serial: row.serial,
+                        numbersSold: {},
+                        total: 0
+                    };
+
+                    acc.push(ticket);
+                }
+                ticket.numbersSold[row.number] = Number(row.amount);
+                ticket.total += Number(row.amount);
+                return acc;
+            }, []);
+
+            showWinnerTicketsModal = true;
+        } catch (error) {
+            console.error(error);
+            acts.add({
+                message: 'Error al obtener los ganadores. Por favor, inténtelo de nuevo.',
+                mode: 'error',
+                lifetime: 3
+            });
+            return;
+        }
+    }
+
 </script>
 
 <svelte:head>
 	<title>Ganadores</title>
 </svelte:head>
+
+<WinnerTicketsModal
+    bind:tickets={winnerTickets}
+    bind:showTicketModal={showWinnerTicketsModal}
+/>
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
 <section class="ganadores">
@@ -220,6 +297,7 @@
                     <th>Sorteo</th>
                     <th>Multiplicador</th>
                     <th>Ganador</th>
+                    <th>Tiquetes</th>
                     <!-- <th>Cayó bola</th> TODO -->
                 </tr>
             </thead>
@@ -290,6 +368,9 @@
                                 </div>
                             {/if}
                             </td>-->
+                        <td>
+                            <button class="" disabled={!assignedWinner[winner.position_id]} onclick={() => showWinners(winner)}>Ver</button>
+                        </td>
                     </tr>
                 {/each}
             </tbody>

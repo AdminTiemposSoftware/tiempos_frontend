@@ -1,6 +1,7 @@
 <script lang="ts">
     import { total } from "../../stores/UpdateSellMatrix";
     import SellFooter from "./SellFooter.svelte";
+    import { formatAmount } from '../../printing/printing';
 
     let {
         selectedDate = $bindable(),
@@ -156,22 +157,6 @@
         const offset = event.key === "ArrowRight" ? 1 : -1;
         const nextIndex = (currentIndex + offset + sortedBets.length) % sortedBets.length;
         selectBet(nextIndex);
-    }
-
-    // TODO Globalize this function to a utility file since it's used in multiple places
-    function formatAmount(value: number) {
-        if (!Number.isFinite(value)) {
-            return "0";
-        }
-
-        const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
-        const [integerPart, decimalPart] = Math.abs(rounded).toFixed(2).split(".");
-        const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-        const sign = rounded < 0 ? "-" : "";
-
-        return decimalPart === "00"
-            ? `${sign}${groupedInteger}`
-            : `${sign}${groupedInteger},${decimalPart}`;
     }
 </script>
 

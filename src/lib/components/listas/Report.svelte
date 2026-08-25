@@ -7,6 +7,7 @@
 	import ExportModal from './ExportModal.svelte';
 	import {Notifications, acts} from '@tadashi/svelte-notification'
 	import SelectModal from '../SelectModal.svelte';
+	import { formatAmount } from '../../printing/printing';
 	import { GROUPING_OPTIONS, type GroupingMode, type ReportItem } from '../venta/grouping';
 
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
@@ -522,21 +523,6 @@
 		await fetchWinnersFiltered();
 		await fetchProhibitedNumbers();
 	}
-
- function formatAmount(value: number) {
-        if (!Number.isFinite(value)) {
-            return "0";
-        }
-
-        const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
-        const [integerPart, decimalPart] = Math.abs(rounded).toFixed(2).split(".");
-        const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-        const sign = rounded < 0 ? "-" : "";
-
-        return decimalPart === "00"
-            ? `${sign}${groupedInteger}`
-            : `${sign}${groupedInteger},${decimalPart}`;
-    }
 </script>
 
 <svelte:head>
