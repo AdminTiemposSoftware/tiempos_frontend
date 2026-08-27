@@ -15,13 +15,14 @@
 		is_reventado: boolean;
 		is_megareventado: boolean;
 		days: string[];
-		schedule: schedule[];
+		schedules: schedule[];
 	};
 
 	type schedule = {
-		id: number | null;
+		id: number;
 		name: string;
 		time: string;
+		puestos: puesto[];
 		is_reventado: boolean;
 		is_megareventado: boolean;
 	};
@@ -47,7 +48,7 @@
 						is_reventado: item.is_reventado,
 						is_megareventado: item.is_megareventado,
 						days: [],
-						schedule: []
+						schedules: []
 					};
 				}
 				acc[item.id].days.push(item.day_name);
@@ -81,8 +82,6 @@
 	let expandedSorteo = $state<number[]>([]);
 	let selectedScheduleBySorteo = $state<Record<number, number | null>>({});
 	let puestoOptions = $state<puesto[]>([]);
-	let puestoBySchedule = $state<puesto[]>([]);
-	let schedule: schedule[] = [];
 
 	// UI state toggles
 	async function toggleSorteo(sorteoId: number) {
@@ -99,21 +98,43 @@
 		if (!sorteo) return;
 
 		// If there are no schedules yet, fetch them from the backend
-		if (!sorteo.schedule || sorteo.schedule.length === 0) {
+		if (!sorteo.schedules || sorteo.schedules.length === 0) {
 			try {
 				const res = await fetch(`/banca/sorteos/draw-schedule/${sorteoId}`);
 				const payload = await res.json().catch(() => null);
-				const items = Array.isArray(payload?.items) ? payload.items as schedule[] : [];
-				schedule = items.map((it) => ({
-					id: it.id,
-					name: it.name ?? '',
-					time: it.time ?? '',
-					is_reventado: it.is_reventado ?? false,
-					is_megareventado: it.is_megareventado ?? false
-				}));
+				const items = Array.isArray(payload?.items)
+					? payload.items as Array<schedule & {
+						branch_id?: number;
+						comission?: number | string;
+						enabled?: boolean;
+					}>
+					: [];
+				const schedules = items.reduce<schedule[]>((acc, it) => {
+				    let temp = acc.find<schedule>(item => item.id === it.id);
+					if (!temp) {
+					    temp = {
+							id: it.id,
+							name: it.name ?? '',
+							time: it.time ?? '',
+							is_reventado: it.is_reventado ?? false,
+							is_megareventado: it.is_megareventado ?? false,
+							puestos: it.puestos ?? [],
+						};
+					    acc.push(temp);
+					}
+					if (it.branch_id != null) {
+						temp.puestos.push({
+							id: it.branch_id,
+							name: '',
+							comission: Number(it.comission ?? 0),
+							enabled: it.enabled ?? true
+						});
+					}
+					return acc;
+				}, []);
 
 				// attach schedules to the draw
-				draws = draws.map((d) => (d.id === sorteoId ? { ...d, schedule } : d));
+				draws = draws.map((d) => (d.id === sorteoId ? { ...d, schedules: schedules } : d));
 
 			} catch (e) {
 				console.error('Error fetching schedules for sorteo', e);
@@ -121,47 +142,37 @@
 		}
 	}
 
-	async function fetchBranchesForSchedule(scheduleId: number) {
-		try {
-			const res = await fetch(`/banca/sorteos/branch/${scheduleId}`);
-			const payload = await res.json().catch(() => null);
-			const items = Array.isArray(payload?.items) ? payload.items : [];
-
-			const puestos = items.map((it: { branch_id: number; name: string; comission: string; enabled?: boolean }) => ({
-				id: it.branch_id,
-				name: it.name,
-				comission: Number(it.comission),
-				enabled: it.enabled ?? true
-			}));
-
-			puestoBySchedule = puestos;
-		} catch (e) {
-			console.error('Error fetching branches for schedule', e);
-		}
-	}
-
 	async function toggleSchedule(sorteoId: number, scheduleId: number) {
-		await fetchBranchesForSchedule(scheduleId);
 		selectedScheduleBySorteo = { ...selectedScheduleBySorteo, [sorteoId]: scheduleId };
-		const sorteo = draws.find((d) => d.id === sorteoId);
-		const slot = sorteo?.schedule?.find((s) => s.id === scheduleId);
-		if (!slot) return;
 	}
 
 	function getSelectedSchedule(sorteo: draw) {
 		const selectedId = selectedScheduleBySorteo[sorteo.id];
-		const selected = sorteo?.schedule?.find((slot) => slot.id === selectedId);
+		const selected = sorteo?.schedules?.find((slot) => slot.id === selectedId);
 		return selected ?? null;
+	}
+
+	function updateSchedule(sorteoId: number, scheduleId: number, changes: Partial<schedule>) {
+		draws = draws.map((sorteo) =>
+			sorteo.id === sorteoId
+				? {
+					...sorteo,
+					schedules: sorteo.schedules.map((schedule) =>
+						schedule.id === scheduleId ? { ...schedule, ...changes } : schedule
+					)
+				}
+				: sorteo
+		);
 	}
 
 	// Open modals for create actions
 	function handleAddSorteo() {
-		selectedSorteo = { id: -1, name: '', days: [], is_reventado: false, is_megareventado: false, schedule: [] };
+		selectedSorteo = { id: -1, name: '', days: [], is_reventado: false, is_megareventado: false, schedules: [] };
 		showSorteoModal = true;
 	}
 
 	function showAddSchedule(sorteoId: number) {
-		selectedSchedule = { id: -1, name: '', time: '', is_reventado: false, is_megareventado: false };
+		selectedSchedule = { id: -1, name: '', time: '', is_reventado: false, is_megareventado: false, puestos: [] };
 		selectedSorteoId = sorteoId;
 		showScheduleModal = true;
 	}
@@ -173,7 +184,7 @@
 	}
 
 	function showDeleteSchedule(sorteoId: number, scheduleId: number) {
-		scheduleToDelete = draws.find((s) => s.id === sorteoId)?.schedule.find((s) => s.id === scheduleId);
+		scheduleToDelete = draws.find((s) => s.id === sorteoId)?.schedules.find((s) => s.id === scheduleId);
 		showDeleteScheduleModal = true;
 	}
 
@@ -201,17 +212,12 @@
 			}
 
 			const result = await response.json();
-
-			console.log('Sorteo added successfully:', result.items[0]["id"]);
-
-			draws = [...draws, { id: result.items[0]["id"], schedule: [], name: payload.name, is_reventado: payload.is_reventado, is_megareventado: payload.is_megareventado, days: payload.draw_days }];
-
+			draws = [...draws, { id: result.items[0]["id"], schedules: [], name: payload.name, is_reventado: payload.is_reventado, is_megareventado: payload.is_megareventado, days: payload.draw_days }];
 			acts.add({
 				message: 'Sorteo agregado correctamente.',
 				mode: 'success',
 				lifetime: 3
 			})
-
 			showSorteoModal = false;
 
 		} catch (error) {
@@ -227,8 +233,8 @@
 	function handleAddScheduleSubmit(payload: { sorteoId: any; name: any; time: any; id: any; is_reventado: any; is_megareventado: any; }) {
 		draws = draws.map((sorteo) => sorteo.id === payload.sorteoId ? {
 			...sorteo,
-			schedule: [
-				...sorteo.schedule,
+			schedules: [
+				...sorteo.schedules,
 				{
 					id: payload.id ?? -1,
 					name: payload.name,
@@ -240,7 +246,7 @@
 		}: sorteo);
 	}
 
-	async function updateSorteo(updatedSorteo: { id: number; name: string; is_reventado: boolean; is_megareventado: boolean; days: string[]; schedule: schedule[]; }) {
+	async function updateSorteo(updatedSorteo: { id: number; name: string; is_reventado: boolean; is_megareventado: boolean; days: string[]; schedules: schedule[]; }) {
 		try {
 			const response = await fetch(`/banca/sorteos/${updatedSorteo.id}`, {
 				method: 'PUT',
@@ -276,45 +282,20 @@
 		}
 	}
 
-	async function saveScheduleSettings(scheduleId: number, settings: {name: string; is_reventado: boolean; is_megareventado: boolean; time: string; puestos: puesto[];}, change: 'flags' | 'puestos') {
-
-		// if (change === 'flags') {
-		const response = await fetch(`/banca/sorteos/draw-schedule/${scheduleId}`, {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				name: settings.name,
-				time: settings.time,
-				is_reventado: settings.is_reventado,
-				is_megareventado: settings.is_megareventado
-			})
-		});
-		if (!response.ok) {
-			console.error('Error saving schedule settings', await response.text());
-			acts.add({
-				message: 'Ha ocurrido un error al guardar los cambios.',
-				mode: 'error',
-				lifetime: 3
-			})
-			return;
-		}
-		// } else if (change === 'puestos') {
-		for (const puesto of settings.puestos) {
-			if (puesto.id === undefined) continue; // skip if puesto id is not defined
-			if (puesto.comission <= 0 || puesto.comission >= 100) continue; // skip if comission is not valid
-
-			const response = await fetch(`/banca/sorteos/draw-schedule-branch`, {
-				method: 'POST',
+	async function saveScheduleSettings(scheduleId: number, settings: schedule) {
+		try {
+			const response = await fetch(`/banca/sorteos/draw-schedule/${scheduleId}`, {
+				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					branch_id: puesto.id,
-					draw_schedule_id: scheduleId,
-					comission: puesto.comission,
-					enabled: puesto.enabled
+					name: settings.name,
+					time: settings.time,
+					is_reventado: settings.is_reventado,
+					is_megareventado: settings.is_megareventado
 				})
 			});
 			if (!response.ok) {
-				console.error('Error saving puesto settings', await response.text());
+				console.error('Error saving schedule settings', await response.text());
 				acts.add({
 					message: 'Ha ocurrido un error al guardar los cambios.',
 					mode: 'error',
@@ -322,20 +303,50 @@
 				})
 				return;
 			}
+			for (const puesto of settings.puestos) {
+				if (puesto.id === undefined) continue; // skip if puesto id is not defined
+				if (puesto.comission <= 0 || puesto.comission >= 100) continue; // skip if comission is not valid
+
+				const response = await fetch(`/banca/sorteos/draw-schedule-branch`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						branch_id: puesto.id,
+						draw_schedule_id: scheduleId,
+						comission: puesto.comission,
+						enabled: puesto.enabled
+					})
+				});
+				if (!response.ok) {
+					console.error('Error saving puesto settings', await response.text());
+					acts.add({
+						message: 'Ha ocurrido un error al guardar los cambios.',
+						mode: 'error',
+						lifetime: 3
+					})
+					return;
+				}
+			}
+			draws = draws.map((sorteo) => ({
+				...sorteo,
+				schedules: sorteo.schedules.map((slot) =>
+					slot.id === scheduleId ? { ...slot, is_reventado: settings.is_reventado, is_megareventado: settings.is_megareventado, name: settings.name, time: settings.time, puestos: settings.puestos } : slot
+				)
+			}));
+
+			acts.add({
+				message: 'Se han guardado los cambios correctamente.',
+				mode: 'success',
+				lifetime: 3
+			})
+		} catch (error) {
+			console.error('Error saving schedule settings', error);
+			acts.add({
+				message: 'Ha ocurrido un error al guardar los cambios.',
+				mode: 'error',
+				lifetime: 3
+			})
 		}
-
-		draws = draws.map((sorteo) => ({
-			...sorteo,
-			schedule: sorteo.schedule.map((slot) =>
-				slot.id === scheduleId ? { ...slot, ...settings } : slot
-			)
-		}));
-
-		acts.add({
-			message: 'Se han guardado los cambios correctamente.',
-			mode: 'success',
-			lifetime: 3
-		})
 	}
 
 	async function handleConfirmDeleteSchedule() {
@@ -361,7 +372,7 @@
 
 			draws = draws.map((sorteo) => ({
 				...sorteo,
-				schedule: sorteo.schedule.filter((slot) => slot.id !== scheduleToDelete?.id) //Asume schedule ids are unique across draws for simplicity, otherwise also check sorteoId
+				schedules: sorteo.schedules.filter((slot) => slot.id !== scheduleToDelete?.id) //Asume schedule ids are unique across draws for simplicity, otherwise also check sorteoId
 			}));
 			scheduleToDelete = { id: -1, name: '', time: '', is_reventado: false, is_megareventado: false };
 		} catch (error) {
@@ -375,10 +386,10 @@
 	}
 
 	async function handleConfirmDeleteSorteo() {
-	    await toggleSorteo(sorteoToDelete?.id)
-		if (sorteoToDelete?.id === -1) return;
+		const sorteoId = sorteoToDelete?.id;
+		if (sorteoId == null || sorteoId === -1) return;
 
-		if (draws.find((sorteo) => sorteo.id === sorteoToDelete?.id)?.schedule.length) {
+		if (draws.find((sorteo) => sorteo.id === sorteoId)?.schedules.length) {
 			acts.add({
 				message: 'No se puede eliminar un sorteo con horarios asignados.',
 				mode: 'error',
@@ -387,7 +398,7 @@
 			return;
 		}
 		try {
-			let response = await fetch(`/banca/sorteos/${sorteoToDelete?.id}`, {method: 'DELETE'})
+			const response = await fetch(`/banca/sorteos/${sorteoId}`, {method: 'DELETE'})
 
 			if (!response.ok) {
 				console.error('Error deleting sorteo', response.statusText);
@@ -404,9 +415,9 @@
 				mode: 'success',
 				lifetime: 3
 			})
-			draws = draws.filter((sorteo) => sorteo.id !== sorteoToDelete?.id);
-			sorteoToDelete = {id: -1, name: '', is_reventado: false, is_megareventado: false, days: [], schedule: []};
-			expandedSorteo = expandedSorteo.filter((id) => id !== sorteoToDelete?.id);
+			draws = draws.filter((sorteo) => sorteo.id !== sorteoId);
+			expandedSorteo = expandedSorteo.filter((id) => id !== sorteoId);
+			sorteoToDelete = undefined;
 
 		} catch (error) {
 			console.error('Error deleting sorteo', error);
@@ -501,25 +512,16 @@
 				expanded={expandedSorteo.includes(draw.id)}
 				selectedSchedule={selectedSchedule}
 				puestoOptions={puestoOptions}
-				puestoBySchedule={puestoBySchedule}
 				onToggle={() => toggleSorteo(draw.id)}
 				onToggleSchedule={async (scheduleId: number) => await toggleSchedule(draw.id, scheduleId)}
+				onUpdateSchedule={(scheduleId: number, changes: Partial<schedule>) =>
+					updateSchedule(draw.id, scheduleId, changes)
+				}
 				onEditSorteo={() => showEditSorteo(draw.id)}
 				onDeleteSorteo={() => showDeleteSorteo(draw.id)}
 				onAddSchedule={() => showAddSchedule(draw.id)}
 				onDeleteSchedule={(scheduleId: number) => showDeleteSchedule(draw.id, scheduleId)}
-				onSaveScheduleSettings={(
-					scheduleId: number,
-					settings: {
-						name: string;
-						time: string;
-						is_reventado: boolean;
-						is_megareventado: boolean;
-						puestos: puesto[];
-					},
-					change: 'flags' | 'puestos'
-				) => saveScheduleSettings(scheduleId, settings, change)
-				}
+				onSaveScheduleSettings={saveScheduleSettings}
 			/>
 		{/each}
 	</div>

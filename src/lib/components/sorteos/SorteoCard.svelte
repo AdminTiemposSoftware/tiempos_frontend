@@ -5,17 +5,15 @@
 	let {
 		sorteo,
 		puestoOptions = [],
-		puestoBySchedule = [],
 		expanded = false,
 		selectedSchedule = null,
 		onToggle,
 		onToggleSchedule,
+		onUpdateSchedule,
 		onEditSorteo,
 		onDeleteSorteo,
 		onAddSchedule,
 		onDeleteSchedule,
-		onAddPuesto,
-		onEditPuesto,
 		onSaveScheduleSettings
 	} = $props();
 
@@ -26,198 +24,67 @@
 		comission: number;
 	};
 
-	type ScheduleSettingsDraft = {
-		name: string;
-		time: string;
-		is_reventado: boolean | null;
-		is_megareventado: boolean | null;
-		puestos: Puesto[];
+	type ScheduleChanges = {
+		name?: string;
+		time?: string;
+		is_reventado?: boolean;
+		is_megareventado?: boolean;
+		puestos?: Puesto[];
 	};
-
-	let draft = $state<ScheduleSettingsDraft>({
-		name: '',
-		time : '',
-		is_reventado: null,
-		is_megareventado: null,
-		puestos: []
-	});
-	let draftScheduleId = $state<number | null>(null);
-	let isDirty = $state(false);
-
-	function buildDraftFromSelectedSchedule() {
-		function normalizeTime(value: string | null | undefined) {
-			if (!value) return '';
-			const m = String(value).match(/^(\d{2}:\d{2})/);
-			return m ? m[1] : String(value);
-		}
-
-		let nextDraft: ScheduleSettingsDraft = {
-			name: selectedSchedule?.name || '',
-			time: normalizeTime(selectedSchedule?.time),
-			is_reventado: Boolean(selectedSchedule?.is_reventado),
-			is_megareventado: Boolean(selectedSchedule?.is_megareventado),
-			puestos: []
-		};
-		for (const puesto of puestoOptions) {
-			const existing = puestoBySchedule.find((item) => item.id === puesto.id);
-			nextDraft =  {
-					...nextDraft,
-					puestos: [...nextDraft.puestos, {
-						...puesto,
-						enabled: Boolean(existing),
-						comission: existing ? existing.comission : -1
-					}]
-				};
-		}
-
-		return nextDraft;
-	}
-
-	$effect(() => {
-		if (selectedSchedule?.id == null) {
-			draftScheduleId = null;
-			draft = {
-				name: '',
-				time: '',
-				is_reventado: null,
-				is_megareventado: null,
-				puestos: []
-			};
-			isDirty = false;
-			return;
-		}
-
-		if (draftScheduleId !== selectedSchedule.id) {
-			draftScheduleId = selectedSchedule.id;
-			draft = buildDraftFromSelectedSchedule();
-			isDirty = false;
-		}
-	});
 
 	function handleToggle() {
 		onToggle?.();
 	}
 
-	function handleToggleSchedule(scheduleId : number) {
+	function handleToggleSchedule(scheduleId: number) {
 		onToggleSchedule?.(scheduleId);
 	}
 
-	function handleDeleteSchedule() {
+	function handleDeleteSchedule(scheduleId: number, event: Event) {
+		event.stopPropagation();
+		if (scheduleId != null) {
+			onDeleteSchedule?.(scheduleId);
+		}
+	}
+
+	function updateSelectedSchedule(changes: ScheduleChanges) {
 		if (selectedSchedule?.id != null) {
-			onDeleteSchedule?.(selectedSchedule.id);
+			onUpdateSchedule?.(selectedSchedule.id, changes);
 		}
-	}
-
-	function puestosAreTheSame(puesto: Puesto) {// TODO
-		const existing = puestoBySchedule.find((p: { id: number; comission: number }) => p.id === puesto.id);
-		const draftPuesto = draft.puestos.find((p) => p.id === puesto.id);
-		const draftComission = draftPuesto ? draftPuesto.comission : 0;
-		const draftEnabled = Boolean(draftPuesto ? draftPuesto.enabled : false);
-
-		return Boolean(existing) === draftEnabled && (existing ? existing.comission : 0) === draftComission;
-	}
-
-	function flagIsTheSame(flag: 'is_reventado' | 'is_megareventado', value: boolean) {
-		return selectedSchedule?.[flag] === value;
-	}
-
-	function timeIsTheSame(value: string) {
-		function normalizeTime(value: string | null | undefined) {
-			if (!value) return '';
-			const m = String(value).match(/^(\d{2}:\d{2})/);
-			return m ? m[1] : String(value);
-		}
-		const a = normalizeTime(selectedSchedule?.time);
-		const b = normalizeTime(value);
-		return a === b;
 	}
 
 	function handlePuestoChange(field: 'enabled' | 'comission', puesto: Puesto, event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
+		const currentPuestos = selectedSchedule?.puestos ?? [];
+		const currentPuesto = currentPuestos.find((item) => item.id === puesto.id);
+		const value = field === 'enabled' ? input.checked : (input.value === '' ? 0 : Number(input.value));
+		const updatedPuestos = currentPuesto
+			? currentPuestos.map((item) => item.id === puesto.id ? { ...item, [field]: value } : item)
+			: [...currentPuestos, { ...puesto, enabled: field === 'enabled' ? Boolean(value) : true, comission: field === 'comission' ? Number(value) : 0 }];
 
-		if (field === 'enabled') {
-			const enabled = input.checked;
-			const exists = draft.puestos.some((p) => p.id === puesto.id);
-			if (exists) {
-				draft = {
-					...draft,
-					puestos: draft.puestos.map((p) => p.id === puesto.id ? { ...p, enabled } : p)
-				};
-			} else {
-				draft = {
-					...draft,
-					puestos: [...draft.puestos, { ...puesto, enabled, comission: -1 }]
-				};
-			}
-			isDirty = true;
-			return;
-		} else if (field === 'comission') {
-			const value = input.value === '' ? 0 : Number(input.value);
-			const exists = draft.puestos.some((p) => p.id === puesto.id);
-			if (exists) {
-				draft = {
-					...draft,
-					puestos: draft.puestos.map((p) => p.id === puesto.id ? { ...p, comission: value } : p)
-				};
-			} else {
-				draft = {
-					...draft,
-					puestos: [...draft.puestos, { ...puesto, enabled: true, comission: value }]
-				};
-			}
-			isDirty = true;
-			return;
-		}
+		updateSelectedSchedule({ puestos: updatedPuestos });
 	}
 
 	function handleReventadosFlagChange(flag: 'is_reventado' | 'is_megareventado', event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
-		// if (flagIsTheSame(flag, input.checked)) { // TODO
-		// 	isDirty = false;
-		// 	return;
-		// }
-		draft = {
-			...draft,
-			[flag]: input.checked
-		};
-		isDirty = true;
+		updateSelectedSchedule({ [flag]: input.checked });
 	}
 
-	const handleScheduleTimeChange = (event: Event) => {
+	function handleScheduleTimeChange(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
-		// if (timeIsTheSame(input.value)) { // TODO
-		// 	// isDirty = false; TO
-		// 	return;
-		// }
+		updateSelectedSchedule({ time: input.value });
+	}
 
-		draft = {
-			...draft,
-			time: input.value
-		};
-
-		isDirty = true;
-	};
-
-	const handleNameChange = (event: Event) => {
+	function handleNameChange(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
-		// if (selectedSchedule && selectedSchedule.name === input.value) { // TODO
-		// 	isDirty = false;
-		// 	return;
-		// }
+		updateSelectedSchedule({ name: input.value });
+	}
 
-		draft = {
-			...draft,
-			name: input.value
-		};
-
-		isDirty = true;
-	};
-
-	const hasPuestoOptions = () => Array.isArray(puestoOptions) && puestoOptions.length > 0;
+	const hasPuestoOptions = Array.isArray(puestoOptions) && puestoOptions.length > 0;
 
 	function handleSaveSettings() {
-		if (selectedSchedule?.id == null || !isDirty) return;
-		if (draft.puestos.some((p) => p.enabled && (p.comission <= 0 || isNaN(p.comission)))) {
+		if (selectedSchedule?.id == null) return;
+		if ((selectedSchedule.puestos ?? []).some((p) => p.enabled && (p.comission <= 0 || isNaN(p.comission)))) {
 			acts.add({
 				message: 'Asigne una comisión válida',
 				mode: 'error',
@@ -225,8 +92,7 @@
 			});
 			return;
 		}
-		onSaveScheduleSettings(selectedSchedule.id, draft);
-		isDirty = false;
+		onSaveScheduleSettings?.(selectedSchedule.id, selectedSchedule);
 	}
 
 	function handleEditSorteo (event: Event) {
@@ -284,11 +150,11 @@
 							Agregar horario
 						</button>
 					</div>
-					{#if sorteo.schedule?.length === 0}
+					{#if sorteo.schedules?.length === 0}
 						<p class="empty-state">Sin horarios creados.</p>
 					{:else}
 						<div class="schedule-items scroll-thin">
-							{#each sorteo.schedule as schedule}
+							{#each sorteo.schedules as schedule}
 								<div
 									class="schedule-item"
 									class:schedule-item--active={selectedSchedule && selectedSchedule.id === schedule.id}
@@ -302,7 +168,7 @@
 										<span class="schedule-time">{schedule.time}</span>
 									</div>
 									<div class="options-buttons">
-										<button class="negative" onclick={handleDeleteSchedule}>
+										<button class="negative" onclick={(event) => handleDeleteSchedule(schedule.id, event)}>
 											<TrashBinSolid class="shrink-0 h-4 w-4" />
 										</button>
 									</div>
@@ -344,7 +210,7 @@
 										<input
 											class="switch-input"
 											type="checkbox"
-											checked={Boolean(selectedSchedule.is_reventado)}
+											checked={selectedSchedule.is_reventado}
 											onchange={(e) => handleReventadosFlagChange('is_reventado', e)}
 										/>
 									</label>
@@ -360,7 +226,7 @@
 									</label>
 								</div>
 							</div>
-							{#if hasPuestoOptions()}
+							{#if hasPuestoOptions}
 								<div class="puesto-list scroll-thin">
 									<h3>Puestos del horario</h3>
 									{#each puestoOptions as puesto}
@@ -368,7 +234,7 @@
 											<label class="puesto-check">
 												<input
 													type="checkbox"
-													checked={puestoBySchedule.some((p : { id: number }) => p.id === puesto.id)}
+													checked={(selectedSchedule.puestos ?? []).some((p) => p.id === puesto.id && p.enabled !== false)}
 													onchange={(e) => handlePuestoChange("enabled", puesto, e)}
 												/>
 												<span>{puesto.name}</span>
@@ -379,7 +245,7 @@
 													type="number"
 													min="0"
 													step="0.01"
-													value={puestoBySchedule.find((p) => p.id === puesto.id)?.comission ?? ''}
+													value={(selectedSchedule.puestos ?? []).find((p) => p.id === puesto.id)?.comission || ''}
 													oninput={(e) => handlePuestoChange("comission", puesto, e)}
 												/>
 											</label>
@@ -391,7 +257,7 @@
 							{/if}
 						</div>
 
-						<button type="button" disabled={!isDirty} onclick={handleSaveSettings} class="save-button">
+						<button type="button" onclick={handleSaveSettings} class="save-button">
 							Guardar cambios
 						</button>
 					{:else}
