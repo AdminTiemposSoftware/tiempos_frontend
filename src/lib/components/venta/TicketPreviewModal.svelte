@@ -28,7 +28,8 @@
         const branchName = $auth.user?.branchName ? String($auth.user.branchName) : 'Sucursal';
         const username = $auth.user?.username ? String($auth.user.username) : '';
 
-        const multiplierInfo = selectedBet?.multiplier ? `El primero paga al: ${selectedBet.multiplier}` : '';
+        const firstPosition = selectedBet?.positions.filter((position: {position_number: number, multiplier: number}) => position.position_number === 1)
+        const multiplierInfo = firstPosition ? `El primero paga al: ${firstPosition[0].multiplier}` : '';
 
         const title = '';
 
