@@ -6,17 +6,21 @@ export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
 	const baseUrl = env.API_URL;
 	const branchId = locals.user?.branchId;
     const token = cookies.get('session_puesto') ?? '';
+    const fallbackDate = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString().split('T')[0];
 
 	const selectedScheduleIdParam = url.searchParams.get('scheduleId');
+	let date = url.searchParams.get('date');
 
 	if (!baseUrl || !branchId) {
 		return { items: [], numbers: [], selectedScheduleId: null };
 	}
 
 	try {
-
+        if (!date) {
+            date = fallbackDate;
+        }
         const [drawResponse, prohibitedResponse] = await Promise.all([
-			fetch(`${baseUrl}/draw/by-branch/${branchId}`, {
+			fetch(`${baseUrl}/draw/by-branch/${branchId}/${date}`, {
 				method: 'GET',
 				headers: {
 					Authorization: `Bearer ${token}`,

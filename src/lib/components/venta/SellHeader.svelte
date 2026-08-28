@@ -190,13 +190,13 @@
                                 class="sorteo-input"
                             />
                             <span class="sorteo-pill">
-                                {#if index === previousBetIndex}
-                                    <span class="sorteo-direction sorteo-direction-left" aria-hidden="true">←</span>
-                                {/if}
+                                <span class="sorteo-direction" aria-hidden="true">
+                                    {#if index === previousBetIndex}{"<"}{/if}
+                                </span>
                                 <span class="sorteo-pill-text">{bet.draw_name} {bet.schedule_name}</span>
-                                {#if index === nextBetIndex}
-                                    <span class="sorteo-direction sorteo-direction-right" aria-hidden="true">→</span>
-                                {/if}
+                                <span class="sorteo-direction" aria-hidden="true">
+                                    {#if index === nextBetIndex}{">"}{/if}
+                                </span>
                             </span>
                         </label>
                     {/each}
@@ -243,10 +243,9 @@
         display: inline-flex;
         align-items: center;
         gap: 0.35rem;
-        padding: 0.35rem 0.75rem;
+        padding: 0.25rem;
         border: 1px solid var(--color-border);
         transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-        font-size: 1rem;
         user-select: none;
     }
     .sorteo-pill-text {
@@ -260,10 +259,11 @@
         border-color: var(--color-theme-2);
     }
     .sorteo-direction {
-        font-size: 0.85em;
-        line-height: 1;
-        opacity: 0.85;
+        width: 1vw;
+        display: flex;
+        align-items: center;
     }
+
     .header-top {
         display: flex;
         gap: 1rem;
@@ -279,7 +279,7 @@
     }
 
     span{
-        font-size: 1.25rem;
+        font-size:1.2rem;
     }
 
     .spans {

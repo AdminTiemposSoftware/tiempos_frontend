@@ -21,7 +21,11 @@
         draw_is_reventado: boolean;
         draw_is_megareventado: boolean;
         draw_day_id: number;
-        days: string[];
+        day_name: string;
+        positions: Position[];
+    };
+
+    type Position = {
         position_number: number;
         multiplier: number;
     };
@@ -92,7 +96,21 @@
 
     $effect(() => {
         now;
-        const items = Array.isArray(data?.drawItems) ? (data.drawItems as { schedule_id: number, day_name: string, draw_schedule_branch_id: number, comission: string | number, schedule_name: string, schedule_time: string, draw_id: number, draw_name: string, draw_is_reventado: boolean, draw_is_megareventado: boolean, position_number: number, multiplier: number }[]) : [];
+        const items = Array.isArray(data?.drawItems) ? (data.drawItems as {
+            draw_schedule_branch_id: number;
+            comission: string | number;
+            schedule_id: number;
+            schedule_name: string;
+            schedule_time: string;
+            draw_id: number;
+            draw_name: string;
+            draw_is_reventado: boolean;
+            draw_is_megareventado: boolean;
+            draw_day_id: number;
+            day_name: string;
+            position_number: number;
+            multiplier: number;
+        }[]) : [];
 
         const mappedBets = Object.values(
             items.reduce((acc, item) => {
@@ -107,21 +125,24 @@
                         draw_name: item.draw_name,
                         draw_is_reventado: item.draw_is_reventado,
                         draw_is_megareventado: item.draw_is_megareventado,
-                        days: [],
-                        position_number: item.position_number,
-                        multiplier: item.multiplier
+                        draw_day_id: item.draw_day_id,
+                        day_name: item.day_name,
+                        positions: [],
                     };
                 }
+                acc[item.schedule_id].positions.push({
+                    position_number: item.position_number,
+                    multiplier: item.multiplier,
+                });
 
-                acc[item.schedule_id].days.push(item.day_name);
-
-                return acc;
-            }, {} as Record<number, any>)
-        );
+            return acc;
+        }, {} as Record<number, AvailableBet>));
 
         availableBets = mappedBets;
         const selectedScheduleId = selectedBet?.schedule_id;
-        const nextSelectedBet = mappedBets.find((bet) => bet.schedule_id === selectedScheduleId) ?? getFirstAvailableScheduleId(mappedBets) ?? null;
+        const nextSelectedBet = mappedBets.find((bet) => bet.schedule_id === selectedScheduleId)
+            ?? getFirstAvailableScheduleId(mappedBets, selectedDate)
+            ?? null;
 
         if (selectedBet?.schedule_id !== nextSelectedBet?.schedule_id) {
             selectedBet = nextSelectedBet;
@@ -149,7 +170,15 @@
     $effect(() => {
         const scheduleId = selectedBet?.schedule_id ?? null;
         const activeScheduleId = Number(data?.selectedScheduleId ?? null);
-        if (!scheduleId || scheduleId === activeScheduleId) {
+        const activeDate = new URLSearchParams(window.location.search).get('date');
+        if (!scheduleId) {
+            return;
+        }
+
+        const scheduleIsActive = scheduleId === activeScheduleId;
+        const dateIsActive = selectedDate === activeDate;
+
+        if (scheduleIsActive && dateIsActive) {
             return;
         }
 
@@ -212,8 +241,10 @@
         return scheduleMinutes > currentMinutes;
     }
 
-    function getFirstAvailableScheduleId(bets: AvailableBet[]) {
-        const filteredBets = bets.filter((bet) => isBetOpen(bet.schedule_time, now));
+    function getFirstAvailableScheduleId(bets: AvailableBet[], date: string) {
+        const filteredBets = date === utcMinus6Date.toISOString().split('T')[0]
+            ? bets.filter((bet) => isBetOpen(bet.schedule_time, now))
+            : bets;
         return filteredBets[0];
     }
 
