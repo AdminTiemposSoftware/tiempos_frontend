@@ -30,7 +30,10 @@
 		is_reventado?: boolean;
 		is_megareventado?: boolean;
 		puestos?: Puesto[];
+		days?: string[];
 	};
+
+	const dayOptions = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
 	function handleToggle() {
 		onToggle?.();
@@ -78,6 +81,11 @@
 	function handleNameChange(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
 		updateSelectedSchedule({ name: input.value });
+	}
+
+	function handleDayChange(event: Event, day: string) {
+		const input = event.currentTarget as HTMLInputElement;
+		updateSelectedSchedule({ days: input.checked ? [...selectedSchedule.days, day] : selectedSchedule.days.filter((d) => d !== day) });
 	}
 
 	const hasPuestoOptions = Array.isArray(puestoOptions) && puestoOptions.length > 0;
@@ -179,6 +187,18 @@
 				</div>
 				<div class="schedule-detail-panel">
 					{#if selectedSchedule}
+                   	    <div class="schedule-days">
+             			{#each dayOptions as day}
+            				<div class="schedule-day flag-switch">
+               					<input
+                                    type="checkbox"
+                                    checked={selectedSchedule.days.includes(day)}
+                                    onchange={(e) => handleDayChange(e, day)}
+     							/>
+               					{day}
+            				</div>
+             			{/each}
+                  		</div>
 						<div class="schedule-detail-configuration">
 							<div class="schedule-detail-title">
 								<div class="question">
@@ -326,7 +346,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
-		flex: 2;
+		flex: 3;
 		border: 1px solid var(--color-border);
 		border-radius: 0.5rem;
 		background: #fff;
@@ -407,5 +427,21 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
+	}
+
+	.schedule-days {
+	    gap:0;
+		width: 100%;
+		display: flex;
+		flex-direction: row;
+	}
+	.schedule-day {
+		display: flex;
+		width: 100%;
+		justify-content: center;
+		gap: 0.5rem;
+		font-weight: 600;
+		border-radius: 0;
+		border: 1px solid var(--color-border);
 	}
 </style>

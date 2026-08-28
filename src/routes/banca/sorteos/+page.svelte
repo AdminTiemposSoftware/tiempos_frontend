@@ -23,6 +23,7 @@
 		name: string;
 		time: string;
 		puestos: puesto[];
+		days: string[];
 		is_reventado: boolean;
 		is_megareventado: boolean;
 	};
@@ -109,33 +110,37 @@
 						enabled?: boolean;
 					}>
 					: [];
-				const schedules = items.reduce<schedule[]>((acc, it) => {
-				    let temp = acc.find<schedule>(item => item.id === it.id);
-					if (!temp) {
-					    temp = {
-							id: it.id,
-							name: it.name ?? '',
-							time: it.time ?? '',
-							is_reventado: it.is_reventado ?? false,
-							is_megareventado: it.is_megareventado ?? false,
-							puestos: it.puestos ?? [],
-						};
-					    acc.push(temp);
-					}
-					if (it.branch_id != null) {
-						temp.puestos.push({
-							id: it.branch_id,
-							name: '',
-							comission: Number(it.comission ?? 0),
-							enabled: it.enabled ?? true
-						});
-					}
-					return acc;
+
+				const schedules = items.reduce<Schedule[]>((result, row) => {
+                    let schedule = result.find(s => s.id === row.id);
+                    if (!schedule) {
+                        schedule = {
+                            id: row.id,
+                            name: row.name,
+                            time: row.time,
+                            puestos: [],
+                            days: [],
+                            is_reventado: row.is_reventado,
+                            is_megareventado: row.is_megareventado
+                        };
+                        result.push(schedule);
+                    }
+
+                    if (row.branch_id !== null && !schedule.puestos.some(p => p.branch_id === row.branch_id)) {
+                        schedule.puestos.push({
+                            id: row.branch_id,
+                            comission: row.comission
+                        });
+                    }
+
+                    if (row.day_name !== null && !schedule.days.includes(row.day_name)) {
+                        schedule.days.push(row.day_name);
+                    }
+
+                    return result;
 				}, []);
 
-				// attach schedules to the draw
 				draws = draws.map((d) => (d.id === sorteoId ? { ...d, schedules: schedules } : d));
-
 			} catch (e) {
 				console.error('Error fetching schedules for sorteo', e);
 			}
@@ -240,7 +245,9 @@
 					name: payload.name,
 					time: payload.time,
 					is_reventado: sorteo.is_reventado ?? false,
-					is_megareventado: sorteo.is_megareventado ?? false
+					is_megareventado: sorteo.is_megareventado ?? false,
+					puestos: [],
+					days: sorteo.days
 				}
 			]
 		}: sorteo);
@@ -263,14 +270,26 @@
 				})
 				return;
 			}
+			console.log(draws);
+			console.log(updatedSorteo)
+			draws = draws.map((sorteo) => sorteo.id === updatedSorteo.id ? {
+				...sorteo,
+				days: updatedSorteo.draw_days,
+				schedules: updatedSorteo.schedules ? updatedSorteo.schedules.map((schedule) => ({ ...schedule, days: updatedSorteo.draw_days })) : []
+			} : sorteo);
+			console.log(draws);
 
-			draws = draws.map((sorteo) => sorteo.id === updatedSorteo.id ? { ...sorteo, ...updatedSorteo } : sorteo);
 			acts.add({
 				message: 'Sorteo actualizado correctamente.',
 				mode: 'success',
 				lifetime: 3
 			})
 			showSorteoModal = false;
+			const isOpen = expandedSorteo.includes(updatedSorteo.id);
+			if (isOpen) {
+				expandedSorteo = expandedSorteo.filter((id) => id !== updatedSorteo.id);
+				return;
+			}
 
 		} catch (error) {
 			console.error('Error updating sorteo', error);
@@ -291,7 +310,8 @@
 					name: settings.name,
 					time: settings.time,
 					is_reventado: settings.is_reventado,
-					is_megareventado: settings.is_megareventado
+					is_megareventado: settings.is_megareventado,
+					days: settings.days
 				})
 			});
 			if (!response.ok) {
