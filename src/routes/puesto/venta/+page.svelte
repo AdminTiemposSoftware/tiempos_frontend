@@ -171,12 +171,8 @@
         const scheduleId = selectedBet?.schedule_id ?? null;
         const activeScheduleId = Number(data?.selectedScheduleId ?? null);
         const activeDate = new URLSearchParams(window.location.search).get('date');
-        if (!scheduleId) {
-            return;
-        }
-
-        const scheduleIsActive = scheduleId === activeScheduleId;
         const dateIsActive = selectedDate === activeDate;
+        const scheduleIsActive = scheduleId === activeScheduleId;
 
         if (scheduleIsActive && dateIsActive) {
             return;
@@ -184,7 +180,13 @@
 
         isMatrixLoading = true;
 
-        void goto(`?scheduleId=${scheduleId}&date=${selectedDate}`, {
+        const params = new URLSearchParams();
+        if (scheduleId) {
+            params.set('scheduleId', String(scheduleId));
+        }
+        params.set('date', selectedDate);
+
+        void goto(`?${params.toString()}`, {
             replaceState: true,
             noScroll: true,
             keepFocus: true
@@ -270,6 +272,7 @@
         const payload = await response.json().catch(() => null);
         const items = Array.isArray(payload?.items) ? (payload.items as TicketHeader[]) : [];
         const numbers = Array.isArray(payload?.numbers) ? (payload.numbers as Numbers[]) : [];
+        const firstPosition = selectedBet?.positions.filter((position: {position_number: number, multiplier: number}) => position.position_number === 1)
 
         tickets = items.map((item) => ({
             id: item.id,
@@ -285,7 +288,7 @@
             time: item.time ?? '',
             date: item.date ?? '',
             printed_at: item.printed_at ?? '',
-            multiplier: selectedBet?.multiplier ?? '',
+            multiplier: firstPosition?.[0]?.multiplier ?? '',
             status: item.enabled
         }));
         ticketNumbers = numbers;

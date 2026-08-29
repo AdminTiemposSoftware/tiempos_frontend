@@ -14,7 +14,20 @@
     let selectedRowIndex = $state(0);
     let rowRefs: Array<HTMLTableRowElement | null> = [];
     let showTicketPreviewModal = $state(false);
+    let ticketPreviewBet = $state<any>(null);
+    let ticketPreviewDate = $state('');
     let details = $state('');
+
+    function snapshotBetForPreview(bet: any) {
+        if (!bet) return null;
+
+        return {
+            ...bet,
+            positions: Array.isArray(bet.positions)
+                ? bet.positions.map((position: any) => ({ ...position }))
+                : []
+        };
+    }
     let detailsSnapshot = $state('');
     let soldSnapshot: Record<string, number> = $state({});
     let showConfirmModal = $state(false);
@@ -227,6 +240,8 @@
 
             const responseBody = await response.json().catch(() => null);
             createdTicket = Array.isArray(responseBody?.items) ? responseBody.items[0] : null;
+            ticketPreviewBet = snapshotBetForPreview(selectedBet);
+            ticketPreviewDate = selectedDate;
             if (selectedDate === today) {
                 sellingMatrix.update((matrix) => {
                     for (const [number, price] of Object.entries(soldSnapshot)) {
@@ -242,6 +257,7 @@
             details = '';
         } catch (error) {
             isSubmitting = false;
+            console.error(error);
             acts.add({
                 message: 'Hubo un error al crear el tiquete.',
                 mode: 'error',
@@ -536,8 +552,8 @@
     createdTicket={createdTicket}
     bind:sold={soldSnapshot}
     details={detailsSnapshot}
-    selectedBet={selectedBet}
-    selectedDate={selectedDate}
+    selectedBet={ticketPreviewBet}
+    selectedDate={ticketPreviewDate}
 />
 
 <QrModal
