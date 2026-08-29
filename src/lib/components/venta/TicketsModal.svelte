@@ -38,7 +38,6 @@
     let ticketToDelete = $state<Ticket | null>(null);
     let selectedTicket = $state<Ticket | null>(null);
     let soldNumbersForSelectedTicket = $state<Record<string, number>>({});
-    let qrData = $state<string>('');
     let selectedRowIndex = $state(0);
     let rowRefs: Array<HTMLTableRowElement | null> = [];
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
@@ -51,6 +50,11 @@
     });
 
     let soldNumbersTotal = $derived(Object.values(soldNumbersForSelectedTicket).reduce((sum, sold) => sum + (Number(sold) || 0), 0));
+    let qrData = $derived.by(() =>
+        selectedTicket
+            ? serializeData(soldNumbersForSelectedTicket, selectedTicket.serial)
+            : ''
+    );
 
     $effect(() => {
         if (tickets.length === 0) {
@@ -75,7 +79,6 @@
 
     function handleView(ticket: Ticket) {
         soldNumbersForSelectedTicket = getSoldNumbersForTicket(ticket.id);
-        qrData = serializeData(soldNumbersForSelectedTicket, ticket.serial);
         selectedTicket = ticket;
     }
 
@@ -264,34 +267,32 @@
         <div class="ticket-sold-numbers">
             {#if selectedTicket}
                 <div class="receipt-container scroll-thin">
-                    <!-- TODO: This component doesnt render the QR code correctly as it leaves the QR from the first ticket for all tickets -->
                     <ReceiptPreview
                         receipt={{
                             serial: `${selectedTicket.serial.toString()}`,
-                            title: "",
-                            subtitles: [
+                            upperLines: [
                                 `${selectedTicket.drawName} ${selectedTicket.scheduleName}`,
                                 selectedTicket.branchName,
                                 selectedTicket.username,
                                 `Fecha: ${selectedTicket.date}`,
                                 `Hora: ${selectedTicket.time.slice(0, 8)}`
-                            ],
-                            items: Object.entries(soldNumbersForSelectedTicket).map(([number, price]) => ({
+                            ].filter(Boolean),
+                            numbers: Object.entries(soldNumbersForSelectedTicket).map(([number, price]) => ({
                                 number,
                                 amount: price
                             })),
                             total: soldNumbersTotal,
-                            footer: [
+                            footerLines: [
                                 "------- ATENCION -------",
                                 selectedTicket.multiplier ? `El primero paga al: ${selectedTicket.multiplier}` : '',
                                 "------------------------",
                                 'Gracias por su compra',
                                 '¡Buena suerte!'
-                            ],
+                            ].filter(Boolean),
                             ticket_number: (selectedTicket.relative_id).toString().padStart(3, '0')
                         }}
                         groupedItems={true}
-                        bind:qrData={qrData}
+                        qrData={qrData}
                         details={selectedTicket.details}
                     />
                 </div>

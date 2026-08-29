@@ -19,7 +19,7 @@
     });
 
     const lines = $derived.by(() => {
-        const sourceItems = groupedItems?.length ? groupedItems : receipt.items;
+        const sourceItems = receipt.numbers ?? [];
         const groups = new Map<string, { numbers: string[]; amount: string | number }>();
 
         for (const item of sourceItems) {
@@ -49,8 +49,6 @@
 
         return result;
     }
-
-    onMount
 </script>
 <div class="receipt">
 {#if receipt.ticket_number}
@@ -59,13 +57,12 @@
     <span class="separator" aria-hidden="true"></span>
     <p>{receipt.ticket_number}</p>
 </div>
-{:else}
+{:else if receipt.serial}
     <p>{receipt.serial}</p>
 {/if}
-    <p>{receipt.title}</p>
-    {#if receipt.subtitles}
-        {#each receipt.subtitles as subtitle}
-            <p>{subtitle}</p>
+    {#if receipt.upperLines}
+        {#each receipt.upperLines as line}
+            <p>{line}</p>
         {/each}
     {/if}
     <span class="space"> </span>
@@ -101,11 +98,13 @@
 
     {#if QrCode && qrData}
     <div class="qr-code">
-        <QrCode data={qrData} size={100} errorCorrection="L" />
+        {#key qrData}
+            <QrCode data={qrData} size={100} errorCorrection="L" />
+        {/key}
     </div>
     {/if}
-    {#if receipt.footer}
-        {#each receipt.footer as footerItem}
+    {#if receipt.footerLines}
+        {#each receipt.footerLines as footerItem}
             <p>{footerItem}</p>
         {/each}
     {/if}

@@ -10,7 +10,13 @@
 	import { formatAmount } from '../../printing/printing';
 	import { GROUPING_OPTIONS, type GroupingMode, type ReportItem } from '../venta/grouping';
 
-    const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
+	type ReportProps = {
+	    data: any;
+	    user?: string;
+	    ignoredGroupingModes?: GroupingMode[];
+	};
+
+	const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
 	let prohibitedNumberToDelete = $state<prohibitedNumber | null>(null);
 	let prohibitedNumbers = $state<prohibitedNumber[]>([]);
 	let showDeleteProhibitedModal = $state(false);
@@ -21,7 +27,24 @@
 	let drawScheduleNames = $state<{ value: number; label: string }[]>([]);
 	let selectedBranch = $state<number[]>([]);
 	let selectedDrawSchedule = $state<number[]>([]);
-	let groupingModes = $state<GroupingMode[]>(['branch']);
+	let { data, user, ignoredGroupingModes = [] }: ReportProps = $props();
+	const availableGroupingOptions = $derived(
+		GROUPING_OPTIONS.filter((option) => !ignoredGroupingModes.includes(option.value))
+	);
+	function getDefaultGroupingModes() {
+		return availableGroupingOptions.length > 0 ? [availableGroupingOptions[0].value] : [];
+	}
+	function sanitizeGroupingModes(modes: GroupingMode[]) {
+		const filtered = modes.filter((mode) => !ignoredGroupingModes.includes(mode));
+		return filtered.length > 0 ? filtered : getDefaultGroupingModes();
+	}
+	let groupingModes = $state<GroupingMode[]>(sanitizeGroupingModes(['branch']));
+	$effect(() => {
+		const sanitized = sanitizeGroupingModes(groupingModes);
+		if (sanitized.length !== groupingModes.length || sanitized.some((mode, index) => groupingModes[index] !== mode)) {
+			groupingModes = sanitized;
+		}
+	});
 	let matrixMode = $state<'20x5' | '5x20' | '10x10'>('10x10');
 	let from =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let to =  $state(utcMinus6Date.toISOString().split('T')[0]);
@@ -33,7 +56,6 @@
 	let totalQr = $state<number>(0);
 	let puestosQr = $state<string[]>([]);
 	let sorteosQr = $state<string[]>([]);
-    let { data, user } = $props();
     let winnersFiltered = $state<WinnerItem[]>([]);
     let prohibitedFiltered = $state<prohibitedItem[]>([]);
     let totalAmountReport = $derived(report.reduce((acc, item) => acc + item.amount, 0));
@@ -463,6 +485,9 @@
 	}
 
 	function toggleGroupingMode(mode: GroupingMode) {
+		if (ignoredGroupingModes.includes(mode)) {
+			return;
+		}
 		if (groupingModes.includes(mode)) {
 			if (groupingModes.length === 1) {
 				return;
@@ -476,6 +501,9 @@
 	}
 
 	function moveGroupingMode(mode: GroupingMode, direction: -1 | 1) {
+		if (ignoredGroupingModes.includes(mode)) {
+			return;
+		}
 		const currentIndex = groupingModes.indexOf(mode);
 
 		if (currentIndex === -1) {
@@ -645,7 +673,7 @@
 			<div class="field grouping-field">
 				<label for="agrupacion">Agrupación</label>
 					<div class="grouping-options">
-						{#each GROUPING_OPTIONS as option}
+						{#each availableGroupingOptions as option}
 							<button
 								type="button"
 								class={`grouping-option ${groupingModes.includes(option.value) ? 'selected' : ''}`}

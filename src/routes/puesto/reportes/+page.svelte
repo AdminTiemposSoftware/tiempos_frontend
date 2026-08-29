@@ -9,4 +9,4 @@
     <title>Inicio</title>
 </svelte:head>
 
-<Report user={$auth.user?.role} data={data} />
+<Report user={$auth.user?.role} data={data} ignoredGroupingModes={['branch']} />

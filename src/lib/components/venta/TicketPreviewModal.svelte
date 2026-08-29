@@ -17,38 +17,35 @@
     const receipt = $derived.by<Receipt>(() => {
         const soldEntries = Object.entries(sold) as Array<[string, number]>;
 
-        const items = soldEntries
+        const numbers = soldEntries
             .sort(([leftNumber], [rightNumber]) => Number(leftNumber) - Number(rightNumber))
             .map(([number, item]) => ({
                 number: String(number).padStart(2, '0'),
                 amount: Number(item) || 0
             }));
 
-        const total = items.reduce((sum, item) => sum + item.amount, 0);
+        const total = numbers.reduce((sum, item) => sum + item.amount, 0);
         const branchName = $auth.user?.branchName ? String($auth.user.branchName) : 'Sucursal';
         const username = $auth.user?.username ? String($auth.user.username) : '';
 
         const firstPosition = selectedBet?.positions.filter((position: {position_number: number, multiplier: number}) => position.position_number === 1)
         const multiplierInfo = firstPosition ? `El primero paga al: ${firstPosition[0].multiplier}` : '';
 
-        const title = '';
-
-        const subtitleParts = [
+        const upperLines = [
             `${selectedBet.draw_name} ${selectedBet.schedule_name}`,
             branchName,
             username,
             selectedDate ? `Fecha: ${selectedDate}` : '',
             createdTicket?.printed_at ? `Hora: ${createdTicket.printed_at.slice(0, 8)}` : ''
-        ].filter(Boolean);
+        ].filter(Boolean) as string[];
 
         return {
-            title,
-            subtitles: subtitleParts,
-            items,
-            total,
-            footer: ["------- ATENCION -------", multiplierInfo, "------------------------", 'Gracias por su compra', '¡Buena suerte!'],
             serial: `${createdTicket?.ticket_serial || ''}`,
-            ticket_number: createdTicket?.ticket_number?.toString().padStart(3, '0') || ''
+            ticket_number: createdTicket?.ticket_number?.toString().padStart(3, '0') || '',
+            upperLines,
+            numbers,
+            total,
+            footerLines: ["------- ATENCION -------", multiplierInfo, "------------------------", 'Gracias por su compra', '¡Buena suerte!'].filter(Boolean) as string[]
         };
     });
 

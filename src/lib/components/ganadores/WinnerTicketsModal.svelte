@@ -223,26 +223,25 @@
                     <ReceiptPreview
                         receipt={{
                             serial: `${selectedTicket.serial.toString()}`,
-                            title: "",
-                            subtitles: [
+                            upperLines: [
                                 `${selectedTicket.draw_name} ${selectedTicket.draw_schedule_name}`,
                                 selectedTicket.branch_name,
                                 selectedTicket.username,
                                 `Fecha: ${selectedTicket.date}`,
                                 `Hora: ${selectedTicket.time.slice(0, 8)}`
-                            ],
-                            items: Object.entries(soldNumbersForSelectedTicket).map(([number, price]) => ({
+                            ].filter(Boolean),
+                            numbers: Object.entries(soldNumbersForSelectedTicket).map(([number, price]) => ({
                                 number,
                                 amount: price
                             })),
                             total: soldNumbersTotal,
-                            footer: [
+                            footerLines: [
                                 "------- ATENCION -------",
                                 selectedTicket.multiplier ? `El primero paga al: ${selectedTicket.multiplier}` : '',
                                 "------------------------",
                                 'Gracias por su compra',
                                 '¡Buena suerte!'
-                            ],
+                            ].filter(Boolean),
                             ticket_number: (selectedTicket.relative_id).toString().padStart(3, '0')
                         }}
                         groupedItems={true}

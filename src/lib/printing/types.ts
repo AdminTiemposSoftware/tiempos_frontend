@@ -1,24 +1,15 @@
-export interface ReceiptLine {
-    left: string;
-    right?: string;
+export interface TicketPrintNumber {
+    number: string;
+    amount: number;
 }
 
-export interface ReceiptData {
-    title?: string;
-    lines: ReceiptLine[];
-    footer?: string;
-}
-
-export interface Receipt {
-    title: string;
+export interface TicketPrintData {
     serial?: string;
-    subtitles?: string[];
-    items: {
-        number: string;
-        amount: number;
-    }[];
-    total: number;
-    qr?: string;
-    footer?: string[];
     ticket_number?: string;
+    upperLines: string[];
+    numbers: TicketPrintNumber[];
+    total: number;
+    footerLines: string[];
 }
+
+export type Receipt = TicketPrintData;
