@@ -1,7 +1,5 @@
 <script lang="ts">
-    import { goto } from '$app/navigation';
     import QrCode from 'svelte-qrcode';
-    import { serializeListQrData } from '../../printing/printing';
 
     let {data, puestos, sorteos, showModal=$bindable(), dateFrom, dateTo, total} = $props();
 
@@ -20,18 +18,16 @@
     }
 
     function serializeData(data: Record<number, number>): string {
-        return serializeListQrData(data);
-    }
-
-    async function handleImportAsNewList() {
-        const qrValue = serializeData(data);
-
-        if (!qrValue) {
-            return;
+        let result = Object.values(data).map((amount) =>amount.toString(16).toUpperCase().padStart(6, '0')).join('');
+        result += total.toString(16).toUpperCase().padStart(8, '0');
+        if (dateFrom === dateTo) {
+            result += formatDate(parseDate(dateFrom));
+        } else {
+            result += formatDate(parseDate(dateFrom));
+            result += formatDate(parseDate(dateTo));
         }
 
-        showModal = false;
-        await goto(`/banca/listas?import=${encodeURIComponent(qrValue)}`);
+        return result;
     }
 
     function onClose() {
@@ -47,55 +43,50 @@
     onkeydown={(e) => e.key === "Escape" && onClose()}
     tabindex="0"
 >
-<div
-    class="modal"
-    onclick={(e) => e.stopPropagation()}
-    role="presentation"
->
-    <h2 class="modal-title">
-    {#if dateFrom === dateTo}
-        {dateFrom}
-    {:else}
-        {dateFrom} - {dateTo}
-    {/if}</h2>
-    <div class="chip-row">
-        {#each puestos as puesto}
-        <p>{puesto}</p>
-        {#if puestos.indexOf(puesto) < puestos.length - 1}
-            •
-        {/if}
-        {/each}
-    </div>
-    <div class="chip-row">
-        {#each sorteos as sorteo}
-            <p>{sorteo}</p>
-            {#if sorteos.indexOf(sorteo) < sorteos.length - 1}
+    <div
+        class="modal"
+        onclick={(e) => e.stopPropagation()}
+        role="presentation"
+    >
+        <h2 class="modal-title">Lista
+        {#if dateFrom === dateTo}
+            {dateFrom}
+        {:else}
+            {dateFrom} - {dateTo}
+        {/if}</h2>
+        <div class="chip-row">
+            {#each puestos as puesto}
+            <p>{puesto}</p>
+            {#if puestos.indexOf(puesto) < puestos.length - 1}
                 •
             {/if}
-        {/each}
+            {/each}
+        </div>
+        <div class="chip-row">
+            {#each sorteos as sorteo}
+                <p>{sorteo}</p>
+                {#if sorteos.indexOf(sorteo) < sorteos.length - 1}
+                    •
+                {/if}
+            {/each}
+        </div>
+        <div class="qr-container">
+            <QrCode value={serializeData(data)} size={350} errorCorrection="L" />
+        </div>
+        <div class="row">
+			<button type="button" class="option-button" onclick={() => {}} disabled>
+                Traer como lista nueva
+			</button>
+ 			<button type="button" class="option-button" onclick={() => {}} disabled>
+				Descargar excel
+ 			</button>
+		</div>
     </div>
-    <div class="qr-container">
-        <QrCode value={serializeData(data)} size={350} errorCorrection="L" />
-    </div>
-    <div class="row">
-		<button type="button" class="option-button" onclick={handleImportAsNewList}>
-            Traer como lista nueva
-		</button>
-<button type="button" class="option-button" onclick={() => {}} disabled>
-			Descargar excel
-</button>
-	</div>
-</div>
 </div>
 
 {/if}
 
 <style>
-    .modal {
-        width: 50rem;
-        margin-left: 15rem
-    }
-
     .qr-container {
         margin: 1rem 0;
     }
