@@ -54,7 +54,8 @@
         const receiptData = {
             receipt,
             qrData: serializeData(sold, createdTicket?.ticket_serial || ''),
-            details
+            details,
+            printMode: 'normal' as const
         };
         const encoded = encodeURIComponent(
             JSON.stringify(receiptData)

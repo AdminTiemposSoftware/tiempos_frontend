@@ -138,48 +138,6 @@
 </section>
 
 <style>
-    .matrix-container {
-        flex:1.5 ;
-    }
-
-    .matrix {
-        display: grid;
-        grid-template-columns: repeat(var(--cols), auto);
-        width: fit-content;
-        align-items: center;
-    }
-
-    .matrix-wrapper {
-        position: relative;
-        width: fit-content;
-    }
-
-    .matrix-spinner {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(255, 255, 255, 0.6);
-        z-index: 1;
-    }
-
-    .spinner {
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        border: 3px solid #cbd5e1;
-        border-top-color: #2563eb;
-        animation: spin 0.7s linear infinite;
-    }
-
-    .matrix-cell {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        position: relative;
-    }
-
     .report-tooltip {
         position: absolute;
         bottom: calc(100% + 0.5rem);
@@ -228,19 +186,17 @@
 		gap: 0.45rem;
 	}
 
-    .matrix-cell input[type="number"]:first-child {
-        color: var(--color-text);
-    }
-
     .prohibited-number input[type="number"] {
         background-color: #f8d7da;
         border-color: #f5c6cb;
         color: #721c24;
     }
+
     .prohibited-number input[type="number"]:first-child {
         background-color: #f8c3c7;
         border-color: #f5c6cb;
     }
+
     .has-report:hover {
         transform: scale(1.05);
         transition: transform 0.2s ease-in-out;
@@ -250,12 +206,6 @@
         width: 32px;
         padding: 0.1rem !important;
         font-size: 0.95rem;
-    }
-
-    .price {
-        width: 100% !important;
-        background-color: #ffffff;
-        color: var(--color-text);
     }
 
     .price-animated {
@@ -293,21 +243,5 @@
         to {
             transform: rotate(360deg);
         }
-    }
-
-    .matrix-cell input[type="number"]{
-        width: 40px;
-        height: 35px;
-        padding: 0.5rem;
-        text-align: center;
-        border: 1px solid #ccc;
-        font-size: 1.1rem;
-    }
-
-
-    .matrix-cell input[type="number"]:focus {
-        outline: none;
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
     }
 </style>

@@ -1,31 +1,32 @@
 <script lang="ts">
+    type MatrixModificationState = {
+        originalValue: number;
+        operation: '+' | '-';
+        modification: number;
+    };
+
     let {
-        mode,
+        mode = '10x10',
         animateKey = $bindable<string | number | null>(null),
         isLoading = $bindable<boolean>(false),
-        report = $bindable<reportItem[]>([])
+        report = $bindable<{number: number, price: number;}[]>([]),
+        interactive = false,
+        valueMap = $bindable<Record<number, number>>({}),
+        allowModifications = false,
+        modificationMap = $bindable<Record<number, MatrixModificationState>>({})
     } = $props();
 
-	type reportItem = {
-		branch_id: number;
-		branch_name: string;
-		draw_schedule_id: number;
-		draw_schedule_name: string;
-		draw_id: number;
-		draw_name: string;
-		number: number;
-		amount: number;
-		is_reventado: boolean;
-		is_megareventado: boolean;
-	};
-
-    import { sellingMatrix } from '../../stores/UpdateSellMatrix';
-    import { prohibitedNumbers } from '../../stores/UpdateSellMatrix';
-
-    let groupedNumbers = $state<Record<number, reportItem[]>>({});
     let rows = $state(10);
     let columns = $state(10);
-    
+    const interactiveInputs = $state<Record<number, HTMLInputElement | null>>({});
+
+    const reportByNumber = $derived(
+        report.reduce<Record<number, number>>((acc, item) => {
+            acc[item.number] = item.price;
+            return acc;
+        }, {})
+    );
+
     $effect(() => {
         if (mode === '10x10') {
             rows = 10;
@@ -39,20 +40,127 @@
         }
     });
 
-    $effect(() => {
-        groupedNumbers = groupReportByNumber(report);
-    });
+    function updateValue(number: number, rawValue: string) {
+        const nextValue = rawValue === '' ? undefined : Number(rawValue);
+        const nextMap = { ...valueMap };
 
-    function groupReportByNumber(reportItems: reportItem[]): Record<number, reportItem[]> {
-        return reportItems.reduce<Record<number, reportItem[]>>((acc, item) => {
-            (acc[item.number] ??= []).push(item);
-            return acc;
-    }, {});
+        if (nextValue === undefined || Number.isNaN(nextValue)) {
+            delete nextMap[number];
+        } else {
+            nextMap[number] = nextValue;
+        }
+
+        valueMap = nextMap;
     }
-    
+
+    function getModificationState(index: number): MatrixModificationState {
+        const existingEntry = modificationMap[index];
+
+        if (existingEntry) {
+            return existingEntry;
+        }
+
+        return {
+            originalValue: valueMap[index] ?? 0,
+            operation: '+',
+            modification: 0,
+        };
+    }
+
+    function updateModification(index: number, rawValue: string) {
+        const nextModification = rawValue === '' ? 0 : Number(rawValue);
+        const nextMap = { ...modificationMap };
+        const existingEntry = getModificationState(index);
+
+        nextMap[index] = {
+            ...existingEntry,
+            modification: Number.isFinite(nextModification) ? nextModification : 0,
+        };
+
+        modificationMap = nextMap;
+    }
+
+    function toggleModification(index: number) {
+        const nextMap = { ...modificationMap };
+        const existingEntry = getModificationState(index);
+
+        nextMap[index] = {
+            ...existingEntry,
+            operation: existingEntry.operation === '+' ? '-' : '+',
+        };
+
+        modificationMap = nextMap;
+    }
+
+    function focusInput(index: number) {
+        const target = interactiveInputs[index];
+
+        if (!target) {
+            return;
+        }
+
+        target.focus();
+        target.select();
+    }
+
+    function handlePriceKeydown(event: KeyboardEvent, index: number) {
+        const row = index % rows;
+        const column = Math.floor(index / rows);
+
+        if (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            let nextIndex = index;
+
+            if (event.key === 'ArrowUp' && row > 0) {
+                nextIndex = index - 1;
+            } else if (event.key === 'ArrowDown' && row < rows - 1) {
+                nextIndex = index + 1;
+            } else if (event.key === 'ArrowLeft' && column > 0) {
+                nextIndex = (column - 1) * rows + row;
+            } else if (event.key === 'ArrowRight' && column < columns - 1) {
+                nextIndex = (column + 1) * rows + row;
+            }
+
+            if (nextIndex !== index) {
+                event.preventDefault();
+                focusInput(nextIndex);
+            }
+
+            return;
+        }
+
+        if (event.key !== 'Enter') {
+            return;
+        }
+
+        event.preventDefault();
+
+        const totalInputs = rows * columns;
+        const activeElement = document.activeElement;
+
+        if (!(activeElement instanceof HTMLInputElement) || !activeElement.classList.contains('matrix-price-input')) {
+            focusInput(0);
+            return;
+        }
+
+        const nextIndex = (index + 1) % totalInputs;
+        focusInput(nextIndex);
+    }
+
+    function getCellValue(index: number) {
+        if (interactive) {
+            return valueMap[index] ?? 0;
+        }
+
+        return reportByNumber[index] ?? 0;
+    }
+
+    function getColumnTotal(columnIndex: number) {
+        return Array.from({ length: rows }, (_, rowIndex) => getCellValue(columnIndex * rows + rowIndex))
+            .reduce((sum, amount) => sum + amount, 0);
+    }
 </script>
 
-<section class="matrix-container">
+<div class="matrix-container">
     {#key animateKey}
         <div class="matrix-wrapper">
             {#if isLoading}
@@ -60,131 +168,105 @@
                     <div class="spinner"></div>
                 </div>
             {/if}
+
             <div class="matrix" style="--cols: {columns}">
-                {#each Array.from({ length: rows }) as _, rowIndex}           
+                {#each Array.from({ length: rows }) as _, rowIndex}
                     {#each Array.from({ length: columns }) as _, colIndex}
                         {@const index = colIndex * rows + rowIndex}
 
-                        <div 
-                            class={`matrix-cell 
-                                ${$prohibitedNumbers.some((n) => n.number === index) ? "prohibited-number" : ""} 
-                                ${groupedNumbers[index]?.length > 0 ? "has-report" : ""
-                            }`}
-                        >
-                            <input
-                                type="number"
-                                value={index}
-                                disabled={true}
-                                class={``}
-                            />
-                            <input
-                                type="number"
-                                class="price price-animated"
-                                class:price-loading={isLoading}
-                                style={`--delay: ${index * 4}ms;`}
-                                value={groupedNumbers[index]?.reduce((sum, item) => sum + item.amount, 0) || $sellingMatrix[index] || 0}
-                            />
+                        <div class="matrix-cell">
+                            <input type="number" value={index} disabled={true} />
+
+                            {#if interactive}
+                                {#if allowModifications && valueMap[index] !== undefined}
+                                    <div class="modification-wrapper">
+                                        <input
+                                            type="number"
+                                            value={valueMap[index] ?? ''}
+                                            min="0"
+                                            class="price matrix-price-input"
+                                            readonly={true}
+                                            bind:this={interactiveInputs[index]}
+                                            disabled={true}
+                                        />
+                                        <button
+                                            type="button"
+                                            class="matrix-modification-toggle"
+                                            onclick={() => toggleModification(index)}
+                                        >
+                                            {getModificationState(index).operation}
+                                        </button>
+                                        <input
+                                            type="number"
+                                            value={getModificationState(index).modification ?? ''}
+                                            min="0"
+                                            class="price matrix-modification-input"
+                                            oninput={(event) => updateModification(index, event.currentTarget.value)}
+                                        />
+                                    </div>
+                                {:else}
+                                    <input
+                                        type="number"
+                                        value={valueMap[index] ?? ''}
+                                        min="0"
+                                        class="price"
+                                        bind:this={interactiveInputs[index]}
+                                        oninput={(event) => updateValue(index, event.currentTarget.value)}
+                                        onkeydown={(event) => handlePriceKeydown(event, index)}
+                                    />
+                                {/if}
+                            {:else}
+                                <input
+                                    type="number"
+                                    class="price"
+                                    class:price-loading={isLoading}
+                                    value={getCellValue(index)}
+                                />
+                            {/if}
                         </div>
                     {/each}
+                {/each}
+
+                {#each Array.from({ length: columns }) as _, colIndex}
+                    <div class="matrix-cell">
+                        <input
+                            type="number"
+                            value={getColumnTotal(colIndex)}
+                            disabled
+                            class="price"
+                            />
+                    </div>
                 {/each}
             </div>
         </div>
     {/key}
-</section>
+</div>
 
 <style>
     .matrix-container {
-        flex:1.5 ;
+        flex: 5;
     }
 
-    .matrix {
-        display: grid;
-        grid-template-columns: repeat(var(--cols), auto);
-        width: fit-content;
-        align-items: center;
-    }
-
-    .matrix-wrapper {
-        position: relative;
-        width: fit-content;
-    }
-
-    .matrix-spinner {
-        position: absolute;
-        inset: 0;
+    .modification-wrapper {
         display: flex;
         align-items: center;
-        justify-content: center;
-        background: rgba(255, 255, 255, 0.6);
-        z-index: 1;
+        gap: 0.35rem;
     }
 
-    .spinner {
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        border: 3px solid #cbd5e1;
-        border-top-color: #2563eb;
-        animation: spin 0.7s linear infinite;
+    .matrix-modification-toggle {
+        width: 2rem;
+        min-width: 2rem;
+        height: 2.2rem;
+        border: 1px solid var(--color-border, #d1d5db);
+        border-radius: 0.4rem;
+        background: var(--color-box-background, #f9fafb);
+        color: var(--color-text, #111827);
+        font-weight: 700;
+        cursor: pointer;
     }
 
-    .matrix-cell {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-    }
-
-    .matrix-cell input[type="number"]:first-child {
-        color: var(--color-text);
-    }
-
-    .prohibited-number input[type="number"] {
-        background-color: #f8d7da;
-        border-color: #f5c6cb;
-        color: #721c24;
-    }
-    .prohibited-number input[type="number"]:first-child {
-        background-color: #f8c3c7;
-        border-color: #f5c6cb;
-    }
-    .has-report input[type="number"]:first-child {
-        width: 32px;
-        padding: 0.1rem !important;
-        font-size: 0.95rem;
-    }
-
-    .price {
-        width: 100% !important; 
-        background-color: #ffffff;
-        color: var(--color-text);
-    }
-
-    .price-animated {
-        animation: price-pop 200ms ease-out;
-        animation-delay: var(--delay, 0ms);
-    }
-
-    .price-loading {
-        opacity: 0;
-        color: transparent;
-    }
-
-    @keyframes price-pop {
-        0% {
-            transform: scale(0.98);
-            background-color: #e6f0ff;
-            opacity: 0;
-            color: transparent;
-        }
-        60% {
-            color: transparent;
-        }
-        100% {
-            transform: scale(1);
-            background-color: #ffffff;
-            opacity: 1;
-            color: inherit;
-        }
+    .matrix-price-input {
+        background: var(--color-box-background) !important;
     }
 
     @keyframes spin {
@@ -194,21 +276,5 @@
         to {
             transform: rotate(360deg);
         }
-    }
-
-    .matrix-cell input[type="number"]{
-        width: 40px;
-        height: 35px;
-        padding: 0.5rem;
-        text-align: center;
-        border: 1px solid #ccc;
-        font-size: 1.1rem;
-    }
-
-
-    .matrix-cell input[type="number"]:focus {
-        outline: none;
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
     }
 </style>

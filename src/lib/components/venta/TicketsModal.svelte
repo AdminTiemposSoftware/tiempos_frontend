@@ -157,6 +157,61 @@
         }
     }
 
+    function buildReceiptForTicket(ticket: Ticket, numbers: Record<string, number>) {
+        return {
+            serial: `${ticket.serial.toString()}`,
+            upperLines: [
+                `${ticket.drawName} ${ticket.scheduleName}`,
+                ticket.branchName,
+                ticket.username,
+                `Fecha: ${ticket.date}`,
+                `Hora: ${ticket.time.slice(0, 8)}`
+            ].filter(Boolean),
+            numbers: Object.entries(numbers).map(([number, price]) => ({
+                number,
+                amount: price
+            })),
+            total: Object.values(numbers).reduce((sum, value) => sum + (Number(value) || 0), 0),
+            footerLines: [
+                "------- ATENCION -------",
+                ticket.multiplier ? `El primero paga al: ${ticket.multiplier}` : '',
+                "------------------------",
+                'Gracias por su compra',
+                '¡Buena suerte!'
+            ].filter(Boolean),
+            ticket_number: (ticket.relative_id).toString().padStart(3, '0')
+        };
+    }
+
+    function openPrintWindow(ticket: Ticket, numbers: Record<string, number>, mode: 'normal' | 'reprint') {
+        const receipt = buildReceiptForTicket(ticket, numbers);
+        const printData = {
+            receipt,
+            qrData: serializeData(numbers, ticket.serial),
+            details: ticket.details,
+            printMode: mode
+        };
+        const encoded = encodeURIComponent(JSON.stringify(printData));
+        const printWindow = window.open(
+            '/puesto/print?data=' + encoded,
+            '_blank',
+            'width=500,height=700'
+        );
+
+        printWindow?.addEventListener('afterprint', () => {
+            printWindow.close();
+        });
+    }
+
+    function handleReprint() {
+        if (!selectedTicket) return;
+
+        const ticketSnapshot = { ...selectedTicket };
+        const numbersSnapshot = { ...soldNumbersForSelectedTicket };
+        openPrintWindow(ticketSnapshot, numbersSnapshot, 'reprint');
+        onClose();
+    }
+
     function loadSoldNumbers() {
         numbersSold = Object.entries(soldNumbersForSelectedTicket).reduce<Record<string, number>>(
             (accumulator, [number, price]) => {
@@ -169,6 +224,7 @@
     }
 
     function handleKeyInput(event: KeyboardEvent) {
+        if (!showTicketModal) return;
         switch (event.key) {
             case "Enter":
                 if (!showTicketModal) {
@@ -182,6 +238,10 @@
                         handleView(ticket);
                     }
                 }
+                break;
+            case "e":
+            case "E":
+                handleReprint();
                 break;
         }
     }
@@ -297,6 +357,9 @@
                     />
                 </div>
                 <button onclick={loadSoldNumbers}>Cargar tiquete (Enter)</button>
+                <button onclick={handleReprint}>
+                    <div class="button-name">R<p>e</p>imprimir</div>
+                </button>
             {:else}
                 <p>Seleccione un tiquete para ver los números vendidos.</p>
             {/if}

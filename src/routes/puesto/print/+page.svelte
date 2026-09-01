@@ -17,6 +17,18 @@
 		}
 	});
 
+    const receiptWithMode = $derived.by(() => {
+        if (!data?.receipt) return undefined;
+
+        return {
+            ...data.receipt,
+            footerLines: [
+                ...(data?.printMode === 'reprint' ? ['REIMPRESO'] : []),
+                ...(Array.isArray(data.receipt.footerLines) ? data.receipt.footerLines : [])
+            ]
+        };
+    });
+
     function handleReady() {
         if (printed) return;
 
@@ -29,7 +41,7 @@
 </script>
 
 <ReceiptPreview
-    receipt={data?.receipt}
+    receipt={receiptWithMode}
     groupedItems={true}
     qrData={data?.qrData}
     details={data?.details}

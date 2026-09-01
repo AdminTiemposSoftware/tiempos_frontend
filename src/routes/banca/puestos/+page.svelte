@@ -11,6 +11,13 @@
 	let showUserModal = $state(false);
 	let showDeleteModal = $state(false);
 	let selectedPuesto = $state<Puesto | null>(null);
+	let selectedUser = $state<{ id?: number; username: string; name: string; phone: string; password?: string }>({
+		id: -1,
+		username: '',
+		name: '',
+		phone: '',
+		password: ''
+	});
 	let puestoToDelete = $state<Puesto | null>(null);
 	let expandedPuestos = $state<number[]>([]);
 	let puestos = $state<Puesto[]>([]);
@@ -23,7 +30,7 @@
 		prohibited_percentage?: number | string;
 		user_count?: number;
 		draw_count?: number;
-		users?: Array<{ username: string; name: string; phone: string }>;
+		users?: Array<{ id?: number; username: string; name: string; phone: string; password?: string }>;
 		sorteos?: Array<{ draw_id: number; type: string; days: string; draw_name: string; draw_schedule_id: number; draw_schedule_time: string; draw_schedule_name: string; is_reventado: boolean; is_megareventado: boolean, comission: string }>;
 	};
 
@@ -240,6 +247,25 @@
 
 	function handleCreateUser(puesto: Puesto) {
 		selectedPuesto = puesto;
+		selectedUser = {
+			id: -1,
+			username: '',
+			name: '',
+			phone: '',
+			password: ''
+		};
+		showUserModal = true;
+	}
+
+	function handleEditUser(puesto: Puesto, user: { id?: number; username: string; name: string; phone: string; password?: string }) {
+		selectedPuesto = puesto;
+		selectedUser = {
+			id: user.id ?? -1,
+			username: user.username ?? '',
+			name: user.name ?? '',
+			phone: user.phone ?? '',
+			password: ''
+		};
 		showUserModal = true;
 	}
 
@@ -291,8 +317,51 @@
 		}
 	}
 
-	function updateUser() {
-		// TODO
+	async function handleUpdateUser(payload: { id?: number; username: string; name: string; phone: string; password?: string }) {
+		try {
+			if (!selectedPuesto?.id || !payload.id) {
+				throw new Error('No se puede actualizar un usuario sin un puesto o id válidos.');
+			}
+
+			const updatedUser = {
+				...payload,
+				password: payload.password?.trim() || undefined
+			};
+
+			puestos = puestos.map((item) => {
+				if (item.id !== selectedPuesto?.id) {
+					return item;
+				}
+
+				return {
+					...item,
+					users: (item.users ?? []).map((currentUser) =>
+						currentUser.id === payload.id || (currentUser.username === payload.username && currentUser.name === payload.name)
+							? {
+								...currentUser,
+								username: updatedUser.username,
+								name: updatedUser.name,
+								phone: updatedUser.phone
+							}
+							: currentUser
+					),
+				};
+			});
+
+			acts.add({
+				message: 'Usuario actualizado correctamente',
+				mode: 'success',
+				lifetime: 3
+			});
+			showUserModal = false;
+		} catch (error) {
+			console.error('Error al actualizar el usuario:', error);
+			acts.add({
+				message: 'Error al actualizar el usuario',
+				mode: 'error',
+				lifetime: 3
+			});
+		}
 	}
 
 	function handleAssignSorteo() {
@@ -318,7 +387,8 @@
 
 <UserModal
 	bind:showModal={showUserModal}
-	updateUser={updateUser}
+	bind:user={selectedUser}
+	updateUser={handleUpdateUser}
 	addUser={addUser}
 />
 	
@@ -382,6 +452,7 @@
 													<th>Usuario</th>
 													<th>Nombre</th>
 													<th>Telefono</th>
+													<th>Acciones</th>
 												</tr>
 											</thead>
 											<tbody>
@@ -389,7 +460,16 @@
 													<tr>
 														<td>{user.username}</td>
 														<td>{user.name}</td>
-														<td>{user.phone}</td>	
+														<td>{user.phone}</td>
+														<td>
+															<button
+																class="neutral small"
+																type="button"
+																onclick={(event) => { event.stopPropagation(); handleEditUser(puesto, user); }}
+															>
+																<PenSolid class="shrink-0 h-4 w-4" />
+															</button>
+														</td>
 													</tr>
 												{/each}
 											</tbody>

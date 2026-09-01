@@ -30,3 +30,39 @@ export function formatAmount(value: number) {
         ? `${sign}${groupedInteger}`
         : `${sign}${groupedInteger},${decimalPart}`;
 }
+
+export function serializeListQrData(data: Record<number, number>): string {
+    return Object.entries(data)
+        .filter(([, value]) => Number.isFinite(value))
+        .sort(([left], [right]) => Number(left) - Number(right))
+        .map(([number, price]) => {
+            const numberHex = Number(number).toString(16).toUpperCase().padStart(2, '0');
+            const priceHex = Number(price).toString(16).toUpperCase().padStart(6, '0');
+            return `${numberHex}${priceHex}`;
+        })
+        .join('');
+}
+
+export function decodeListQrData(qrData: string): Record<number, number> {
+    const normalized = qrData.trim().toUpperCase();
+
+    if (!normalized || /[^0-9A-F]/.test(normalized)) {
+        return {};
+    }
+
+    const decoded: Record<number, number> = {};
+
+    for (let index = 0; index + 8 <= normalized.length; index += 8) {
+        const chunk = normalized.slice(index, index + 8);
+        const number = Number.parseInt(chunk.slice(0, 2), 16);
+        const price = Number.parseInt(chunk.slice(2), 16);
+
+        if (Number.isNaN(number) || Number.isNaN(price) || number < 0 || number > 99) {
+            continue;
+        }
+
+        decoded[number] = price;
+    }
+
+    return decoded;
+}

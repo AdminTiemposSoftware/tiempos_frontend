@@ -778,6 +778,7 @@
         flex: 5;
 		gap: 1rem;
     }
+
     .right {
         flex: 1;
 		border: 1px solid var(--color-border);
@@ -904,6 +905,4 @@
 	.total-label {
 		font-weight: 600;
 	}
-
-
 </style>
