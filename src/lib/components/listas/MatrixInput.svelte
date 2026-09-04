@@ -1,5 +1,6 @@
 <script lang="ts">
     type MatrixModificationState = {
+        number_total_id: number;
         originalValue: number;
         operation: '+' | '-';
         modification: number;
@@ -10,7 +11,6 @@
         animateKey = $bindable<string | number | null>(null),
         isLoading = $bindable<boolean>(false),
         report = $bindable<{number: number, price: number;}[]>([]),
-        interactive = false,
         valueMap = $bindable<Record<number, number>>({}),
         allowModifications = false,
         modificationMap = $bindable<Record<number, MatrixModificationState>>({})
@@ -19,6 +19,7 @@
     let rows = $state(10);
     let columns = $state(10);
     const interactiveInputs = $state<Record<number, HTMLInputElement | null>>({});
+    const modificationInputs = $state<Record<number, HTMLInputElement | null>>({});
 
     const reportByNumber = $derived(
         report.reduce<Record<number, number>>((acc, item) => {
@@ -61,6 +62,7 @@
         }
 
         return {
+            number_total_id: 0,
             originalValue: valueMap[index] ?? 0,
             operation: '+',
             modification: 0,
@@ -93,7 +95,7 @@
     }
 
     function focusInput(index: number) {
-        const target = interactiveInputs[index];
+        const target = interactiveInputs[index] ?? modificationInputs[index];
 
         if (!target) {
             return;
@@ -120,8 +122,9 @@
                 nextIndex = (column + 1) * rows + row;
             }
 
+            event.preventDefault();
+
             if (nextIndex !== index) {
-                event.preventDefault();
                 focusInput(nextIndex);
             }
 
@@ -135,28 +138,28 @@
         event.preventDefault();
 
         const totalInputs = rows * columns;
-        const activeElement = document.activeElement;
-
-        if (!(activeElement instanceof HTMLInputElement) || !activeElement.classList.contains('matrix-price-input')) {
-            focusInput(0);
-            return;
-        }
-
         const nextIndex = (index + 1) % totalInputs;
         focusInput(nextIndex);
     }
 
-    function getCellValue(index: number) {
-        if (interactive) {
-            return valueMap[index] ?? 0;
-        }
-
-        return reportByNumber[index] ?? 0;
-    }
-
     function getColumnTotal(columnIndex: number) {
-        return Array.from({ length: rows }, (_, rowIndex) => getCellValue(columnIndex * rows + rowIndex))
-            .reduce((sum, amount) => sum + amount, 0);
+        return Array.from({ length: rows }, (_, rowIndex) => {
+            const index = columnIndex * rows + rowIndex;
+            const baseValue = valueMap[index] ?? reportByNumber[index] ?? 0;
+
+            if (!allowModifications || valueMap[index] === undefined) {
+                return baseValue;
+            }
+
+            const modification = getModificationState(index);
+            const amount = Number(modification.modification);
+
+            if (!Number.isFinite(amount)) {
+                return baseValue;
+            }
+
+            return modification.operation === '+' ? baseValue + amount : baseValue - amount;
+        }).reduce((sum, amount) => sum + amount, 0);
     }
 </script>
 
@@ -173,54 +176,41 @@
                 {#each Array.from({ length: rows }) as _, rowIndex}
                     {#each Array.from({ length: columns }) as _, colIndex}
                         {@const index = colIndex * rows + rowIndex}
-
                         <div class="matrix-cell">
                             <input type="number" value={index} disabled={true} />
-
-                            {#if interactive}
-                                {#if allowModifications && valueMap[index] !== undefined}
-                                    <div class="modification-wrapper">
-                                        <input
-                                            type="number"
-                                            value={valueMap[index] ?? ''}
-                                            min="0"
-                                            class="price matrix-price-input"
-                                            readonly={true}
-                                            bind:this={interactiveInputs[index]}
-                                            disabled={true}
-                                        />
-                                        <button
-                                            type="button"
-                                            class="matrix-modification-toggle"
-                                            onclick={() => toggleModification(index)}
-                                        >
-                                            {getModificationState(index).operation}
-                                        </button>
-                                        <input
-                                            type="number"
-                                            value={getModificationState(index).modification ?? ''}
-                                            min="0"
-                                            class="price matrix-modification-input"
-                                            oninput={(event) => updateModification(index, event.currentTarget.value)}
-                                        />
-                                    </div>
-                                {:else}
+                            {#if allowModifications && valueMap[index] !== undefined}
+                                <div class="modification-wrapper">
                                     <input
                                         type="number"
                                         value={valueMap[index] ?? ''}
-                                        min="0"
-                                        class="price"
-                                        bind:this={interactiveInputs[index]}
-                                        oninput={(event) => updateValue(index, event.currentTarget.value)}
+                                        class="price matrix-price-input"
+                                        readonly={true}
+                                        disabled={true}
+                                    />
+                                    <button
+                                        type="button"
+                                        class="matrix-modification-toggle"
+                                        onclick={() => toggleModification(index)}
+                                    >
+                                        {getModificationState(index).operation}
+                                    </button>
+                                    <input
+                                        type="number"
+                                        value={getModificationState(index).modification === 0 ? '' : getModificationState(index).modification}
+                                        class="price matrix-modification-input"
+                                        bind:this={modificationInputs[index]}
+                                        oninput={(event) => updateModification(index, event.currentTarget.value)}
                                         onkeydown={(event) => handlePriceKeydown(event, index)}
                                     />
-                                {/if}
+                                </div>
                             {:else}
                                 <input
                                     type="number"
+                                    value={valueMap[index] ?? ''}
                                     class="price"
-                                    class:price-loading={isLoading}
-                                    value={getCellValue(index)}
+                                    bind:this={interactiveInputs[index]}
+                                    oninput={(event) => updateValue(index, event.currentTarget.value)}
+                                    onkeydown={(event) => handlePriceKeydown(event, index)}
                                 />
                             {/if}
                         </div>
@@ -250,7 +240,6 @@
     .modification-wrapper {
         display: flex;
         align-items: center;
-        gap: 0.35rem;
     }
 
     .matrix-modification-toggle {
@@ -258,7 +247,6 @@
         min-width: 2rem;
         height: 2.2rem;
         border: 1px solid var(--color-border, #d1d5db);
-        border-radius: 0.4rem;
         background: var(--color-box-background, #f9fafb);
         color: var(--color-text, #111827);
         font-weight: 700;
