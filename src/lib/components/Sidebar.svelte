@@ -58,7 +58,7 @@
         { label: 'Ganadores', path: '/puesto/ganadores', roles: ['branch'] },
         { label: 'Reportes', path: '/puesto/reportes', roles: ['branch'] },
         { label: 'Cajas', path: '/puesto/cajas', roles: ['branch'] },
-		{ label: 'Carga Excel', path: '/puesto/carga-excel', roles: ['branch'] }
+        { label: 'Carga Excel', path: '/puesto/carga-excel', roles: ['branch'] },
 	];
 
 	let visibleNavItems = $derived(
@@ -80,10 +80,19 @@
                     </a>
                 </li>
             {/each}
-			<div class="sidebar-header">
-				<h2>{$auth.user?.username}</h2>
-				<h2>{$auth.user?.branchName}</h2>
-			</div>
+			<li class="sidebar-header-container">
+				{#if role === 'branch'}
+					<a class="sidebar-header" href="/puesto/usuario" title="Mi información">
+						<h2>{$auth.user?.username}</h2>
+						<h2>{$auth.user?.branchName}</h2>
+					</a>
+				{:else}
+					<div class="sidebar-header">
+						<h2>{$auth.user?.username}</h2>
+						<h2>{$auth.user?.branchName}</h2>
+					</div>
+				{/if}
+			</li>
 			<div
 				class="logout"
 				onclick={handleLogout}
@@ -179,6 +188,13 @@
 		margin: 0;
 	}
 
+	.sidebar-header-container {
+		position: absolute;
+		bottom: 4rem;
+		left: 0;
+		right: 0;
+	}
+
 	.sidebar-header {
 		flex-direction: column;
 	    gap: 1rem;
@@ -186,10 +202,6 @@
 		text-align: left;
 		border-bottom: 1px solid var(--color-border);
 		border-top: 1px solid var(--color-border);
-		position: absolute;
-		bottom: 4rem;
-		left: 0;
-		right: 0;
 	}
 
 	a, .logout, .sidebar-header {
@@ -219,7 +231,7 @@
 		transition: opacity 0.3s ease;
 	}
 
-	.sidebar.collapsed a, .sidebar.collapsed .logout , .sidebar.collapsed .sidebar-header {
+	.sidebar.collapsed a, .sidebar.collapsed .logout, .sidebar.collapsed .sidebar-header {
 		display: none;
 	}
 

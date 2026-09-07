@@ -20,7 +20,7 @@ export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
             date = fallbackDate;
         }
         const [drawResponse, prohibitedResponse] = await Promise.all([
-			fetch(`${baseUrl}/draw/by-branch/${branchId}/${date}`, {
+			fetch(`${baseUrl}/draw-schedule/available/by-branch/${branchId}/${date}`, {
 				method: 'GET',
 				headers: {
 					Authorization: `Bearer ${token}`,

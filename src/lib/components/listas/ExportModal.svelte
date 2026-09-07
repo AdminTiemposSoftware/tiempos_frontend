@@ -16,7 +16,25 @@
 
         return new Date(year, month - 1, day);
     }
+    /**
+     * TODO : IMPLEMENT THIS PART TO EXPORT NEGATIVE NUMBERS
+     function serializeNumber(value: number, bits: number): string {
+         const numberValue = BigInt(value);
+         const encodedValue = numberValue < 0n
+             ? (1n << BigInt(bits)) + numberValue
+             : numberValue;
 
+         return encodedValue.toString(16).toUpperCase().padStart(bits / 4, '0');
+     }
+
+     function serializeData(data: Record<number, number>): string {
+         let result = Object.values(data).map((amount) =>amount.toString(16).toUpperCase().padStart(6, '0')).join('');
+         result += total.toString(16).toUpperCase().padStart(8, '0');
+         let result = Object.values(data).map((amount) => serializeNumber(amount, 24)).join('');
+         result += serializeNumber(total, 32);
+         if (dateFrom === dateTo) {
+             result += formatDate(parseDate(dateFrom));
+     */
     function serializeData(data: Record<number, number>): string {
         let result = Object.values(data).map((amount) =>amount.toString(16).toUpperCase().padStart(6, '0')).join('');
         result += total.toString(16).toUpperCase().padStart(8, '0');
