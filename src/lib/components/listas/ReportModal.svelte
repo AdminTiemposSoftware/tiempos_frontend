@@ -70,16 +70,45 @@
 		comission: number;
 	};
 
-	const GROUPING_OPTIONS_LOCAL: { value: GroupingMode; label: string }[] = [
-		{ value: 'branch', label: 'Puesto' },
-		{ value: 'draw_schedule', label: 'Horario' },
-		{ value: 'draw', label: 'Sorteo' },
-		{ value: 'date', label: 'Fecha' }
-	];
-
 	// Defines the active grouping hierarchy.
 	// By default, reports are grouped first by date and then by branch.
 	let groupingModes = $state<GroupingMode[]>(['date', 'draw_schedule']);
+	let showGroupingConfig = $state(false);
+
+	const groupingPresets: { label: string; modes: GroupingMode[] }[] = [
+		{
+			label: 'Fecha > Sorteo > Horario > Puesto',
+			modes: ['date', 'draw', 'draw_schedule', 'branch']
+		},
+		{
+			label: 'Fecha > Sorteo > Horario',
+			modes: ['date', 'draw', 'draw_schedule']
+		},
+		{
+			label: 'Puesto > Fecha > Sorteo > Horario',
+			modes: ['branch', 'date', 'draw', 'draw_schedule']
+		},
+		{
+			label: 'Puesto > Sorteo > Horario',
+			modes: ['branch', 'draw', 'draw_schedule']
+		},
+		{
+			label: 'Sorteo > Horario > Puesto > Fecha',
+			modes: ['draw', 'draw_schedule', 'branch', 'date']
+		},
+		{
+			label: 'Sorteo > Puesto > Fecha',
+			modes: ['draw', 'branch', 'date']
+		},
+		{
+			label: 'Sorteo > Horario > Fecha',
+			modes: ['draw', 'draw_schedule', 'date']
+		}
+	];
+
+	function applyGroupingPreset(modes: GroupingMode[]) {
+		groupingModes = [...modes];
+	}
 
 	// Formatter used to display amounts as Costa Rican colones.
 	const currencyFormatter = new Intl.NumberFormat('es-CR', {style: 'currency', currency: 'CRC', maximumFractionDigits: 0});
@@ -139,7 +168,7 @@
 			case 'branch':
 				return item.branch_name;
 			case 'draw_schedule':
-				return `${item.draw_name} ${item.draw_schedule_name}`;
+				return item.draw_schedule_name;
 			case 'draw':
 				return item.draw_name;
 			case 'date':
@@ -311,16 +340,21 @@
 	// Rebuilds the grouped report whenever the report or grouping modes change.
 	const visibleGroups = $derived.by(() => {
 		// The first selected mode is the primary grouping.
-		// The second selected mode is the secondary grouping.
+		// All remaining modes form the secondary grouping path.
 		// If only one mode is selected, it is used for both.
-		const [primaryMode, secondaryMode = primaryMode] = groupingModes;
+		const [primaryMode, ...remainingModes] = groupingModes;
+		const secondaryModes = remainingModes.length > 0 ? remainingModes : [primaryMode];
 
 		return buildGroups(report, {
 			primaryId: (item) => getGroupingValue(item, primaryMode),
 			primaryLabel: (item) => getGroupingLabel(item, primaryMode),
 
-			secondaryId: (item) => getGroupingValue(item, secondaryMode),
-			secondaryLabel: (item) => getGroupingLabel(item, secondaryMode)
+			secondaryId: (item) => secondaryModes
+				.map((mode) => getGroupingValue(item, mode))
+				.join('|'),
+			secondaryLabel: (item) => secondaryModes
+				.map((mode) => getGroupingLabel(item, mode))
+				.join(' - ')
 		});
 	});
 
@@ -343,94 +377,126 @@
 	onkeydown={(e) => e.key === 'Escape' && onClose()}
 	tabindex="0"
 >
-	<div class="modal" onclick={(e) => e.stopPropagation()} role="presentation">
-		<div class="content">
-			{#if visibleGroups.length === 0}
-				<p class="empty">No hay datos para mostrar.</p>
-			{:else}
-				<div class="totals-head">
-				    <span>Total vendido</span>
-					<span>Comisión</span>
-					<span>Devolución</span>
-					<span>Premio</span>
-					<span>Numero ganador</span>
-					<span>Neto</span>
-				</div>
+<div class="modal" onclick={(e) => e.stopPropagation()} role="presentation">
+	<div class="content">
+		{#if visibleGroups.length === 0}
+			<p class="empty">No hay datos para mostrar.</p>
+		{:else}
+			<div class="totals-head">
+			    <span>Total vendido</span>
+				<span>Comisión</span>
+				<span>Devolución</span>
+				<span>Premio</span>
+				<span>Numero ganador</span>
+				<span>Neto</span>
+			</div>
 
-				{#each visibleGroups as group}
-					<div class="group">
-						<ul>
-							{#each group.rows as row}
-								<li>
-									<span class="label">{group.label} - {row.label}</span>
-									<div class="totals">
-									    <strong>{formatCurrency(row.total)}</strong>
-										<strong>{formatCurrency(row.comission)}</strong>
-										<strong>{formatCurrency(row.devolution)}</strong>
-										<strong>{formatCurrency(row.winner_total)}</strong>
-										<strong>
-										{#each row.winners.filter((winner) => winner.winner_number != null) as winner, index}
-											{winner.winner_number}{index < row.winners.filter((w) => w.winner_number != null).length - 1 ? ', ' : ''}
-										{/each}
-										</strong>
-										<strong>{formatCurrency(row.total - row.devolution - row.comission - row.winner_total)}</strong>
-									</div>
-								</li>
-							{/each}
-						</ul>
-						<div class="sub totals">
-						    <strong>{formatCurrency(group.total)}</strong>
-							<strong>{formatCurrency(group.comission)}</strong>
-							<strong>{formatCurrency(group.devolution)}</strong>
-							<strong>{formatCurrency(group.winner_total)}</strong>
-							<strong></strong>
-							<strong>{formatCurrency(group.total - group.devolution - group.comission - group.winner_total)}</strong>
-						</div>
+			{#each visibleGroups as group}
+				<div class="group">
+					<ul>
+						{#each group.rows as row}
+							<li>
+								<span class="label">{group.label} - {row.label}</span>
+								<div class="totals">
+								    <strong>{formatCurrency(row.total)}</strong>
+									<strong>{formatCurrency(row.comission)}</strong>
+									<strong>{formatCurrency(row.devolution)}</strong>
+									<strong>{formatCurrency(row.winner_total)}</strong>
+									<strong>
+									{#each row.winners.filter((winner) => winner.winner_number != null) as winner, index}
+										{winner.winner_number}{index < row.winners.filter((w) => w.winner_number != null).length - 1 ? ', ' : ''}
+									{/each}
+									</strong>
+									<strong>{formatCurrency(row.total - row.devolution - row.comission - row.winner_total)}</strong>
+								</div>
+							</li>
+						{/each}
+					</ul>
+					<div class="sub totals">
+					    <strong>{formatCurrency(group.total)}</strong>
+						<strong>{formatCurrency(group.comission)}</strong>
+						<strong>{formatCurrency(group.devolution)}</strong>
+						<strong>{formatCurrency(group.winner_total)}</strong>
+						<strong></strong>
+						<strong>{formatCurrency(group.total - group.devolution - group.comission - group.winner_total)}</strong>
 					</div>
-				{/each}
-			{/if}
-			<footer class="modal-footer">
-				<span class="label">Total</span>
-				<div class="totals footer">
-				    <strong>{formatCurrency(grandTotal)}</strong>
-					<strong>{formatCurrency(grandcomissionTotal)}</strong>
-					<strong>{formatCurrency(grandDevolutionTotal)}</strong>
-					<strong>{formatCurrency(granWinnerTotal)}</strong>
-					<strong>
-     			</strong>
-					<strong>{formatCurrency(grandTotal - grandDevolutionTotal - grandcomissionTotal - granWinnerTotal)}</strong>
 				</div>
-			</footer>
-		</div>
-       	<div class="field grouping-field">
-      		<label for="agrupacion">Agrupar por</label>
-      		<div class="grouping-options">
- 			{#each GROUPING_OPTIONS as option}
-				<button
-   					type="button"
-   					class={`grouping-option ${groupingModes.includes(option.value) ? 'selected' : ''}`}
-   					onclick={() => toggleGroupingMode(option.value)}
-				>
-   					<input type="checkbox" checked={groupingModes.includes(option.value)} readonly />
-   					<span>{option.label}</span>
-				</button>
- 			{/each}
-      		</div>
-      		<div class="grouping-order">
-     			<div class="grouping-chip-list">
-    				{#each groupingModes as mode, index}
-   					<div class="chip">
-  						<span>{index + 1}. {getGroupingModeLabel(mode)}</span>
-  						<div class="grouping-chip-actions">
- 							<button type="button" onclick={() => moveGroupingMode(mode, -1)} disabled={index === 0}>↑</button>
- 							<button type="button" onclick={() => moveGroupingMode(mode, 1)} disabled={index === groupingModes.length - 1}>↓</button>
-  						</div>
-   					</div>
-    				{/each}
-     			</div>
-      		</div>
-       	</div>
+			{/each}
+		{/if}
+		<footer class="modal-footer">
+			<span class="label">Total</span>
+			<div class="totals footer">
+			    <strong>{formatCurrency(grandTotal)}</strong>
+				<strong>{formatCurrency(grandcomissionTotal)}</strong>
+				<strong>{formatCurrency(grandDevolutionTotal)}</strong>
+				<strong>{formatCurrency(granWinnerTotal)}</strong>
+				<strong>
+ 			</strong>
+				<strong>{formatCurrency(grandTotal - grandcomissionTotal - granWinnerTotal)}</strong>
+			</div>
+		</footer>
 	</div>
+	<div class="field grouping-field">
+  		<div class="grouping-presets">
+       	    <span class="grouping-config-toggle">Agrupar por</span>
+			{#each GROUPING_OPTIONS as option}
+				{@const presetsForMode = groupingPresets.filter((preset) => preset.modes[0] === option.value)}
+				{#if presetsForMode.length > 0}
+					<span class="grouping-preset-subtitle">Por {option.label.toLowerCase()}</span>
+					{#each presetsForMode as preset}
+						<button
+							type="button"
+							class="grouping-preset"
+							onclick={() => applyGroupingPreset(preset.modes)}
+							title={preset.label}
+						>
+							{preset.label}
+						</button>
+					{/each}
+				{/if}
+			{/each}
+		</div>
+  		<button
+     			type="button"
+     			class="grouping-config-toggle"
+     			aria-expanded={showGroupingConfig}
+     			onclick={() => showGroupingConfig = !showGroupingConfig}
+  		>
+     			<span>Configurar</span>
+     			<span aria-hidden="true">{showGroupingConfig ? '^' : '>'}</span>
+  		</button>
+  		{#if showGroupingConfig}
+ 			<div class="grouping-config">
+				<div class="grouping-options">
+				{#each GROUPING_OPTIONS as option}
+				<button
+ 							type="button"
+ 							class={`grouping-option ${groupingModes.includes(option.value) ? 'selected' : ''}`}
+ 							onclick={() => toggleGroupingMode(option.value)}
+				>
+ 							<input type="checkbox" checked={groupingModes.includes(option.value)} readonly />
+ 							<span>{option.label}</span>
+				</button>
+				{/each}
+				</div>
+				<div class="grouping-order">
+				<div class="grouping-chip-list">
+				{#each groupingModes as mode, index}
+ 							<div class="chip">
+								<span>{index + 1}. {getGroupingModeLabel(mode)}</span>
+								<div class="grouping-chip-actions">
+								<button type="button" onclick={() => moveGroupingMode(mode, -1)} disabled={index === 0}>↑</button>
+								<button type="button" onclick={() => moveGroupingMode(mode, 1)} disabled={index === groupingModes.length - 1}>↓</button>
+								</div>
+ 							</div>
+				{/each}
+				</div>
+				</div>
+ 			</div>
+  		{/if}
+        <button>Ver pdf</button>
+   	</div>
+</div>
 </div>
 {/if}
 
@@ -462,7 +528,7 @@
 	.content {
 		overflow: auto;
 		display: flex;
-		flex: 1;
+		flex: 4;
 		flex-direction: column;
 	}
 
@@ -517,8 +583,77 @@
 		flex-wrap: unset;
 	}
 
+	.grouping-presets {
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.grouping-presets-label {
+		font-size: 0.8rem;
+		font-weight: 600;
+		opacity: 0.8;
+	}
+
+	.grouping-preset {
+		padding: 0.35rem 0.5rem;
+		border: 1px solid var(--color-border);
+		border-radius: 0.25rem;
+		background: transparent;
+		color: inherit;
+		cursor: pointer;
+		text-align: left;
+		justify-content: left;
+	}
+
+	.grouping-preset-subtitle {
+		margin-top: 0.25rem;
+		font-size: 0.8rem;
+		font-weight: 600;
+		opacity: 0.8;
+	}
+
+	.grouping-preset:hover {
+		background: var(--color-border);
+	}
+
+	.grouping-config-toggle {
+		display: flex;
+		justify-content: space-between;
+		width: 100%;
+		padding: 0.25rem 0;
+		border: 0;
+		background: transparent;
+		color: inherit;
+		cursor: pointer;
+		font-size: 0.75rem;
+		font-weight: 600;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		opacity: 0.7;
+	}
+
+	.grouping-config-toggle:hover {
+		opacity: 1;
+	}
+
+	.grouping-config {
+		margin-top: 0.5rem;
+	}
+
+	.grouping-config-label {
+		display: block;
+		margin-bottom: 0.35rem;
+		font-size: 0.8rem;
+		font-weight: 600;
+		opacity: 0.8;
+	}
+
 	.grouping-field {
-        flex: initial;
+        flex: 1;
+        position: relative;
+        overflow-y: auto;
    	}
 
     .grouping-chip-list {
