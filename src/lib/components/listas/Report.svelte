@@ -17,7 +17,6 @@
 	};
 
 	const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
-	const utcMinusTDTDate = new Date(Date.now() - 24 * 30 * 60 * 60 * 1000);
 	let prohibitedNumberToDelete = $state<prohibitedNumber | null>(null);
 	let prohibitedNumbers = $state<prohibitedNumber[]>([]);
 	let showDeleteProhibitedModal = $state(false);
@@ -47,7 +46,7 @@
 		}
 	});
 	let matrixMode = $state<'20x5' | '5x20' | '10x10'>('10x10');
-	let from =  $state(utcMinusTDTDate.toISOString().split('T')[0]);
+	let from =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let to =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let report = $state<ReportItem[]>([]);
 	let isLoading = $state<boolean>(false);
