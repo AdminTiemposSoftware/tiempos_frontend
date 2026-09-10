@@ -111,7 +111,7 @@
 			return;
 		}
 
-		if (input.length > 16) {
+		if (input.length > 8) {
 			let decodedData;
 			decodedData = countPossibleNumbers(input);
 			if (decodedData && decodedData > 0)

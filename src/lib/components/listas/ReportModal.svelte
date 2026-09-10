@@ -1,7 +1,30 @@
 <script lang="ts">
 	// Available grouping options and the type representing a grouping mode.
 	import { GROUPING_OPTIONS, type GroupingMode } from '../venta/grouping';
-	let { report = [], showModal = $bindable(false), winners, prohibitedNumbers } = $props<{report: ReportItem[];showModal: boolean;}>();
+	let {
+		report = [],
+		showModal = $bindable(false),
+		winners = [],
+		prohibitedNumbers = [],
+		printable = false,
+		initialGroupingModes,
+		printHeader
+	} = $props<{
+		report: ReportItem[];
+		showModal: boolean;
+		winners?: Winner[];
+		prohibitedNumbers?: Prohibited[];
+		printable?: boolean;
+		initialGroupingModes?: GroupingMode[];
+		printHeader?: {
+			branches: string[];
+			drawSchedules: string[];
+			dateFrom: string;
+			dateTo: string;
+		};
+	}>();
+
+ import { PrinterSolid } from "flowbite-svelte-icons";
 
 	// Represents a single record from the report.
 	type ReportItem = {
@@ -72,7 +95,9 @@
 
 	// Defines the active grouping hierarchy.
 	// By default, reports are grouped first by date and then by branch.
-	let groupingModes = $state<GroupingMode[]>(['date', 'draw_schedule']);
+	let groupingModes = $state<GroupingMode[]>(
+		initialGroupingModes?.length ? [...initialGroupingModes] : ['date', 'draw_schedule']
+	);
 	let showGroupingConfig = $state(false);
 
 	const groupingPresets: { label: string; modes: GroupingMode[] }[] = [
@@ -367,10 +392,48 @@
 	function onClose() {
 		showModal = false;
 	}
+
+	function openPrintWindow() {
+		const printData = JSON.stringify({
+			report: $state.snapshot(report),
+			winners: $state.snapshot(winners),
+			prohibitedNumbers: $state.snapshot(prohibitedNumbers),
+			groupingModes: $state.snapshot(groupingModes),
+			printHeader: printHeader ? $state.snapshot(printHeader) : undefined
+		});
+		const printKey = `report-print-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+		const printOrigin = window.location.origin;
+		let printWindow: Window | null = null;
+
+		const handlePrintReady = (event: MessageEvent) => {
+			if (
+				event.origin !== printOrigin ||
+				event.source !== printWindow ||
+				event.data?.type !== 'report-print-ready' ||
+				event.data?.key !== printKey
+			) {
+				return;
+			}
+
+			printWindow?.postMessage(
+				{ type: 'report-print-data', key: printKey, data: printData },
+				printOrigin
+			);
+			window.removeEventListener('message', handlePrintReady);
+		};
+
+		window.addEventListener('message', handlePrintReady);
+		printWindow = window.open(`/banca/report-print?key=${printKey}`, '_blank');
+
+		if (!printWindow) {
+			window.removeEventListener('message', handlePrintReady);
+		}
+	}
 </script>
 
 {#if showModal}
 <div
+	class:printable
 	class="modal-backdrop"
 	role="button"
 	onclick={onClose}
@@ -378,6 +441,14 @@
 	tabindex="0"
 >
 <div class="modal" onclick={(e) => e.stopPropagation()} role="presentation">
+	{#if printable && printHeader}
+		<header class="print-header">
+			<h1>Reporte</h1>
+			<p>{printHeader.branches.join(', ') || 'Todos'}</p>
+			<p>{printHeader.drawSchedules.join(', ') || 'Todos'}</p>
+			<p>{printHeader.dateFrom} - {printHeader.dateTo}</p>
+		</header>
+	{/if}
 	<div class="content">
 		{#if visibleGroups.length === 0}
 			<p class="empty">No hay datos para mostrar.</p>
@@ -392,35 +463,36 @@
 			</div>
 
 			{#each visibleGroups as group}
-				<div class="group">
-					<ul>
-						{#each group.rows as row}
-							<li>
-								<span class="label">{group.label} - {row.label}</span>
-								<div class="totals">
-								    <strong>{formatCurrency(row.total)}</strong>
-									<strong>{formatCurrency(row.comission)}</strong>
-									<strong>{formatCurrency(row.devolution)}</strong>
-									<strong>{formatCurrency(row.winner_total)}</strong>
-									<strong>
-									{#each row.winners.filter((winner) => winner.winner_number != null) as winner, index}
-										{winner.winner_number}{index < row.winners.filter((w) => w.winner_number != null).length - 1 ? ', ' : ''}
-									{/each}
-									</strong>
-									<strong>{formatCurrency(row.total - row.devolution - row.comission - row.winner_total)}</strong>
-								</div>
-							</li>
-						{/each}
-					</ul>
-					<div class="sub totals">
-					    <strong>{formatCurrency(group.total)}</strong>
-						<strong>{formatCurrency(group.comission)}</strong>
-						<strong>{formatCurrency(group.devolution)}</strong>
-						<strong>{formatCurrency(group.winner_total)}</strong>
-						<strong></strong>
-						<strong>{formatCurrency(group.total - group.devolution - group.comission - group.winner_total)}</strong>
-					</div>
+			<div class="group">
+				<div class="group-label">{group.label}</div>
+				<ul>
+				{#each group.rows as row}
+					<li>
+						<span class="label">{row.label}</span>
+						<div class="totals">
+						    <strong>{formatCurrency(row.total)}</strong>
+							<strong>{formatCurrency(row.comission)}</strong>
+							<strong>{formatCurrency(row.devolution)}</strong>
+							<strong>{formatCurrency(row.winner_total)}</strong>
+							<strong>
+							{#each row.winners.filter((winner) => winner.winner_number != null) as winner, index}
+								{winner.winner_number}{index < row.winners.filter((w) => w.winner_number != null).length - 1 ? ', ' : ''}
+							{/each}
+							</strong>
+							<strong>{formatCurrency(row.total - row.devolution - row.comission - row.winner_total)}</strong>
+						</div>
+					</li>
+				{/each}
+				</ul>
+				<div class="sub totals">
+				    <strong>{formatCurrency(group.total)}</strong>
+					<strong>{formatCurrency(group.comission)}</strong>
+					<strong>{formatCurrency(group.devolution)}</strong>
+					<strong>{formatCurrency(group.winner_total)}</strong>
+					<strong></strong>
+					<strong>{formatCurrency(group.total - group.devolution - group.comission - group.winner_total)}</strong>
 				</div>
+			</div>
 			{/each}
 		{/if}
 		<footer class="modal-footer">
@@ -432,10 +504,11 @@
 				<strong>{formatCurrency(granWinnerTotal)}</strong>
 				<strong>
  			</strong>
-				<strong>{formatCurrency(grandTotal - grandcomissionTotal - granWinnerTotal)}</strong>
+			<strong>{formatCurrency(grandTotal - grandcomissionTotal - granWinnerTotal)}</strong>
 			</div>
 		</footer>
 	</div>
+	{#if !printable}
 	<div class="field grouping-field">
   		<div class="grouping-presets">
        	    <span class="grouping-config-toggle">Agrupar por</span>
@@ -457,45 +530,46 @@
 			{/each}
 		</div>
   		<button
-     			type="button"
-     			class="grouping-config-toggle"
-     			aria-expanded={showGroupingConfig}
-     			onclick={() => showGroupingConfig = !showGroupingConfig}
+ 			type="button"
+ 			class="grouping-config-toggle"
+ 			aria-expanded={showGroupingConfig}
+ 			onclick={() => showGroupingConfig = !showGroupingConfig}
   		>
-     			<span>Configurar</span>
-     			<span aria-hidden="true">{showGroupingConfig ? '^' : '>'}</span>
+ 			<span>Configurar</span>
+ 			<span aria-hidden="true">{showGroupingConfig ? '^' : '>'}</span>
   		</button>
   		{#if showGroupingConfig}
  			<div class="grouping-config">
 				<div class="grouping-options">
 				{#each GROUPING_OPTIONS as option}
-				<button
- 							type="button"
- 							class={`grouping-option ${groupingModes.includes(option.value) ? 'selected' : ''}`}
- 							onclick={() => toggleGroupingMode(option.value)}
-				>
- 							<input type="checkbox" checked={groupingModes.includes(option.value)} readonly />
- 							<span>{option.label}</span>
-				</button>
+    				<button
+        				type="button"
+        				class={`grouping-option ${groupingModes.includes(option.value) ? 'selected' : ''}`}
+        				onclick={() => toggleGroupingMode(option.value)}
+    				>
+        				<input type="checkbox" checked={groupingModes.includes(option.value)} readonly />
+        				<span>{option.label}</span>
+    				</button>
 				{/each}
 				</div>
 				<div class="grouping-order">
-				<div class="grouping-chip-list">
-				{#each groupingModes as mode, index}
- 							<div class="chip">
-								<span>{index + 1}. {getGroupingModeLabel(mode)}</span>
-								<div class="grouping-chip-actions">
-								<button type="button" onclick={() => moveGroupingMode(mode, -1)} disabled={index === 0}>↑</button>
-								<button type="button" onclick={() => moveGroupingMode(mode, 1)} disabled={index === groupingModes.length - 1}>↓</button>
-								</div>
- 							</div>
-				{/each}
-				</div>
+    				<div class="grouping-chip-list">
+    				{#each groupingModes as mode, index}
+        				<div class="chip">
+            				<span>{index + 1}. {getGroupingModeLabel(mode)}</span>
+            				<div class="grouping-chip-actions">
+            				<button type="button" onclick={() => moveGroupingMode(mode, -1)} disabled={index === 0}>↑</button>
+            				<button type="button" onclick={() => moveGroupingMode(mode, 1)} disabled={index === groupingModes.length - 1}>↓</button>
+            				</div>
+        				</div>
+    				{/each}
+    				</div>
 				</div>
  			</div>
   		{/if}
-        <button>Ver pdf</button>
+        <button type="button" onclick={openPrintWindow} class="bottom"><PrinterSolid class="shrink-0 h-4 w-4" /> Imprimir</button>
    	</div>
+	{/if}
 </div>
 </div>
 {/if}
@@ -510,6 +584,70 @@
 		gap: 1rem;
 	}
 
+	.printable {
+		position: static;
+		display: block;
+		width: 100%;
+		height: auto;
+		background: white;
+		overflow: visible;
+		backdrop-filter: none;
+		animation: none;
+		font-size: 0.8rem;
+	}
+
+	.printable .modal {
+		width: 100%;
+		max-height: none;
+		margin: 0;
+		display: block;
+		padding: 0;
+		border-radius: 0;
+		box-shadow: none;
+		animation: none;
+	}
+
+	.printable .content {
+		overflow: visible;
+	}
+
+	.printable .group {
+		break-inside: avoid;
+		page-break-inside: avoid;
+		padding: 0.15rem 0.25rem;
+		font-size: 0.8rem;
+	}
+
+	.printable .totals-head {
+		font-size: 0.7rem;
+		padding: 0 0.75rem;
+	}
+
+	.printable li {
+		padding: 0 0 0 1rem;
+	}
+
+	.printable .modal-footer {
+		padding: 0.5rem !important;
+	}
+
+	.print-header {
+		margin-bottom: 1rem;
+		text-align: center;
+		gap: 0.2rem;
+	}
+
+	.print-header h1 {
+		margin: 0 0 0.5rem;
+		font-size: 1.2rem;
+		font-weight: 700;
+	}
+
+	.print-header p {
+		margin: 0;
+		font-size: 0.8rem;
+	}
+
 	.modal-footer {
 		padding: 0.7rem !important;
 	}
@@ -520,7 +658,7 @@
 		align-items: center;
 		font-size: 0.85rem;
 		opacity: 0.85;
-		width: 61%;
+		width: 60%;
 		margin-left: auto;
 		padding: 0 1rem;
 	}
@@ -537,6 +675,11 @@
 		font-size: 1rem;
 	}
 
+	.group-label {
+		padding-bottom: 0.25rem;
+		font-weight: 600;
+	}
+
 	ul {
 		list-style: none;
 		margin: 0;
@@ -546,7 +689,7 @@
 	li, .modal-footer {
 		display: flex;
 		justify-content: space-between;
-		padding: 0.15rem 0;
+		padding: 0.15rem 0 0.15rem 1rem ;
 		border-top: 1px solid var(--color-border);
 	}
 
@@ -567,7 +710,7 @@
 	}
 
 	.modal-footer .totals {
-		width: 60%;
+		width: 59%;
 		margin-left: auto;
 		flex: initial;
 	}
@@ -661,7 +804,7 @@
     }
 
     .sub.totals {
-        width: 60%;
+        width: 59%;
         margin-left: auto;
         border-top: 1px solid var(--color-border);
     }

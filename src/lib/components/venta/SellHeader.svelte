@@ -8,7 +8,8 @@
         message = $bindable(),
         availableBets = $bindable(),
         selectedBet = $bindable(),
-        prohibitedPercentage = $bindable()
+        prohibitedPercentage = $bindable(),
+        isPrintConfirmationOpen = false
     } = $props();
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
 
@@ -123,6 +124,10 @@
     }
 
     function selectBet(index: number) {
+        if (isPrintConfirmationOpen) {
+            return;
+        }
+
         const nextBet = sortedBets[index];
         if (!nextBet) {
             return;
@@ -138,6 +143,7 @@
 
     function handleBetKeydown(event: KeyboardEvent) {
         if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+        if (isPrintConfirmationOpen) return;
         const target = event.target;
 
         if (sortedBets.length < 2) {
@@ -186,7 +192,12 @@
                                 name={"sorteo"}
                                 value={bet.schedule_id}
                                 checked={selectedBet?.schedule_id === bet.schedule_id}
-                                onchange={() => selectedBet = bet}
+                                onchange={() => {
+                                    if (!isPrintConfirmationOpen) {
+                                        selectedBet = bet;
+                                    }
+                                }}
+                                disabled={isPrintConfirmationOpen}
                                 class="sorteo-input"
                             />
                             <span class="sorteo-pill">

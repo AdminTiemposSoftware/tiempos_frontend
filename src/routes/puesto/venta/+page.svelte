@@ -86,6 +86,7 @@
     let prohibitedPercentage = $state();
     let availableBets = $state<AvailableBet[]>([]);
     let isMatrixLoading = $state(false);
+    let isPrintConfirmationOpen = $state(false);
     let tickets = $state<TicketRow[]>([]);
     let ticketNumbers = $state<Numbers[]>([]);
     let now = $state(new Date());
@@ -322,6 +323,7 @@
             bind:availableBets={availableBets}
             bind:selectedBet={selectedBet}
             bind:prohibitedPercentage={prohibitedPercentage}
+            isPrintConfirmationOpen={isPrintConfirmationOpen}
         />
     <section class="set-section">
         <Sell
@@ -330,6 +332,7 @@
             getSoldNumbersForTicket={getSoldNumbersForTicket}
             selectedBet={selectedBet}
             prohibitedPercentage={prohibitedPercentage}
+            bind:isPrintConfirmationOpen={isPrintConfirmationOpen}
         />
         <Matrix
             mode={'20x5'}

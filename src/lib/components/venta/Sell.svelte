@@ -1,5 +1,11 @@
 <script lang="ts">
-    let {getTickets, getSoldNumbersForTicket, selectedBet, selectedDate} = $props();
+    let {
+        getTickets,
+        getSoldNumbersForTicket,
+        selectedBet,
+        selectedDate,
+        isPrintConfirmationOpen = $bindable(false)
+    } = $props();
 
     let sold= $state<Record<string, number>>({});
     let priceInput: HTMLInputElement;
@@ -544,6 +550,10 @@
         showConfirmModal = false;
         await processTicket();
     }
+
+    $effect(() => {
+        isPrintConfirmationOpen = showConfirmModal;
+    });
 
 </script>
 

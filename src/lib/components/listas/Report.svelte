@@ -59,6 +59,20 @@
     let winnersFiltered = $state<WinnerItem[]>([]);
     let prohibitedFiltered = $state<prohibitedItem[]>([]);
     let totalAmountReport = $derived(report.reduce((acc, item) => acc + item.amount, 0));
+    const printHeader = $derived({
+        branches: selectedBranch.length === 0 || selectedBranch.includes(0)
+            ? branchNames.slice(1).map((item) => item.label)
+            : branchNames
+                .filter((item) => selectedBranch.includes(item.value))
+                .map((item) => item.label),
+        drawSchedules: selectedDrawSchedule.length === 0 || selectedDrawSchedule.includes(0)
+            ? drawScheduleNames.slice(1).map((item) => item.label)
+            : drawScheduleNames
+                .filter((item) => selectedDrawSchedule.includes(item.value))
+                .map((item) => item.label),
+        dateFrom: from,
+        dateTo: to
+    });
 
     type WinnerItem = {
         position_number: number;
@@ -309,37 +323,36 @@
 
 	function validFilters() {
         if (from > to) {
-                acts.add({
-                    message: "La fecha 'Desde' no puede ser mayor que la fecha 'Hasta'.",
-                    mode: 'error',
-                    lifetime: 3
-                });
-       	return false;
+            acts.add({
+                message: "La fecha 'Desde' no puede ser mayor que la fecha 'Hasta'.",
+                mode: 'error',
+                lifetime: 3
+            });
+           	return false;
         }
 
         if (selectedBranch.length === 0 && user === 'banking') {
             acts.add({
-                    message: "Seleccione al menos un puesto",
-                    mode: 'error',
-                    lifetime: 3
-                });
-       	return false;
+                message: "Seleccione al menos un puesto",
+                mode: 'error',
+                lifetime: 3
+            });
+           	return false;
         }
 
         if (selectedDrawSchedule.length === 0) {
             acts.add({
-                    message: "Seleccione al menos un horario",
-                    mode: 'error',
-                    lifetime: 3
-                });
-       	return false;
+                message: "Seleccione al menos un horario",
+                mode: 'error',
+                lifetime: 3
+            });
+           	return false;
         }
 
         return true;
 	}
 
 	async function applyFilters() {
-	    if (!validFilters()) return;
 		try {
 		    isLoading = true;
 			let response;
@@ -404,7 +417,6 @@
 	}
 
 	async function fetchWinnersFiltered() {
-	    if (!validFilters()) return;
 		try {
 		    isLoading = true;
 			let response;
@@ -444,7 +456,6 @@
 	}
 
 	async function fetchProhibitedNumbers() {
-		if (!validFilters()) return;
 		try {
 		    isLoading = true;
 			let response;
@@ -547,6 +558,7 @@
 	}
 
 	async function showReport() {
+        if (!validFilters()) return;
 		await applyFilters();
 		await fetchWinnersFiltered();
 		await fetchProhibitedNumbers();
@@ -603,6 +615,7 @@
     report={report}
     winners={winnersFiltered}
     prohibitedNumbers={prohibitedFiltered}
+    printHeader={printHeader}
 />
 
 <section class="inicio">

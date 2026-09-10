@@ -802,3 +802,10 @@ button.prohibited-badge:focus-visible {
 .price:disabled {
     color: var(--color-text) !important;
 }
+
+.bottom {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
