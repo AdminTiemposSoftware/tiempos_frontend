@@ -3,12 +3,26 @@
     import { auth } from '$lib/stores/auth';
     import { PenSolid, TrashBinSolid } from 'flowbite-svelte-icons';
     import { goto } from '$app/navigation';
-    import WinnerTicketsModal from '$lib/components/ganadores/WinnerTicketsModal.svelte';
+    import SelectModal from '$lib/components/SelectModal.svelte';
+    import WinnerTicketList from '../../../lib/components/ganadores/WinnerTicketList.svelte';
+    import { formatAmount } from '$lib/printing/printing';
 
     let { data } = $props();
     let winnerTickets: WinnerTicketRow[] = $state([]);
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    const yesterday = new Date(utcMinus6Date);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
     let selectedDate = $state(utcMinus6Date.toISOString().split('T')[0]);
+    let from = $state(yesterday.toISOString().split('T')[0]);
+    let to = $state(utcMinus6Date.toISOString().split('T')[0]);
+    let selectedDrawSchedule = $state<number[]>([]);
+    let drawScheduleNames: { value: number; label: string }[] = $state([]);
+    let hasLoadedDefaultFilters = $state(false);
+    let isLoadingTickets = $state(false);
+    let totalWinnerTickets = $state(0);
+    let totalWon = $state(0);
+    let totalPaid = $state(0);
+    let totalPending = $state(0);
     let winners = $state<Winner[]>([]);
     let editingWinner = $state<Record<number, number>>({});
     let assignedWinner = $state<Record<number, boolean>>({});
@@ -34,9 +48,10 @@
 
     type WinnerTicketRow = {
         date: string;
-        detail: string;
+        details: string;
         paid_by: string;
         amount: number;
+        branch_name: string;
         number: number;
         draw_name: string;
         draw_schedule_name: string;
@@ -45,14 +60,19 @@
         is_reventado: boolean;
         multiplier: number;
         numbersSold: Record<number, number>;
+        numberFlags: Record<number, {
+            is_reventado: boolean;
+            is_megareventado: boolean;
+        }>;
         paid: boolean;
         printed_at: string;
         relative_id: number;
         serial: string;
         time: string;
         username: string;
-        winner_number: number;
+        winner_number: number | null;
         total: number;
+        status?: boolean;
     };
 
     $effect(() => {
@@ -79,6 +99,22 @@
             winner_id: item.winner_id,
             winner_number: item.winner_number
         }));
+
+   	$effect(() => {
+        const scheduleNamesItems = Array.isArray(data?.scheduleNames) ? (data.scheduleNames as any[]) : [];
+        const schedules = scheduleNamesItems.map((item) => ({
+			value: Number(item.draw_schedule_id),
+			label: `${String(item.draw_name)} - ${String(item.draw_schedule_name)}`
+ 		}));
+  		drawScheduleNames = schedules;
+
+        if (!hasLoadedDefaultFilters && schedules.length > 0) {
+            selectedDrawSchedule = schedules.map((schedule) => schedule.value);
+            hasLoadedDefaultFilters = true;
+            void fetchWinnerTickets();
+        }
+   	});
+
 
         editingWinner = items.reduce((acc: Record<number, number>, item: any) => {
             acc[item.position_id] = item.winner_number;
@@ -227,37 +263,149 @@
         return false;
     }
 
-    async function showWinners(winner: Winner) {
-        try {
-            const response = await fetch(`/banca/ganadores/${winner.schedule_id}/${selectedDate}`);
-            const payload = response.ok ? await response.json().catch(() => null) : null;
-            const items = Array.isArray(payload?.items) ? payload.items as WinnerTicketRow[] : [];
-            winnerTickets = items.reduce<WinnerTicketRow[]>((acc, row) => {
-                let ticket = acc.find(item => item.serial === row.serial);
-                if (!ticket) {
-                    ticket = {
-                        ...row,
-                        serial: row.serial,
-                        numbersSold: {},
-                        total: 0
-                    };
+    function parseNumbersSold(value: unknown): Record<number, number> {
+        if (typeof value === 'string') {
+            try {
+                value = JSON.parse(value);
+            } catch {
+                return {};
+            }
+        }
 
-                    acc.push(ticket);
-                }
-                ticket.numbersSold[row.number] = Number(row.amount);
-                ticket.total += Number(row.amount);
-                return acc;
-            }, []);
+        if (!value || typeof value !== 'object' || Array.isArray(value)) {
+            return {};
+        }
 
-            showWinnerTicketsModal = true;
-        } catch (error) {
-            console.error(error);
+        return Object.entries(value).reduce<Record<number, number>>((numbers, [number, amount]) => {
+            const parsedNumber = Number(number);
+            const parsedAmount = Number(amount);
+            if (Number.isFinite(parsedNumber) && Number.isFinite(parsedAmount)) {
+                numbers[parsedNumber] = parsedAmount;
+            }
+            return numbers;
+        }, {});
+    }
+
+    function getWinningAmount(ticket: WinnerTicketRow): number {
+        if (ticket.winner_number === null) {
+            return 0;
+        }
+        return Number(ticket.numbersSold[ticket.winner_number] ?? 0);
+    }
+
+    function getWinningTotal(ticket: WinnerTicketRow): number {
+        return getWinningAmount(ticket) * Number(ticket.multiplier || 0);
+    }
+
+    function updateWinnerStatistics() {
+        totalWon = winnerTickets.reduce((total, ticket) => total + getWinningTotal(ticket), 0);
+        totalPaid = winnerTickets
+            .filter((ticket) => ticket.paid)
+            .reduce((total, ticket) => total + getWinningTotal(ticket), 0);
+        totalPending = totalWon - totalPaid;
+    }
+
+    async function fetchWinnerTickets() {
+        if (!from || !to) {
             acts.add({
-                message: 'Error al obtener los ganadores. Por favor, inténtelo de nuevo.',
+                message: 'Seleccione un rango de fechas.',
                 mode: 'error',
                 lifetime: 3
             });
             return;
+        }
+
+        if (selectedDrawSchedule.length === 0) {
+            acts.add({
+                message: 'Seleccione al menos un sorteo.',
+                mode: 'error',
+                lifetime: 3
+            });
+            return;
+        }
+
+        isLoadingTickets = true;
+        try {
+            const params = new URLSearchParams({
+                date_from: from,
+                date_to: to,
+                draw_schedules: selectedDrawSchedule.join(',')
+            });
+            const response = await fetch(`/banca/ganadores/ticket/filtered?${params}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error('Unable to fetch winner tickets');
+            }
+
+            const payload = await response.json();
+            const items = Array.isArray(payload?.items) ? payload.items : [];
+            const groupedTickets = new Map<string, WinnerTicketRow>();
+            for (const item of items) {
+                const serial = String(item.serial ?? '');
+                const number = item.number === undefined || item.number === null
+                    ? null
+                    : Number(item.number);
+                const amount = Number(item.amount);
+                const initialNumbersSold = parseNumbersSold(item.numbersSold ?? item.numbers_sold);
+                let ticket = groupedTickets.get(serial);
+
+                if (!ticket) {
+                    ticket = {
+                        date: String(item.date ?? ''),
+                        details: String(item.details ?? item.detail ?? ''),
+                        branch_name: String(item.branch_name ?? ''),
+                        draw_name: String(item.draw_name ?? ''),
+                        draw_schedule_name: String(item.draw_schedule_name ?? ''),
+                        enabled: item.enabled !== false,
+                        is_megareventado: false,
+                        is_reventado: false,
+                        multiplier: Number(item.position_multiplier ?? 0),
+                        numbersSold: initialNumbersSold,
+                        numberFlags: {},
+                        paid: Boolean(item.paid),
+                        paid_by: String(item.paid_by ?? ''),
+                        printed_at: String(item.printed_at ?? ''),
+                        relative_id: Number(item.relative_id ?? 0),
+                        serial,
+                        time: String(item.time ?? item.printed_at ?? ''),
+                        username: String(item.username ?? ''),
+                        winner_number: item.winner_number == null ? null : Number(item.winner_number),
+                        total: Object.values(initialNumbersSold).reduce((total, value) => total + value, 0)
+                            || (number === null ? Number(item.total ?? 0) : 0),
+                        status: item.status ?? item.enabled
+                    };
+                    groupedTickets.set(serial, ticket);
+                }
+
+                if (number !== null && Number.isFinite(number) && Number.isFinite(amount)) {
+                    ticket.numbersSold[number] = (ticket.numbersSold[number] ?? 0) + amount;
+                    ticket.numberFlags[number] = {
+                        is_reventado: Boolean(item.is_reventado),
+                        is_megareventado: Boolean(item.is_megareventado)
+                    };
+                    ticket.total += amount;
+                }
+            }
+
+            winnerTickets = [...groupedTickets.values()];
+            totalWinnerTickets = winnerTickets.reduce((total, ticket) => total + ticket.total, 0);
+            updateWinnerStatistics();
+        } catch {
+            winnerTickets = [];
+            totalWinnerTickets = 0;
+            totalWon = 0;
+            totalPaid = 0;
+            totalPending = 0;
+            acts.add({
+                message: 'Error al cargar los tiquetes ganadores.',
+                mode: 'error',
+                lifetime: 3
+            });
+        } finally {
+            isLoadingTickets = false;
         }
     }
 
@@ -267,121 +415,145 @@
 	<title>Ganadores</title>
 </svelte:head>
 
-<WinnerTicketsModal
-    bind:tickets={winnerTickets}
-    bind:showTicketModal={showWinnerTicketsModal}
-/>
-
 {#if ['banking'].includes($auth.user?.role ?? '')}
 <section class="ganadores">
-    <header class="header-banking">
-        <div class="header-title">
-            <div>
-                <h1 class="title">Ganadores</h1>
-                <p class="subtitle">Asigna el numero ganador por sorteo.</p>
-            </div>
-        </div>
+    <div class="table-wrap right">
+        <h2>Asignar número ganador</h2>
         <div class="filters">
             <div class="field">
                 <label for="desde">Fecha</label>
                 <input id="desde" type="date" bind:value={selectedDate} />
             </div>
         </div>
-    </header>
-
-    <div class="table-wrap">
         <table>
             <thead>
                 <tr>
-                    <th>Fecha</th>
                     <th>Sorteo</th>
                     <th>Multiplicador</th>
                     <th>Ganador</th>
-                    <th>Tiquetes</th>
                     <!-- <th>Cayó bola</th> TODO -->
                 </tr>
             </thead>
             <tbody>
-                {#each winners as winner}
-                    <tr>
-                        <td>
-                            {winner.date ? winner.date.split('T')[0].split('-').reverse().join('/') : ''}
-                        </td>
-                        <td>{winner.draw_schedule_name} {winner.position_number === 2 ? "reventado" : ""} {winner.position_number === 3 ? "megareventado" : ""} ({winner.schedule_time})</td>
-                        <td>
-                            <div class="horizontal-cell">
-                                <input
-                                    type="text"
-                                    bind:value={editingMultiplier[winner.position_id]}
-                                    class="winner-input"
-                                    disabled={!editingMultiplierMode[winner.position_id]}
-                                />
-                                {#if !editingMultiplierMode[winner.position_id]}
-                                    <button
-                                        type="button"
-                                        class="neutral"
-                                        onclick={() => enableMultiplierEdit(winner.position_id)}
-                                    >
-                                        <PenSolid class="shrink-0 h-4 w-4" />
-                                    </button>
-                                {:else}
-                                    <button
-                                        type="button"
-                                        onclick={() => requestUpdateMultiplier(winner)}
-                                    >
-                                        ✓
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onclick={() => cancelMultiplierEdit(winner.position_id)}
-                                    >
-                                        X
-                                    </button>
-                                {/if}
-                            </div>
-                        </td>
-                        <td>
-                            <div class="horizontal-cell">
-                                {#if winner.position_multiplier !== null && canAssignWinner(winner)}
-                                    <input
-                                        type="number"
-                                        bind:value={editingWinner[winner.position_id]}
-                                        disabled={assignedWinner[winner.position_id]}
-                                        class="winner-input"
-                                    />
-                                    {#if !assignedWinner[winner.position_id]}
-                                        <button
-                                            onclick={() => requestAssignWinner(winner)}
-                                            disabled={editingWinner[winner.position_id] === undefined || editingWinner[winner.position_id] === null}
-                                        >
-                                            ✓
-                                        </button>
-                                    {/if}
-                                {/if}
-                            </div>
-                        </td>
-                        <!-- { <td>
-                           #if winner.position_number === 2}
-                                <div class= "horizontal-cell">
-                                    <button class="ball red">Roja</button>
-                                    <button class="ball white">Blanca</button>
-                                </div>
+            {#each winners as winner}
+                <tr>
+                <td>{winner.draw_schedule_name} {winner.position_number === 2 ? "reventado" : ""} {winner.position_number === 3 ? "megareventado" : ""} ({winner.schedule_time})</td>
+                <td>
+                    <div class="horizontal-cell">
+                        <input
+                            type="text"
+                            bind:value={editingMultiplier[winner.position_id]}
+                            class="winner-input"
+                            disabled={!editingMultiplierMode[winner.position_id]}
+                        />
+                        {#if !editingMultiplierMode[winner.position_id]}
+                            <button
+                                type="button"
+                                class="neutral"
+                                onclick={() => enableMultiplierEdit(winner.position_id)}
+                            >
+                                <PenSolid class="shrink-0 h-4 w-4" />
+                            </button>
+                        {:else}
+                            <button
+                                type="button"
+                                onclick={() => requestUpdateMultiplier(winner)}
+                            >
+                                ✓
+                            </button>
+                            <button
+                                type="button"
+                                onclick={() => cancelMultiplierEdit(winner.position_id)}
+                            >
+                                X
+                            </button>
+                        {/if}
+                    </div>
+                </td>
+                <td>
+                    <div class="horizontal-cell">
+                        {#if winner.position_multiplier !== null && canAssignWinner(winner)}
+                            <input
+                                type="number"
+                                bind:value={editingWinner[winner.position_id]}
+                                disabled={assignedWinner[winner.position_id]}
+                                class="winner-input"
+                            />
+                            {#if !assignedWinner[winner.position_id]}
+                                <button
+                                    onclick={() => requestAssignWinner(winner)}
+                                    disabled={editingWinner[winner.position_id] === undefined || editingWinner[winner.position_id] === null}
+                                >
+                                    ✓
+                                </button>
                             {/if}
-                            </td>-->
-                        <td>
-                            <button class="" disabled={!assignedWinner[winner.position_id]} onclick={() => showWinners(winner)}>Ver</button>
-                        </td>
-                    </tr>
+                        {/if}
+                    </div>
+                </td>
+                <!-- { <td>
+                    #if winner.position_number === 2}
+                        <div class= "horizontal-cell">
+                            <button class="ball red">Roja</button>
+                            <button class="ball white">Blanca</button>
+                        </div>
+                    {/if}
+                    </td>-->
+                </tr>
                 {/each}
             </tbody>
         </table>
+    </div>
+    <div class="left">
+        <h2>Tiquetes ganadores</h2>
+        <div class="filters">
+            <div class="field">
+                <label for="from">Desde</label>
+                <input id="from" type="date" bind:value={from}/>
+            </div>
+            <div class="field">
+                <label for="to">Hasta</label>
+                <input id="to" type="date" bind:value={to}/>
+            </div>
+            <div class="field">
+                <label for="sorteo">Sorteo</label>
+    			<SelectModal
+    				options={drawScheduleNames}
+    				bind:selected={selectedDrawSchedule}
+    				placeholder="Seleccione un sorteo"
+    			/>
+            </div>
+            <button type="button" onclick={fetchWinnerTickets} disabled={isLoadingTickets}>
+                {isLoadingTickets ? 'Cargando...' : 'Filtrar'}
+            </button>
+        </div>
+        <WinnerTicketList
+            tickets={winnerTickets}
+        />
+        <div class="total-amount">
+            <div class="statistic">
+                <p class="total-label">Venta</p>
+                <p>₡{formatAmount(totalWinnerTickets)}</p>
+            </div>
+            <div class="statistic">
+                <p class="total-label">Total ganado</p>
+                <p>₡{formatAmount(totalWon)}</p>
+            </div>
+            <div class="statistic">
+                <p class="total-label">Total pagado</p>
+                <p>₡{formatAmount(totalPaid)}</p>
+            </div>
+            <div class="statistic">
+                <p class="total-label">Falta por pagar</p>
+                <p>₡{formatAmount(totalPending)}</p>
+            </div>
+        </div>
     </div>
 </section>
 {/if}
 
 <style>
     .ganadores {
-        flex-direction: column;
+        flex-direction: row;
         align-items: stretch;
         justify-content: start;
         gap: 1rem;
@@ -389,13 +561,17 @@
         box-sizing: border-box;
     }
 
-    .header-title {
+    .right, .left {
         display: flex;
+        flex-direction: column;
+        padding: 1rem;
+        flex: 1;
         gap: 1rem;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
+        background-color: var(--color-box-background);
+		border: 1px solid var(--color-border);
+		max-height: 96vh;
     }
+
     .field {
         display: flex;
         flex-direction: column;
@@ -403,8 +579,40 @@
     }
 
     .field label {
-        font-size: 0.85rem;
+        font-size: 1rem;
         color: var(--color-text);
+    }
+
+    tr {
+        background-color: white;
+    }
+
+    h2 {
+        font-size: 1.5rem;
+        border-bottom: 1px solid var(--color-border);
+        padding-bottom: 0.5rem;
+    }
+
+    .total-amount {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.75rem;
+    }
+
+    .statistic {
+        padding: 0.75rem;
+        border: 1px solid var(--color-border);
+        background-color: white;
+    }
+
+    .statistic p {
+        margin: 0;
+    }
+
+    .statistic > p:last-child {
+        margin-top: 0.35rem;
+        font-size: 1.1rem;
+        font-weight: 600;
     }
 
     .winner-input {

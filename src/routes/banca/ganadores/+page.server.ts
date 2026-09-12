@@ -8,7 +8,7 @@ export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
 
 
     if (!baseUrl || !bankingId) {
-        return { items: [] };
+        return { items: [], scheduleNames: [] };
     }
 
     try {
@@ -26,11 +26,19 @@ export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
         })]);
 
         const payload = response.ok ? await response.json().catch(() => null) : null;
-
         const items = Array.isArray(payload?.items) ? payload.items : [];
 
-        return { items };
+        const scheduleNamesResponse = await fetch(`${baseUrl}/draw-schedule/names/${bankingId}`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'X-Auth-App': 'banca'
+            }
+        });
+        const scheduleNamesPayload = scheduleNamesResponse.ok ? await scheduleNamesResponse.json().catch(() => null) : null;
+        const scheduleNames = Array.isArray(scheduleNamesPayload?.items) ? scheduleNamesPayload.items : [];
+
+        return { items, scheduleNames };
     } catch {
-        return { items: [] };
+        return { items: [], scheduleNames: [] };
     }
 };

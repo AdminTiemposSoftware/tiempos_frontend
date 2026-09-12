@@ -10,12 +10,17 @@
         selectedBet = null,
         selectedDate = '',
         details = $bindable(''),
-        createdTicket
+        createdTicket,
+        winnerTicket = null,
+        showPrintButton = true
     } = $props();
 
+    const previewSold = $derived(winnerTicket?.numbersSold ?? sold);
+    const previewSerial = $derived(winnerTicket?.serial ?? createdTicket?.ticket_serial ?? '');
+    const previewDetails = $derived(winnerTicket?.details ?? details);
 
     const receipt = $derived.by<Receipt>(() => {
-        const soldEntries = Object.entries(sold) as Array<[string, number]>;
+        const soldEntries = Object.entries(previewSold) as Array<[string, number]>;
 
         const numbers = soldEntries
             .sort(([leftNumber], [rightNumber]) => Number(leftNumber) - Number(rightNumber))
@@ -25,23 +30,34 @@
             }));
 
         const total = numbers.reduce((sum, item) => sum + item.amount, 0);
-        const branchName = $auth.user?.branchName ? String($auth.user.branchName) : 'Sucursal';
-        const username = $auth.user?.username ? String($auth.user.username) : '';
+        const branchName = winnerTicket?.branch_name
+            ? String(winnerTicket.branch_name)
+            : ($auth.user?.branchName ? String($auth.user.branchName) : 'Sucursal');
+        const username = winnerTicket?.username
+            ? String(winnerTicket.username)
+            : ($auth.user?.username ? String($auth.user.username) : '');
 
-        const firstPosition = selectedBet?.positions.filter((position: {position_number: number, multiplier: number}) => position.position_number === 1)
-        const multiplierInfo = firstPosition ? `El primero paga al: ${firstPosition[0].multiplier}` : '';
+        const firstPosition = selectedBet?.positions?.filter((position: {position_number: number, multiplier: number}) => position.position_number === 1);
+        const multiplier = winnerTicket?.multiplier ?? firstPosition?.[0]?.multiplier;
+        const multiplierInfo = multiplier ? `El primero paga al: ${multiplier}` : '';
 
         const upperLines = [
-            `${selectedBet.draw_name} ${selectedBet.schedule_name}`,
+            winnerTicket
+                ? `${winnerTicket.draw_name} ${winnerTicket.draw_schedule_name}`
+                : `${selectedBet?.draw_name ?? ''} ${selectedBet?.schedule_name ?? ''}`,
             branchName,
             username,
-            selectedDate ? `Fecha: ${selectedDate}` : '',
-            createdTicket?.printed_at ? `Hora: ${createdTicket.printed_at.slice(0, 8)}` : ''
+            winnerTicket?.date ? `Fecha: ${winnerTicket.date}` : (selectedDate ? `Fecha: ${selectedDate}` : ''),
+            winnerTicket?.time
+                ? `Hora: ${winnerTicket.time.slice(0, 8)}`
+                : (createdTicket?.printed_at ? `Hora: ${createdTicket.printed_at.slice(0, 8)}` : '')
         ].filter(Boolean) as string[];
 
         return {
-            serial: `${createdTicket?.ticket_serial || ''}`,
-            ticket_number: createdTicket?.ticket_number?.toString().padStart(3, '0') || '',
+            serial: `${previewSerial}`,
+            ticket_number: winnerTicket
+                ? winnerTicket.relative_id.toString().padStart(3, '0')
+                : createdTicket?.ticket_number?.toString().padStart(3, '0') || '',
             upperLines,
             numbers,
             total,
@@ -53,8 +69,8 @@
     function printReceipt() {
         const receiptData = {
             receipt,
-            qrData: serializeData(sold, createdTicket?.ticket_serial || ''),
-            details,
+            qrData: serializeData(previewSold, previewSerial),
+            details: previewDetails,
             printMode: 'normal' as const
         };
         const encoded = encodeURIComponent(
@@ -84,7 +100,7 @@
             onClose();
         }
 
-        if (event.key === 'Enter') {
+        if (event.key === 'Enter' && showPrintButton) {
             printReceipt();
         }
     }
@@ -107,12 +123,13 @@
         <div class="receipt-container scroll-thin">
             <ReceiptPreview
                 groupedItems={true}
-                details={details}
-                qrData={serializeData(sold, createdTicket?.ticket_serial || '')}
+                details={previewDetails}
+                qrData={serializeData(previewSold, previewSerial)}
                 receipt={receipt}
                 />
         </div>
 
+        {#if showPrintButton}
         <div class="actions">
             <!-- <button type="button" onclick={handleConfirmPDF}>
                 <div class="button-name">Guardar P<p>D</p>F</div>
@@ -121,6 +138,7 @@
                 <div class="button-name">Imp<p>r</p>imir (Enter)</div>
             </button>
         </div>
+        {/if}
     </div>
 </div>
 {/if}
