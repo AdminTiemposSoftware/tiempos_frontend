@@ -4,7 +4,7 @@
 	import SorteoModal from '$lib/components/sorteos/SorteoModal.svelte';
 	import SorteoCard from '$lib/components/sorteos/SorteoCard.svelte';
 	import AssignSorteoModal from '$lib/components/sorteos/AssignSorteoModal.svelte';
-	import {Notifications, acts} from '@tadashi/svelte-notification'
+	import { acts } from '@tadashi/svelte-notification'
 	import { auth } from '$lib/stores/auth';
 
 	let { data } = $props();
@@ -514,7 +514,6 @@
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
 <section class="page-stack draws-page">
-	<Notifications />
 	<header class="header-banking">
 		<div class="header-top">
 			<div class="header-title">

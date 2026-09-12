@@ -10,7 +10,7 @@
 	let ticket = $state <Ticket | null>(null);
 
 	import { onMount } from 'svelte';
-	import {Notifications, acts} from '@tadashi/svelte-notification'
+	import { acts } from '@tadashi/svelte-notification'
 
 	type Ticket = {
 		serial: string;

@@ -5,7 +5,7 @@
     import Matrix from '../venta/Matrix.svelte';
 	import ReportModal from './ReportModal.svelte';
 	import ExportModal from './ExportModal.svelte';
-	import {Notifications, acts} from '@tadashi/svelte-notification'
+	import {acts} from '@tadashi/svelte-notification'
 	import SelectModal from '../SelectModal.svelte';
 	import { formatAmount } from '../../printing/printing';
 	import { GROUPING_OPTIONS, type GroupingMode, type ReportItem } from '../venta/grouping';
@@ -758,8 +758,6 @@
     </header>
     {/if}
 </section>
-<Notifications />
-
 
 <style>
     .inicio {

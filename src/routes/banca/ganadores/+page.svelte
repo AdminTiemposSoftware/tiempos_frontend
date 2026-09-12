@@ -1,5 +1,5 @@
 <script lang="ts">
-	import {Notifications, acts} from '@tadashi/svelte-notification'
+	import { acts } from '@tadashi/svelte-notification'
     import { auth } from '$lib/stores/auth';
     import { PenSolid, TrashBinSolid } from 'flowbite-svelte-icons';
     import { goto } from '$app/navigation';
@@ -376,7 +376,6 @@
             </tbody>
         </table>
     </div>
-<Notifications/>
 </section>
 {/if}
 

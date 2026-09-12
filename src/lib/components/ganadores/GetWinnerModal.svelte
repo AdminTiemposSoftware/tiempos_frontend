@@ -10,7 +10,7 @@
 
     let inputElement: HTMLInputElement;
 
-	import {Notifications, acts} from '@tadashi/svelte-notification'
+	import { acts } from '@tadashi/svelte-notification'
 	import type { Receipt } from '../../printing/types';
 	import ReceiptPreview from '../../printing/ReceiptPreview.svelte';
 	import { serializeData } from '../../printing/printing';
@@ -180,7 +180,6 @@
 
 <svelte:window onkeydown={handleKeyInput} />
 {#if showModal}
-<Notifications />
 <div
 	class="modal-backdrop"
 	role="button"

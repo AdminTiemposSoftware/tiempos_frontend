@@ -6,7 +6,7 @@
 		updateSorteo
 	} = $props();
 
-	import {acts, Notifications} from '@tadashi/svelte-notification';
+	import { acts } from '@tadashi/svelte-notification';
 
 	const dayOptions = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 	let name = $derived<string>(sorteo.name);

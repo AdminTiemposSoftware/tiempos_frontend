@@ -275,23 +275,29 @@
         const numbers = Array.isArray(payload?.numbers) ? (payload.numbers as Numbers[]) : [];
         const firstPosition = selectedBet?.positions.filter((position: {position_number: number, multiplier: number}) => position.position_number === 1)
 
-        tickets = items.map((item) => ({
-            id: item.id,
-            relative_id: item.relative_id,
-            username: item.username,
-            scheduleName: selectedBet?.schedule_name ?? '',
-            scheduleTime: selectedBet?.schedule_time ?? '',
-            drawName: selectedBet?.draw_name ?? '',
-            branchName: $auth.user?.branchName,
-            serial: item.serial,
-            total: Number(item.amount) || 0,
-            details: item.detail ?? '',
-            time: item.time ?? '',
-            date: item.date ?? '',
-            printed_at: item.printed_at ?? '',
-            multiplier: firstPosition?.[0]?.multiplier ?? '',
-            status: item.enabled
-        }));
+        tickets = items
+            .map((item, index) => ({ item, index }))
+            .sort((a, b) => {
+                const relativeIdDifference = b.item.relative_id - a.item.relative_id;
+                return relativeIdDifference || a.index - b.index;
+            })
+            .map(({ item }) => ({
+                id: item.id,
+                relative_id: item.relative_id,
+                username: item.username,
+                scheduleName: selectedBet?.schedule_name ?? '',
+                scheduleTime: selectedBet?.schedule_time ?? '',
+                drawName: selectedBet?.draw_name ?? '',
+                branchName: $auth.user?.branchName,
+                serial: item.serial,
+                total: Number(item.amount) || 0,
+                details: item.detail ?? '',
+                time: item.time ?? '',
+                date: item.date ?? '',
+                printed_at: item.printed_at ?? '',
+                multiplier: firstPosition?.[0]?.multiplier ?? '',
+                status: item.enabled
+            }));
         ticketNumbers = numbers;
 
         return tickets;

@@ -3,6 +3,7 @@
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import { setAuth } from '$lib/stores/auth';
+	import {Notifications} from '@tadashi/svelte-notification';
 	import './layout.css';
 
 	let { children } = $props();
@@ -17,6 +18,7 @@
 </script>
 
 <div class={`app ${isLoginRoute ? 'auth-only' : ''}`}>
+    <Notifications />
 	{#if !isLoginRoute}
 		<Sidebar />
 	{/if}

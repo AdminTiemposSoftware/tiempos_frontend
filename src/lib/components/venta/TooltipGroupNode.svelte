@@ -5,13 +5,7 @@
 	} from './grouping';
 	import TooltipGroupNode from './TooltipGroupNode.svelte';
 
-	let {
-		node,
-		depth = 0
-	} = $props<{
-		node: GroupNode;
-		depth?: number;
-	}>();
+	let {node, depth = 0} = $props<{node: GroupNode;depth?: number;}>();
 
 </script>
 
@@ -20,7 +14,7 @@
 		<span class="group-label">{node.label}</span>
 		<span class="group-subtotal">{formatAmount(node.subtotal)}</span>
 	</div>
-    
+
     <ul class="group-children">
         {#each node.children as child}
             <TooltipGroupNode node={child} depth={depth + 1} />

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { PenSolid, TrashBinSolid } from 'flowbite-svelte-icons';
-	import { acts, Notifications} from '@tadashi/svelte-notification'
+	import { acts } from '@tadashi/svelte-notification'
 
 	let {
 		sorteo,
@@ -114,7 +114,6 @@
 	}
 
 </script>
-<Notifications/>
 <div class="panel-card">
 	<div
 		class="panel-toggle"

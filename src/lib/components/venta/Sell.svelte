@@ -51,7 +51,7 @@
     import QrModal from './QrModal.svelte';
     import TicketsModal from './TicketsModal.svelte';
     import { prohibitedNumbers } from "../../stores/UpdateSellMatrix";
-    import { Notifications, acts } from '@tadashi/svelte-notification';
+    import { acts } from '@tadashi/svelte-notification';
     import { auth } from '../../stores/auth';
     import TicketPreviewModal from './TicketPreviewModal.svelte';
     import ConfirmModalWithInput from '../ConfirmModalWithInput.svelte';
@@ -712,8 +712,6 @@
         </div>
     </div>
 </section>
-
-<Notifications />
 <style>
     .sell {
         flex-direction: column;

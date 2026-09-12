@@ -1,7 +1,8 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { acts, Notifications } from '@tadashi/svelte-notification';
+    import { acts } from '@tadashi/svelte-notification';
     import MatrixInput from "$lib/components/listas/MatrixInput.svelte";
+    import MatrixOperations from "$lib/components/listas/MatrixOperations.svelte";
     import ListasFilterModal from '../../../lib/components/listas/ListasFilterModal.svelte';
     import { decodeListQrData } from '$lib/printing/printing';
     import { auth } from '$lib/stores/auth';
@@ -307,13 +308,18 @@
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
 <section class="list-container">
-    <Notifications />
-    <MatrixInput
-        bind:valueMap={createSelection}
-        bind:modificationMap={createSelectionModifications}
-        allowModifications={true}
-        mode="20x5"
-    />
+    {#if hasLoadedList}
+        <MatrixOperations
+            bind:valueMap={createSelection}
+            bind:modificationMap={createSelectionModifications}
+            mode="20x5"
+        />
+    {:else}
+        <MatrixInput
+            bind:valueMap={createSelection}
+            mode="20x5"
+        />
+    {/if}
 
 
     <div class="right">
@@ -324,7 +330,7 @@
             {loadButtonLabel}
         </button>
 
-        <div class="row bottom">
+        <div class="row">
             {#if hasLoadedList}
             <button
                 type="button"
@@ -378,6 +384,7 @@
 		height: 100%;
 		background-color: var(--color-box-background);
 		gap: 1rem;
+		position: relative;
     }
 
     .right button {
@@ -387,7 +394,7 @@
         line-height: 1.4;
     }
 
-    .bottom {
+    .row {
         margin-top: auto;
     }
 </style>

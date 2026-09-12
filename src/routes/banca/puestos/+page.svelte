@@ -4,7 +4,7 @@
 	import UserModal from '../../../lib/components/puestos/UserModal.svelte';
 	import { PenSolid, TrashBinSolid } from 'flowbite-svelte-icons';
 	import { auth } from '$lib/stores/auth';
-	import {Notifications, acts} from '@tadashi/svelte-notification'
+	import { acts } from '@tadashi/svelte-notification'
 
 	let { data } = $props();
 	let showModal = $state(false);
@@ -52,7 +52,7 @@
 			: [...expandedPuestos, puestoId];
 
 		const puesto = puestos.find((p) => p.id === puestoId);
-		
+
 		if (puesto && !puesto.users?.length && !puesto.sorteos?.length) {
 			// Fetch users and sorteos for the puesto if not already loaded
 			try {
@@ -80,7 +80,7 @@
 					mode: 'error',
 					lifetime: 3
 				});
-			};	
+			};
 		}
 	}
 
@@ -391,13 +391,12 @@
 	updateUser={handleUpdateUser}
 	addUser={addUser}
 />
-	
+
 <svelte:head>
 	<title>Puestos</title>
 </svelte:head>
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
-<Notifications />
 <section class="page-stack">
 	<header class="header-banking">
 		<div>
@@ -411,8 +410,8 @@
 	<div class="panel-list">
 		{#each puestos as puesto}
 			<div class="panel-card">
-				<div 
-					class="panel-toggle" 
+				<div
+					class="panel-toggle"
 					onclick={() => togglePuesto(puesto.id ?? 0)}
 					onkeydown={(e) => e.key === 'Enter' && togglePuesto(puesto.id ?? 0)}
 					role="button"
@@ -506,7 +505,7 @@
 									</div>
 								{/if}
 								<!-- <button onclick={handleAssignSorteo}>
-									Assignar sorteo	
+									Assignar sorteo
 								</button> -->
 							</div>
 						</div>
@@ -594,5 +593,3 @@
 		margin-top: auto;
 	}
 </style>
-
-
