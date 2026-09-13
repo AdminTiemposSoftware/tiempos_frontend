@@ -191,14 +191,22 @@
             details: ticket.details,
             printMode: mode
         };
-        const encoded = encodeURIComponent(JSON.stringify(printData));
+        const printKey = `ticket-print:${crypto.randomUUID()}`;
+        localStorage.setItem(printKey, JSON.stringify(printData));
+
         const printWindow = window.open(
-            '/puesto/print?data=' + encoded,
+            `/puesto/print?key=${encodeURIComponent(printKey)}`,
             '_blank',
             'width=500,height=700'
         );
 
-        printWindow?.addEventListener('afterprint', () => {
+        if (!printWindow) {
+            localStorage.removeItem(printKey);
+            return;
+        }
+
+        printWindow.addEventListener('afterprint', () => {
+            localStorage.removeItem(printKey);
             printWindow.close();
         });
     }

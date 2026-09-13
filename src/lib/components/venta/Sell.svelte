@@ -539,7 +539,9 @@
         showQrModal = false;
     }
 
-    async function handlePrint() {
+    async function handlePrint(event?: SubmitEvent) {
+        event?.preventDefault();
+
         const drawScheduleId = selectedBet?.schedule_id ?? selectedBet?.draw_schedule_id;
         if(!showTicketPreviewModal && canSellSelectedNumbers(drawScheduleId) && !hasProhibitedNumbers(sold)) {
             showConfirmModal = true;

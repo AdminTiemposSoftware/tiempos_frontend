@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, tick } from 'svelte';
     import type { Receipt } from './types';
 
     let { groupedItems, receipt, details, qrData = $bindable(), onReady = undefined } = $props<{
@@ -12,9 +12,16 @@
     let QrCode = $state<any>(null);
 
     onMount(async () => {
-        const module = await import('@castlenine/svelte-qrcode');
-        QrCode = module.default;
+        if (qrData) {
+            try {
+                const module = await import('@castlenine/svelte-qrcode');
+                QrCode = module.default;
+            } catch (error) {
+                console.error('No se pudo cargar el código QR del tiquete.', error);
+            }
+        }
 
+        await tick();
         onReady?.();
     });
 

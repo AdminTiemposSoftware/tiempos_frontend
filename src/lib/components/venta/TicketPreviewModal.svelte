@@ -73,17 +73,22 @@
             details: previewDetails,
             printMode: 'normal' as const
         };
-        const encoded = encodeURIComponent(
-            JSON.stringify(receiptData)
-        );
+        const printKey = `ticket-print:${crypto.randomUUID()}`;
+        localStorage.setItem(printKey, JSON.stringify(receiptData));
 
         const printWindow = window.open(
-            '/puesto/print?data=' + encoded,
+            `/puesto/print?key=${encodeURIComponent(printKey)}`,
             '_blank',
             'width=500,height=700'
         );
 
+        if (!printWindow) {
+            localStorage.removeItem(printKey);
+            return;
+        }
+
         printWindow?.addEventListener('afterprint', () => {
+            localStorage.removeItem(printKey);
             printWindow.close();
         });
 
