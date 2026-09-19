@@ -6,7 +6,7 @@
     import ListasFilterModal from '../../../lib/components/listas/ListasFilterModal.svelte';
     import LoadListFromQrModal from '$lib/components/listas/LoadListFromQrModal.svelte';
     import MatrixComparisonModal from '$lib/components/listas/MatrixComparisonModal.svelte';
-    import { decodeExportedListQrData } from '$lib/printing/printing';
+    import { decodeExportedListQrData, formatAmount } from '$lib/printing/printing';
     import { auth } from '$lib/stores/auth';
 
     type ListItemModification = {
@@ -67,6 +67,28 @@
             isListLoaded ||
             currentKeys.length !== savedKeys.length ||
                 currentKeys.some((key) => createSelection[Number(key)] !== savedMatrix[Number(key)]));
+    });
+
+    let totalInList = $derived.by(() => {
+        return Object.entries(createSelection).reduce((total, [rawNumber, value]) => {
+            const number = Number(rawNumber);
+            const baseValue = Number(value);
+            const modification = createSelectionModifications[number];
+
+            if (!Number.isFinite(baseValue)) {
+                return total;
+            }
+
+            if (!modification || !Number.isFinite(modification.modification)) {
+                return total + baseValue;
+            }
+
+            const signedModification = modification.operation === '+'
+                ? modification.modification
+                : -modification.modification;
+
+            return total + baseValue + signedModification;
+        }, 0);
     });
 
     function getDisplayName(value: number | undefined, options: { value: number; label: string }[]) {
@@ -164,6 +186,28 @@
         }, {});
     }
 
+    function applyOperations(
+        values: Record<number, number>,
+        operations: OperationItem[]
+    ) {
+        return operations.reduce<Record<number, number>>((nextValues, item) => {
+            const number = Number(item.number);
+            const amount = Number(item.amount);
+
+            if (!Number.isInteger(number) || number < 0 || number >= 100 || !Number.isFinite(amount)) {
+                return nextValues;
+            }
+
+            const operation = String(item.operation ?? '').trim().toLowerCase();
+            const signedAmount = operation === '-' || operation === 'sub' || operation === 'subtract'
+                ? -amount
+                : amount;
+
+            nextValues[number] = (nextValues[number] ?? 0) + signedAmount;
+            return nextValues;
+        }, { ...values });
+    }
+
     onMount(() => {
         const qrValue = new URLSearchParams(window.location.search).get('import');
 
@@ -228,6 +272,7 @@
         matrixMode = keepModificationView ? 'operations' : 'input';
         qrInput = '';
         showLoadList = false;
+        showLoadListByQR = false;
     }
 
     function openSaveConfiguration() {
@@ -443,7 +488,10 @@
             }, {});
 
             if (Object.keys(fetchedValues).length > 0) {
-                loadFetchedValuesToModify(fetchedValues, fetchedNumberTotalIds);
+                loadFetchedValuesToModify(
+                    applyOperations(fetchedValues, listOperations),
+                    fetchedNumberTotalIds
+                );
             }
 
             hasLoadedListToModify = true;
@@ -712,6 +760,9 @@
         >
             Modificar lista
         </button>
+        <h2>
+            Total : {formatAmount(totalInList)}
+        </h2>
 
         <div class="row">
             {#if hasLoadedListToModify}
@@ -729,7 +780,6 @@
             </button>
             {/if}
         </div>
-
         <button
             onclick={hasLoadedListToModify ? saveModifications : openSaveConfiguration}
             disabled={isSaving || (hasLoadedListToModify ? false : !matrixIsDirty)}
@@ -783,4 +833,9 @@
         margin-top: auto;
     }
 
+    h2 {
+        margin: 0;
+        text-align: center;
+        font-size: 1.3rem;
+    }
 </style>

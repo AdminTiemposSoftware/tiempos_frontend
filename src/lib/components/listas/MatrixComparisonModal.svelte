@@ -116,7 +116,7 @@ onkeydown={(event) => event.key === 'Escape' && close()}
                     {/each}
                 </div>
             {:else}
-                <div class="missing-list">La lista no existe todavía.</div>
+                <div class="missing-list">No existe una lista con estos filtros.</div>
             {/if}
         </div>
 
@@ -153,14 +153,6 @@ onkeydown={(event) => event.key === 'Escape' && close()}
         height: 93vh;
         overflow: auto;
         box-sizing: border-box;
-    }
-
-    h2 {
-        margin: 0 0 0.35rem;
-    }
-
-    .configuration {
-        margin: 0 0 1rem;
     }
 
     .comparison {
