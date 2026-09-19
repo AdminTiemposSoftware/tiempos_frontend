@@ -4,17 +4,51 @@
         selectedBranch = $bindable(),
         branchNames,
         drawScheduleNames,
+        scheduleBranch = [],
         selectedDrawSchedule = $bindable(),
+        includeReventado = false,
+        selectedReventado = $bindable(false),
+        selectedMegareventado = $bindable(false),
         onConfirm,
         showModal = $bindable() } = $props();
 
+    function hasAssociation(branchId, drawScheduleId) {
+        return scheduleBranch.some((item) =>
+            Number(item.branch_id) === branchId &&
+            Number(item.draw_schedule_id) === drawScheduleId &&
+            item.enabled !== false &&
+            item.enabled !== 0 &&
+            item.enabled !== '0' &&
+            item.enabled !== 'false'
+        );
+    }
+
+    function isBranchDisabled(branchId) {
+        return selectedDrawSchedule !== undefined &&
+            !hasAssociation(branchId, selectedDrawSchedule);
+    }
+
+    function isDrawScheduleDisabled(drawScheduleId) {
+        return selectedBranch !== undefined &&
+            !hasAssociation(selectedBranch, drawScheduleId);
+    }
+
     function toggleBranch(value) {
+        if (isBranchDisabled(value)) {
+            return;
+        }
+
         selectedBranch = selectedBranch === value ? undefined : value;
     }
 
     function toggleDrawSchedule(value) {
+        if (isDrawScheduleDisabled(value)) {
+            return;
+        }
+
         selectedDrawSchedule = selectedDrawSchedule === value ? undefined : value;
     }
+
 </script>
 
 {#if showModal}
@@ -31,7 +65,6 @@
         role="presentation"
     >
     <div class="row">
-        <div class="column">
         <div class="total">
             <label for="from">Fecha</label>
             <input id="from" type="date" bind:value={selectedDate}/>
@@ -44,16 +77,16 @@
                         type="button"
                         class="selection-option"
                         class:selected={selectedBranch === option.value}
+                        disabled={isBranchDisabled(option.value)}
                         onclick={() => toggleBranch(option.value)}
                     >
-                        <input type="radio" name="puesto" checked={selectedBranch === option.value} readonly />
+                        <input type="radio" name="puesto" checked={selectedBranch === option.value} disabled={isBranchDisabled(option.value)} readonly />
                         <span>{option.label}</span>
                     </button>
                 {:else}
                     <span class="empty-options">No hay puestos disponibles</span>
                 {/each}
             </div>
-        </div>
         </div>
         <div class="field">
             <label for="sorteo">Sorteo</label>
@@ -63,9 +96,10 @@
                         type="button"
                         class="selection-option"
                         class:selected={selectedDrawSchedule === option.value}
+                        disabled={isDrawScheduleDisabled(option.value)}
                         onclick={() => toggleDrawSchedule(option.value)}
                     >
-                        <input type="radio" name="sorteo" checked={selectedDrawSchedule === option.value} readonly />
+                        <input type="radio" name="sorteo" checked={selectedDrawSchedule === option.value} disabled={isDrawScheduleDisabled(option.value)} readonly />
                         <span>{option.label}</span>
                     </button>
                 {:else}
@@ -73,6 +107,18 @@
                 {/each}
             </div>
         </div>
+        {#if includeReventado}
+            <div class="field flags">
+                <label>
+                    <input type="checkbox" bind:checked={selectedReventado} />
+                    Reventado
+                </label>
+                <label>
+                    <input type="checkbox" bind:checked={selectedMegareventado} />
+                    Mega reventado
+                </label>
+            </div>
+        {/if}
     </div>
     <button
         onclick={onConfirm}
@@ -88,7 +134,7 @@
         display: flex;
         flex-direction: column;
         height: 80vh;
-        width: 30vw;
+        width: 40vw;
         box-sizing: border-box;
     }
 
@@ -98,8 +144,8 @@
     }
 
     .selection-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+        display: flex;
+        flex-direction: column;
         gap: 0.5rem;
         max-height: 65vh;
         box-sizing: border-box;
@@ -133,11 +179,13 @@
         background: color-mix(in srgb, var(--color-theme-2) 5%, transparent);
     }
 
-    .column {
-        display: flex;
-        flex-direction: column;
-        width: 100%;
-        gap: 1rem;
+    .selection-option:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+    }
+
+    .selection-option:disabled:hover {
+        background: transparent;
     }
 
     .field {
@@ -151,4 +199,5 @@
         color: var(--color-text);
         font-weight: 600;
     }
+
 </style>

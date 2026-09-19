@@ -3,6 +3,7 @@
     import { auth } from '$lib/stores/auth';
     import { PenSolid, TrashBinSolid } from 'flowbite-svelte-icons';
     import { goto } from '$app/navigation';
+    import ConfirmModal from '$lib/components/ConfirmModal.svelte';
     import SelectModal from '$lib/components/SelectModal.svelte';
     import WinnerTicketList from '../../../lib/components/ganadores/WinnerTicketList.svelte';
     import { formatAmount } from '$lib/printing/printing';
@@ -24,12 +25,16 @@
     let totalPaid = $state(0);
     let totalPending = $state(0);
     let winners = $state<Winner[]>([]);
-    let editingWinner = $state<Record<number, number>>({});
+    let editingWinner = $state<Record<number, number | null>>({});
     let assignedWinner = $state<Record<number, boolean>>({});
     let editingMultiplierMode = $state<Record<number, boolean>>({});
     let originalMultiplier = $state<Record<number, number>>({});
     let editingMultiplier = $state<Record<number, number>>({});
     let showWinnerTicketsModal = $state(false);
+    let showAssignWinnerModal = $state(false);
+    let showDeleteWinnerModal = $state(false);
+    let winnerToAssign = $state<Winner | null>(null);
+    let winnerToDelete = $state<Winner | null>(null);
 
     type Winner = {
         date: string;
@@ -42,8 +47,8 @@
         position_multiplier: number;
         schedule_id: number;
         schedule_time: string;
-        winner_id: number;
-        winner_number: number;
+        winner_id: number | null;
+        winner_number: number | null;
     };
 
     type WinnerTicketRow = {
@@ -141,8 +146,8 @@
         }, {});
     });
 
-    async function requestAssignWinner(winner: Winner) {
-        const numberToAssign = editingWinner[winner.position_id];
+    async function requestAssignWinner(winnerToAssign: Winner) {
+        const numberToAssign = editingWinner[winnerToAssign.position_id];
         if (numberToAssign === undefined || numberToAssign === null) {
             acts.add({
                 message: 'Por favor, ingrese un número antes de asignar.',
@@ -151,6 +156,7 @@
             });
             return;
         }
+
         try {
             const response = await fetch('/banca/ganadores/', {
                 method: 'POST',
@@ -158,9 +164,9 @@
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    position_id: winner.position_id,
+                    position_id: winnerToAssign.position_id,
                     number: numberToAssign,
-                    date: winner.date
+                    date: winnerToAssign.date
                 })
             });
             if (!response.ok) {
@@ -174,12 +180,12 @@
             const data = await response.json();
             const winnerId = data.items[0].winner_id;
             winners = winners.map(winner => {
-                if (winner.position_id === winner.position_id) {
+                if (winner.position_id === winnerToAssign.position_id) {
                     return { ...winner, winner_id: winnerId, winner_number: numberToAssign };
                 }
                 return winner;
             });
-            assignedWinner[winner.position_id] = true;
+            assignedWinner[winnerToAssign.position_id] = true;
 
             acts.add({
                 message: 'Ganador asignado correctamente.',
@@ -192,6 +198,74 @@
                 mode: 'error',
                 lifetime: 3
             });
+        }
+    }
+
+    function confirmAssignWinner(winner: Winner) {
+        const numberToAssign = editingWinner[winner.position_id];
+
+        if (
+            numberToAssign === undefined ||
+            numberToAssign === null ||
+            !Number.isInteger(numberToAssign) ||
+            numberToAssign < 0 ||
+            numberToAssign > 99
+        ) {
+            acts.add({
+                message: 'Ingrese un número ganador válido entre 0 y 99.',
+                mode: 'error',
+                lifetime: 3
+            });
+            return;
+        }
+
+        winnerToAssign = winner;
+        showAssignWinnerModal = true;
+    }
+
+    function confirmDeleteWinner(winner: Winner) {
+        if (winner.winner_id === null) {
+            acts.add({
+                message: 'No hay un ganador asignado para eliminar.',
+                mode: 'error',
+                lifetime: 3
+            });
+            return;
+        }
+
+        winnerToDelete = winner;
+        showDeleteWinnerModal = true;
+    }
+
+    function sanitizeWinnerNumber(event: Event, positionId: number) {
+        const input = event.currentTarget as HTMLInputElement;
+        const sanitizedValue = input.value.replace(/\D/g, '').slice(0, 2);
+
+        if (input.value !== sanitizedValue) {
+            input.value = sanitizedValue;
+        }
+
+        editingWinner[positionId] = sanitizedValue === '' ? null : Number(sanitizedValue);
+    }
+
+    function handleWinnerNumberKeydown(event: KeyboardEvent) {
+        const input = event.currentTarget as HTMLInputElement;
+
+        if (
+            !/^\d$/.test(event.key) &&
+            !['Backspace', 'Delete', 'Tab', 'Enter', 'Escape', 'Home', 'End', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key) &&
+            !(event.ctrlKey || event.metaKey)
+        ) {
+            event.preventDefault();
+            return;
+        }
+
+        if (
+            /^\d$/.test(event.key) &&
+            input.value.length >= 2 &&
+            input.selectionStart === input.selectionEnd
+        ) {
+            event.preventDefault();
         }
     }
 
@@ -409,6 +483,47 @@
         }
     }
 
+
+    async function requestDeleteWinner(winnerToDelete: Winner) {
+        try {
+            const response = await fetch(`/banca/ganadores/${winnerToDelete.winner_id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+            });
+            if (!response.ok) {
+                acts.add({
+                    message: 'Error al eliminar el ganador.',
+                    mode: 'error',
+                    lifetime: 3
+                });
+                return;
+            }
+            acts.add({
+                message: 'Ganador eliminado correctamente.',
+                mode: 'success',
+                lifetime: 3
+            });
+
+            winners = winners.map(winner => {
+                if (winner.position_id === winnerToDelete.position_id) {
+                    return { ...winner, winner_id: null, winner_number: null };
+                }
+                return winner;
+            });
+
+            assignedWinner[winnerToDelete.position_id] = false;
+            editingWinner[winnerToDelete.position_id] = null;
+        } catch (error) {
+            acts.add({
+                message: 'Error al eliminar el ganador.',
+                mode: 'error',
+                lifetime: 3
+            });
+            console.error(error);
+        }
+    }
 </script>
 
 <svelte:head>
@@ -476,15 +591,29 @@
                             <input
                                 type="number"
                                 bind:value={editingWinner[winner.position_id]}
+                                inputmode="numeric"
+                                min="0"
+                                max="99"
+                                maxlength="2"
+                                onkeydown={handleWinnerNumberKeydown}
+                                oninput={(event) => sanitizeWinnerNumber(event, winner.position_id)}
                                 disabled={assignedWinner[winner.position_id]}
                                 class="winner-input"
                             />
                             {#if !assignedWinner[winner.position_id]}
                                 <button
-                                    onclick={() => requestAssignWinner(winner)}
+                                    onclick={() => confirmAssignWinner(winner)}
                                     disabled={editingWinner[winner.position_id] === undefined || editingWinner[winner.position_id] === null}
                                 >
                                     ✓
+                                </button>
+                            {/if}
+                            {#if winner.winner_id}
+                                <button
+                                    class="negative"
+                                    onclick={() => confirmDeleteWinner(winner)}
+                                >
+                                    <TrashBinSolid class="shrink-0 h-4 w-4" />
                                 </button>
                             {/if}
                         {/if}
@@ -550,6 +679,24 @@
     </div>
 </section>
 {/if}
+
+<ConfirmModal
+    bind:showModal={showAssignWinnerModal}
+    message={winnerToAssign
+        ? `¿Está seguro de asignar el número ${editingWinner[winnerToAssign.position_id]} como ganador?`
+        : '¿Está seguro de asignar este ganador?'}
+    confirmText="Asignar"
+    confirm={() => winnerToAssign && requestAssignWinner(winnerToAssign)}
+/>
+
+<ConfirmModal
+    bind:showModal={showDeleteWinnerModal}
+    message={winnerToDelete
+        ? `¿Está seguro de eliminar el ganador ${winnerToDelete.winner_number}?`
+        : '¿Está seguro de eliminar este ganador?'}
+    confirmText="Eliminar"
+    confirm={() => winnerToDelete && requestDeleteWinner(winnerToDelete)}
+/>
 
 <style>
     .ganadores {

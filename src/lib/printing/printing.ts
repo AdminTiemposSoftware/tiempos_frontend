@@ -1,3 +1,31 @@
+const SIGNED_AMOUNT_BITS = 24;
+const SIGNED_AMOUNT_MODULUS = 2 ** SIGNED_AMOUNT_BITS;
+const SIGNED_AMOUNT_SIGN_BIT = 2 ** (SIGNED_AMOUNT_BITS - 1);
+const SIGNED_AMOUNT_MAX = SIGNED_AMOUNT_SIGN_BIT - 1;
+const SIGNED_AMOUNT_MIN = -SIGNED_AMOUNT_SIGN_BIT;
+
+// TODO: Implement signed amount encoding
+function encodeSignedAmount(value: number): string {
+    if (
+        !Number.isInteger(value) ||
+        value < SIGNED_AMOUNT_MIN ||
+        value > SIGNED_AMOUNT_MAX
+    ) {
+        return '';
+    }
+
+    const encoded = value < 0 ? SIGNED_AMOUNT_MODULUS + value : value;
+    return encoded.toString(16).toUpperCase().padStart(SIGNED_AMOUNT_BITS / 4, '0');
+}
+
+function decodeSignedAmount(hex: string): number {
+    const unsignedValue = Number.parseInt(hex, 16);
+
+    return unsignedValue >= SIGNED_AMOUNT_SIGN_BIT
+        ? unsignedValue - SIGNED_AMOUNT_MODULUS
+        : unsignedValue;
+}
+
 export function serializeData(data: Record<string, number>, ticket_serial: string): string {
     const serialHex = ticket_serial
         ? BigInt(ticket_serial).toString(16).toUpperCase()
@@ -65,4 +93,15 @@ export function decodeListQrData(qrData: string): Record<number, number> {
     }
 
     return decoded;
+}
+
+export function decodeExportedListQrData(qrData: string): Record<number, number> {
+    const normalized = qrData.trim().toUpperCase();
+
+    return Object.fromEntries(
+        Array.from({ length: 100 }, (_, number) => {
+            const amount = decodeSignedAmount(normalized.slice(number * 6, number * 6 + 6));
+            return [number, amount];
+        })
+    );
 }

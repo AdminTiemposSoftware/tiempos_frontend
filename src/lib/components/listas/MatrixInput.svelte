@@ -36,6 +36,19 @@
         valueMap = nextMap;
     }
 
+    function sanitizeNumericInput(input: HTMLInputElement) {
+        const sanitizedValue = input.value
+            .replace(/[^\d.-]/g, '')
+            .replace(/(?!^)-/g, '')
+            .replace(/(\..*)\./g, '$1');
+
+        if (input.value !== sanitizedValue) {
+            input.value = sanitizedValue;
+        }
+
+        return sanitizedValue;
+    }
+
     function focusInput(index: number) {
         const target = interactiveInputs[index];
 
@@ -48,6 +61,15 @@
     }
 
     function handlePriceKeydown(event: KeyboardEvent, index: number) {
+        if (
+            !/^\d$/.test(event.key) &&
+            !['Backspace', 'Delete', 'Tab', 'Enter', 'Escape', 'Home', 'End', '.', '-', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key) &&
+            !(event.ctrlKey || event.metaKey)
+        ) {
+            event.preventDefault();
+            return;
+        }
+
         const row = index % rows;
         const column = Math.floor(index / rows);
 
@@ -109,7 +131,8 @@
                                 value={valueMap[index] ?? ''}
                                 class="price"
                                 bind:this={interactiveInputs[index]}
-                                oninput={(event) => updateValue(index, event.currentTarget.value)}
+                                inputmode="decimal"
+                                oninput={(event) => updateValue(index, sanitizeNumericInput(event.currentTarget))}
                                 onkeydown={(event) => handlePriceKeydown(event, index)}
                             />
                         </div>

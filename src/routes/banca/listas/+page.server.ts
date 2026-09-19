@@ -7,7 +7,7 @@ export const load: PageServerLoad = async ({ fetch, locals, cookies }) => {
     const bankingId = locals.user?.bankingId;
 
     if (!baseUrl || !bankingId) {
-        return { branchNames: [], scheduleNames: [] };
+        return { branchNames: [], scheduleNames: [], scheduleBranch: [] };
     }
 
     try {
@@ -29,8 +29,17 @@ export const load: PageServerLoad = async ({ fetch, locals, cookies }) => {
         const scheduleNamesPayload = scheduleNamesResponse.ok ? await scheduleNamesResponse.json().catch(() => null) : null;
         const scheduleNames = Array.isArray(scheduleNamesPayload?.items) ? scheduleNamesPayload.items : [];
 
-        return { branchNames, scheduleNames };
+        const scheduleBranchResponse = await fetch(`${baseUrl}/draw-schedule-branch/by-banking/${bankingId}`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'X-Auth-App': 'banca'
+            }
+        });
+        const scheduleBranchPayload = scheduleBranchResponse.ok ? await scheduleBranchResponse.json().catch(() => null) : null;
+        const scheduleBranch = Array.isArray(scheduleBranchPayload?.items) ? scheduleBranchPayload.items : [];
+
+        return { branchNames, scheduleNames, scheduleBranch };
     } catch {
-        return { branchNames: [], scheduleNames: [] };
+        return { branchNames: [], scheduleNames: [], scheduleBranch: [] };
     }
 };

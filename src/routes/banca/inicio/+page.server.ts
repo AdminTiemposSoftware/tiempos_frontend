@@ -12,26 +12,17 @@ export const load: PageServerLoad = async ({ fetch, locals, cookies }) => {
 
     try {
         const prohibitedResponse = await fetch(`${baseUrl}/number/prohibited/by-banking/${bankingId}`,
-            { headers: { 
-                Authorization: `Bearer ${token}`, 
+            { headers: {
+                Authorization: `Bearer ${token}`,
                 'X-Auth-App': 'banca'
             } }
         );
         const prohibitedPayload = prohibitedResponse.ok ? await prohibitedResponse.json().catch(() => null) : null;
         const prohibitedItems = Array.isArray(prohibitedPayload?.items) ? prohibitedPayload.items : [];
 
-        const reportTodayResponse = await fetch(`${baseUrl}/report/today/${bankingId}`, {
-            headers: { 
-                Authorization: `Bearer ${token}`, 
-                'X-Auth-App': 'banca'
-            } }
-        );
-        const reportTodayPayload = reportTodayResponse.ok ? await reportTodayResponse.json().catch(() => null) : null;
-        const reportTodayItems = Array.isArray(reportTodayPayload?.items) ? reportTodayPayload.items : [];
-
         const branchNamesResponse = await fetch(`${baseUrl}/branch/names/${bankingId}`, {
-            headers: { 
-                Authorization: `Bearer ${token}`, 
+            headers: {
+                Authorization: `Bearer ${token}`,
                 'X-Auth-App': 'banca'
             } }
         );
@@ -39,13 +30,26 @@ export const load: PageServerLoad = async ({ fetch, locals, cookies }) => {
         const branchNames = Array.isArray(branchNamesPayload?.items) ? branchNamesPayload.items : [];
 
         const scheduleNamesResponse = await fetch(`${baseUrl}/draw-schedule/names/${bankingId}`, {
-            headers: { 
-                Authorization: `Bearer ${token}`, 
+            headers: {
+                Authorization: `Bearer ${token}`,
                 'X-Auth-App': 'banca'
             } }
         );
         const scheduleNamesPayload = scheduleNamesResponse.ok ? await scheduleNamesResponse.json().catch(() => null) : null;
         const scheduleNames = Array.isArray(scheduleNamesPayload?.items) ? scheduleNamesPayload.items : [];
+
+        const branchIds = branchNames.map((branch: any) => branch.id);
+        const scheduleIds = scheduleNames.map((schedule: any) => schedule.draw_schedule_id);
+        const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+        const reportTodayResponse = await fetch(`${baseUrl}/report/filtered?date_from=${utcMinus6Date}&date_to=${utcMinus6Date}&branches=${encodeURIComponent(branchIds.join(','))}&draw_schedules=${encodeURIComponent(scheduleIds.join(','))}`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'X-Auth-App': 'banca'
+            } }
+        );
+        const reportTodayPayload = reportTodayResponse.ok ? await reportTodayResponse.json().catch(() => null) : null;
+        const reportTodayItems = Array.isArray(reportTodayPayload?.items) ? reportTodayPayload.items : [];
 
         return { prohibitedItems, reportTodayItems, branchNames, scheduleNames };
     } catch {
