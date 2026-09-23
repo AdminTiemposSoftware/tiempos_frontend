@@ -28,10 +28,13 @@
 		name: string;
 		location: string;
 		prohibited_percentage?: number | string;
+		comission?: number | string | null;
+		buy: number | '' | null;
+		buy_first_place: number | '' | null;
 		user_count?: number;
 		draw_count?: number;
 		users?: Array<{ id?: number; username: string; name: string; phone: string; password?: string }>;
-		sorteos?: Array<{ draw_id: number; type: string; days: string; draw_name: string; draw_schedule_id: number; draw_schedule_time: string; draw_schedule_name: string; is_reventado: boolean; is_megareventado: boolean, comission: string }>;
+		sorteos?: Array<{ draw_id: number; type: string; days: string; draw_name: string; draw_schedule_id: number; draw_schedule_time: string; draw_schedule_name: string; is_reventado: boolean; is_megareventado: boolean, comission: string, prohibited_percentage?: number | string, buy?: number | '' | null, buy_first_place?: number | '' | null, enabled?: boolean }>;
 	};
 
 	$effect(() => {
@@ -42,7 +45,10 @@
 			user_count: Number(item.user_count ?? 0),
 			draw_count: Number(item.draw_count ?? 0),
 			users: item.users ?? [],
-			sorteos: item.sorteos ?? []
+			buy: item.buy ?? null,
+			buy_first_place: item.buy_first_place ?? null,
+			comission: item.comission ?? null,
+			sorteos: item.sorteos ?? [],
 		}));
 	});
 
@@ -90,6 +96,9 @@
 			name: '',
 			location: '',
 			prohibited_percentage: 0,
+			comission: 0,
+			buy: null,
+			buy_first_place: null,
 			users: [],
 			sorteos: []
 		};
@@ -144,6 +153,14 @@
 
 	async function handleAddPuesto(payload: Puesto) {
 		try {
+			const buy = payload.buy === '' || payload.buy === null || payload.buy === undefined
+				? null
+				: Number(payload.buy);
+
+			const buy_first_place = payload.buy_first_place === '' || payload.buy_first_place === null || payload.buy_first_place === undefined
+				? null
+				: Number(payload.buy_first_place);
+
 			const response = await fetch('/banca/puestos', {
 				method: 'POST',
 				headers: {
@@ -153,7 +170,10 @@
 					banking_id: Number(payload.banking_id ?? data?.bankingId ?? 1),
 					name: payload.name ?? 'Nuevo puesto',
 					location: payload.location ?? '-',
-					prohibited_percentage: Number(payload.prohibited_percentage ?? 0)
+					prohibited_percentage: Number(payload.prohibited_percentage ?? 0),
+					comission: Number(payload.comission ?? 0),
+					buy,
+					buy_first_place
 				})
 			});
 
@@ -174,6 +194,9 @@
 				name: payload.name ?? 'Nuevo puesto',
 				location: payload.location ?? '-',
 				prohibited_percentage: Number(payload.prohibited_percentage ?? 0),
+				comission: Number(payload.comission ?? 0),
+				buy,
+				buy_first_place,
 				user_count: 0,
 				draw_count: 0,
 				users: payload.users ?? [],
@@ -198,11 +221,27 @@
 		}
 	}
 
-	async function handleUpdatePuesto(payload: { id: number, name?: string, location?: string, prohibited_percentage?: number } ) {
+	async function handleUpdatePuesto(payload: { id: number, name?: string, location?: string, prohibited_percentage?: number, buy?: number | '' | null, buy_first_place?: number | '' | null, comission?: number } ) {
 		try {
 			if (!payload.id) {
 				throw new Error('El payload debe contener un id válido para actualizar el puesto.');
 			}
+
+			const buy = payload.buy === '' || payload.buy === null || payload.buy === undefined
+				? null
+				: Number(payload.buy);
+
+			const buy_first_place = payload.buy_first_place === '' || payload.buy_first_place === null || payload.buy_first_place === undefined
+				? null
+				: Number(payload.buy_first_place);
+
+			const detailsResponse = await fetch(`/banca/puestos/${payload.id}/details`);
+			if (!detailsResponse.ok) {
+				throw new Error('No se pudieron cargar los sorteos asociados al puesto.');
+			}
+
+			const details = await detailsResponse.json().catch(() => null);
+			const sorteos = Array.isArray(details?.drawItems) ? details.drawItems : [];
 
 			const response = await fetch(`/banca/puestos/${payload.id}`, {
 				method: 'PUT',
@@ -212,7 +251,10 @@
 				body: JSON.stringify({
 					name: payload.name ?? '',
 					location: payload.location ?? '',
-					prohibited_percentage: Number(payload.prohibited_percentage ?? 0)
+					prohibited_percentage: Number(payload.prohibited_percentage ?? 0),
+					comission: Number(payload.comission ?? 0),
+					buy,
+					buy_first_place
 				})
 			});
 
@@ -225,6 +267,32 @@
 				return;
 			}
 
+			for (const sorteo of sorteos) {
+				if (!sorteo.draw_schedule_id) {
+					throw new Error('Uno de los sorteos asociados no tiene un id de horario válido.');
+				}
+
+				const scheduleResponse = await fetch('/banca/sorteos/draw-schedule-branch', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						branch_id: payload.id,
+						draw_schedule_id: sorteo.draw_schedule_id,
+						comission: Number(payload.comission ?? 0),
+						prohibited_percentage: Number(payload.prohibited_percentage ?? 0),
+						enabled: sorteo.enabled ?? true,
+						buy,
+						buy_first_place
+					})
+				});
+
+				if (!scheduleResponse.ok) {
+					throw new Error(`No se pudo actualizar el horario ${sorteo.draw_schedule_id}.`);
+				}
+			}
+
 			acts.add({
 				message: 'Puesto actualizado correctamente',
 				mode: 'success',
@@ -232,7 +300,18 @@
 			});
 			puestos = puestos.map((item) => item.id === payload.id ? {
 				...item,
-				...payload
+				...payload,
+				prohibited_percentage: Number(payload.prohibited_percentage ?? 0),
+				comission: Number(payload.comission ?? 0),
+				buy,
+				buy_first_place,
+				sorteos: sorteos.map((sorteo) => ({
+					...sorteo,
+					comission: String(payload.comission ?? 0),
+					prohibited_percentage: Number(payload.prohibited_percentage ?? 0),
+					buy,
+					buy_first_place
+				}))
 			} : item );
 			showModal = false;
 		} catch (error) {
@@ -424,6 +503,15 @@
 							<span class="chip chip--muted">{puesto.user_count ?? puesto.users?.length ?? 0} usuarios</span>
 							<span class="chip chip--muted">{puesto.draw_count ?? puesto.sorteos?.length ?? 0} sorteos</span>
 							<span class="chip chip--muted">Prohibidos al {puesto.prohibited_percentage}%</span>
+							{#if puesto.comission !== null && puesto.comission !== undefined}
+								<span class="chip chip--muted">Comisión {Number(puesto.comission).toFixed(0)}%</span>
+							{/if}
+							{#if puesto.buy !== null && puesto.buy !== undefined}
+								<span class="chip chip--muted">Compra al {Number(puesto.buy).toFixed(0)}%</span>
+							{/if}
+							{#if puesto.buy_first_place !== null && puesto.buy_first_place !== undefined}
+								<span class="chip chip--muted">Compra el primero al {Number(puesto.buy_first_place).toFixed(0)}%</span>
+							{/if}
 						</div>
 					</div>
 					<div class="options-buttons">
@@ -491,13 +579,37 @@
 												<tr>
 													<th>Sorteo</th>
 													<th>Comisión</th>
+													<th>Prohibidos</th>
+													<th>Compra</th>
+													<th>Compra el primero</th>
 												</tr>
 											</thead>
 											<tbody>
 												{#each puesto.sorteos as sorteo}
 													<tr>
 														<td>{sorteo.draw_name} {sorteo.draw_schedule_name}</td>
-														<td>{sorteo.comission}</td>
+														<td>{Number(sorteo.comission).toFixed(0)}%</td>
+														<td>
+															{#if sorteo.prohibited_percentage !== null && sorteo.prohibited_percentage !== undefined}
+																{Number(sorteo.prohibited_percentage).toFixed(0)}%
+															{:else}
+																N/A
+															{/if}
+														</td>
+														<td>
+															{#if sorteo.buy !== null && sorteo.buy !== undefined}
+																{Number(sorteo.buy).toFixed(0)}%
+															{:else}
+																N/A
+															{/if}
+														</td>
+														<td>
+															{#if sorteo.buy_first_place !== null && sorteo.buy_first_place !== undefined}
+																{Number(sorteo.buy_first_place).toFixed(0)}%
+															{:else}
+																N/A
+															{/if}
+														</td>
 													</tr>
 												{/each}
 											</tbody>

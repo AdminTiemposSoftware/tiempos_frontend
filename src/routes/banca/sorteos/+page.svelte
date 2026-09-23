@@ -32,6 +32,9 @@
 		id: number;
 		name: string;
 		comission: number;
+		prohibited_percentage: number | null;
+		buy: number | '' | null;
+		buy_first_place: number | '' | null;
 		enabled?: boolean;
 	};
 
@@ -58,13 +61,27 @@
 		);
 
 		const branchItems = Array.isArray(data?.branchItems)
-			? (data.branchItems as { id: number; name: string; }[])
+			? (data.branchItems as Array<{
+				id: number;
+				name: string;
+				comission?: number | string | null;
+				prohibited_percentage?: number | string | null;
+				buy?: number | string | null;
+				buy_first_place?: number | string | null;
+			}>)
 			: [];
 
 		puestoOptions = branchItems.map((item) => ({
 			id: item.id,
 			name: item.name,
-			comission: 0
+			comission: item.comission === null || item.comission === undefined ? 0 : Number(item.comission),
+			prohibited_percentage: item.prohibited_percentage === null || item.prohibited_percentage === undefined
+				? 0
+				: Number(item.prohibited_percentage),
+			buy: item.buy === '' || item.buy === null || item.buy === undefined ? null : Number(item.buy),
+			buy_first_place: item.buy_first_place === '' || item.buy_first_place === null || item.buy_first_place === undefined
+				? null
+				: Number(item.buy_first_place),
 		}));
 	});
 
@@ -107,6 +124,9 @@
 					? payload.items as Array<schedule & {
 						branch_id?: number;
 						comission?: number | string;
+						prohibited_percentage?: number | string | null;
+						buy?: number | string | null;
+						buy_first_place?: number | string | null;
 						enabled?: boolean;
 					}>
 					: [];
@@ -126,10 +146,16 @@
                         result.push(schedule);
                     }
 
-                    if (row.branch_id !== null && !schedule.puestos.some(p => p.branch_id === row.branch_id)) {
+                    if (row.branch_id !== null && !schedule.puestos.some(p => p.id === row.branch_id)) {
                         schedule.puestos.push({
                             id: row.branch_id,
-                            comission: row.comission
+                            comission: row.comission === null || row.comission === undefined ? 0 : Number(row.comission),
+							prohibited_percentage: row.prohibited_percentage === null || row.prohibited_percentage === undefined
+								? 0
+								: Number(row.prohibited_percentage),
+                            buy: row.buy === '' || row.buy === null || row.buy === undefined ? null : Number(row.buy),
+                            buy_first_place: row.buy_first_place === '' || row.buy_first_place === null || row.buy_first_place === undefined ? null : Number(row.buy_first_place),
+							enabled: row.enabled !== false
                         });
                     }
 
@@ -270,14 +296,12 @@
 				})
 				return;
 			}
-			console.log(draws);
-			console.log(updatedSorteo)
+
 			draws = draws.map((sorteo) => sorteo.id === updatedSorteo.id ? {
 				...sorteo,
 				days: updatedSorteo.draw_days,
 				schedules: updatedSorteo.schedules ? updatedSorteo.schedules.map((schedule) => ({ ...schedule, days: updatedSorteo.draw_days })) : []
 			} : sorteo);
-			console.log(draws);
 
 			acts.add({
 				message: 'Sorteo actualizado correctamente.',
@@ -325,7 +349,16 @@
 			}
 			for (const puesto of settings.puestos) {
 				if (puesto.id === undefined) continue; // skip if puesto id is not defined
-				if (puesto.comission <= 0 || puesto.comission >= 100) continue; // skip if comission is not valid
+				if (!puesto.enabled || puesto.comission <= 0 || puesto.comission >= 100) continue; // skip if comission is not valid
+				const buy = puesto.buy === '' || puesto.buy === null || puesto.buy === undefined
+					? null
+					: Number(puesto.buy);
+				const buy_first_place = puesto.buy_first_place === '' || puesto.buy_first_place === null || puesto.buy_first_place === undefined
+					? null
+					: Number(puesto.buy_first_place);
+				const prohibited_percentage = puesto.prohibited_percentage === '' || puesto.prohibited_percentage === null || puesto.prohibited_percentage === undefined
+					? null
+					: Number(puesto.prohibited_percentage);
 
 				const response = await fetch(`/banca/sorteos/draw-schedule-branch`, {
 					method: 'POST',
@@ -334,7 +367,10 @@
 						branch_id: puesto.id,
 						draw_schedule_id: scheduleId,
 						comission: puesto.comission,
-						enabled: puesto.enabled
+						enabled: puesto.enabled,
+						buy,
+						buy_first_place,
+						prohibited_percentage,
 					})
 				});
 				if (!response.ok) {

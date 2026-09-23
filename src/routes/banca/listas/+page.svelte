@@ -355,9 +355,6 @@
 
         isSaving = true;
         try {
-            console.log(numbers);
-            console.log(createSelection);
-
             const response = await fetch('/banca/listas', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -449,11 +446,9 @@
                 }
             });
             const payload = await response.json();
-            console.log('payload', payload.items);
             const dataItems: RegistryItem[] = (Array.isArray(payload?.items) ? payload.items : []).filter(
                 (item: RegistryItem) => item?.enabled === true
             );
-            console.log('dataItems', dataItems);
 
             if (dataItems.length === 0) {
                 acts.add({
@@ -538,7 +533,6 @@
             if (!response.ok) {
                 throw new Error(payload?.error ?? 'No se pudo cargar la lista.');
             }
-
             const dataItems: RegistryItem[] = (Array.isArray(payload?.items) ? payload.items : []).filter(
                 (item: RegistryItem) => item?.enabled === true
             );

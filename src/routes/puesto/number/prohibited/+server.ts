@@ -5,8 +5,6 @@ export const GET: RequestHandler = async ({ request, fetch, locals, cookies }) =
     const baseUrl = env.API_URL;
 	const branchId = locals.user?.branchId;
     const token = cookies.get('session_puesto') ?? null;
-    console.log('token', token);
-    console.log( 'branchId', branchId);
 
 	if (!baseUrl || !branchId) {
 		return new Response(JSON.stringify({ error: 'Missing API_URL or branchId.' }), {

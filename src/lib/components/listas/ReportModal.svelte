@@ -37,6 +37,7 @@
 		number: number;
 		amount: number;
 		branch_comission: number;
+		branch_buy: number;
 		is_reventado: boolean;
 		is_megareventado: boolean;
 		date: string;
@@ -77,6 +78,7 @@
 		devolution: number;
 		total: number;
 		comission: number;
+		buy: number;
 	};
 
 	// Represents a primary section of the grouped report.
@@ -91,6 +93,7 @@
 		devolution: number;
 		total: number;
 		comission: number;
+		buy: number;
 	};
 
 	// Defines the active grouping hierarchy.
@@ -143,6 +146,11 @@
 	// Invalid or missing values default to 0%.
 	function getComissionPercentage(item: ReportItem) {
 		const percentage = Number(item.branch_comission);
+		return Number.isFinite(percentage) ? percentage : 0;
+	}
+
+	function getBuyPercentage(item: ReportItem) {
+		const percentage = Number(item.branch_buy);
 		return Number.isFinite(percentage) ? percentage : 0;
 	}
 
@@ -256,9 +264,17 @@
 		const primaryMap = new Map<string,{ label: string; secondary: Map<string, GroupRow> }>();
 		const winnersBySchedule = new Map<string, Winner[]>();
 		const prohibitedByNumber = new Map<string, Prohibited>();
+		const uniqueWinners = new Map<number, Winner>();
 
 		for (const winner of winners) {
-			const key = `${winner.date}|${winner.schedule_id}`;
+			if (winner.winner_id == null || uniqueWinners.has(winner.winner_id)) {
+				continue;
+			}
+			uniqueWinners.set(winner.winner_id, winner);
+		}
+
+		for (const winner of uniqueWinners.values()) {
+			const key = `${winner.date}|${winner.draw_schedule_id}`;
 			const existing = winnersBySchedule.get(key) ?? [];
 
 			existing.push(winner);
@@ -295,8 +311,9 @@
 			let overageNumber: { number: number; amount: number; overage: number; prohibited: Prohibited } | null = null;
 
 			// If current reportItem is a winner
-			if (item.number === rowWinners[0].winner_number) {
-				winner += item.amount * rowWinners[0].position_multiplier;
+			const matchingWinner = rowWinners.find((rowWinner) => rowWinner.winner_number === item.number);
+			if (matchingWinner) {
+				winner += item.amount * matchingWinner.position_multiplier;
 			}
 
 			// If current number is prohibited push to overageNumbers
@@ -308,8 +325,10 @@
 				// Add the current item's amount and commission
 				// to an already existing secondary group.
 				current.total += item.amount;
-				if (!current.winners.find(w => rowWinners.includes(w))) {
-					current.winners.push(...rowWinners);
+				for (const rowWinner of rowWinners) {
+					if (!current.winners.some((currentWinner) => currentWinner.winner_id === rowWinner.winner_id)) {
+						current.winners.push(rowWinner);
+					}
 				}
 				current.winner_total += winner;
 
@@ -320,6 +339,7 @@
 				// We have to calculate devolution after the current item is added to the group.
 				current.devolution = getDevolution(current.total, current.overageNumbers);
 				current.comission = (current.total - current.devolution) * getComissionPercentage(item)*0.01;
+				current.buy = current.devolution * getBuyPercentage(item) * 0.01;
 			} else {
 				// Create a new secondary group for this item.
 				devolution = getDevolution(item.amount, overageNumber ? [overageNumber] : []);
@@ -332,6 +352,7 @@
 					total: item.amount,
 					devolution,
 					comission: (item.amount - devolution) * getComissionPercentage(item) * 0.01,
+					buy: devolution * getBuyPercentage(item) * 0.01,
 				});
 			}
 		}
@@ -346,6 +367,7 @@
 				// Calculate totals across all secondary rows.
 				const total = rows.reduce((sum, row) => sum + row.total, 0);
 				const comission = rows.reduce((sum, row) => sum + row.comission, 0);
+				const buy = rows.reduce((sum, row) => sum + row.buy, 0);
 				const winner_total = rows.reduce((sum, row) => sum + row.winner_total, 0);
 				const devolution = rows.reduce((sum, row) => sum + row.devolution, 0);
 
@@ -356,7 +378,8 @@
 					winner_total,
 					devolution,
 					total,
-					comission
+					comission,
+					buy,
 				};
 			})
 			.sort((a, b) => a.label.localeCompare(b.label));
@@ -386,6 +409,7 @@
 
 	const grandTotal = $derived(visibleGroups.reduce((sum, group) => sum + group.total, 0));
 	const grandcomissionTotal = $derived(visibleGroups.reduce((sum, group) => sum + group.comission, 0));
+	const grandBuyTotal = $derived(visibleGroups.reduce((sum, group) => sum + group.buy, 0));
 	const granWinnerTotal = $derived(visibleGroups.reduce((sum, group) => sum + group.winner_total, 0));
 	const grandDevolutionTotal = $derived(visibleGroups.reduce((sum, group) => sum + group.devolution, 0));
 
@@ -457,6 +481,7 @@
 			    <span>Total vendido</span>
 				<span>Comisión</span>
 				<span>Devolución</span>
+				<span>Compra</span>
 				<span>Premio</span>
 				<span>Numero ganador</span>
 				<span>Neto</span>
@@ -473,13 +498,14 @@
 						    <strong>{formatCurrency(row.total)}</strong>
 							<strong>{formatCurrency(row.comission)}</strong>
 							<strong>{formatCurrency(row.devolution)}</strong>
+							<strong>{formatCurrency(row.buy)}</strong>
 							<strong>{formatCurrency(row.winner_total)}</strong>
 							<strong>
 							{#each row.winners.filter((winner) => winner.winner_number != null) as winner, index}
 								{winner.winner_number}{index < row.winners.filter((w) => w.winner_number != null).length - 1 ? ', ' : ''}
 							{/each}
 							</strong>
-							<strong>{formatCurrency(row.total - row.devolution - row.comission - row.winner_total)}</strong>
+							<strong>{formatCurrency(row.total - row.comission - row.winner_total)}</strong>
 						</div>
 					</li>
 				{/each}
@@ -488,9 +514,10 @@
 				    <strong>{formatCurrency(group.total)}</strong>
 					<strong>{formatCurrency(group.comission)}</strong>
 					<strong>{formatCurrency(group.devolution)}</strong>
+					<strong>{formatCurrency(group.buy)}</strong>
 					<strong>{formatCurrency(group.winner_total)}</strong>
 					<strong></strong>
-					<strong>{formatCurrency(group.total - group.devolution - group.comission - group.winner_total)}</strong>
+					<strong>{formatCurrency(group.total - group.comission - group.winner_total)}</strong>
 				</div>
 			</div>
 			{/each}
@@ -501,6 +528,7 @@
 			    <strong>{formatCurrency(grandTotal)}</strong>
 				<strong>{formatCurrency(grandcomissionTotal)}</strong>
 				<strong>{formatCurrency(grandDevolutionTotal)}</strong>
+				<strong>{formatCurrency(grandBuyTotal)}</strong>
 				<strong>{formatCurrency(granWinnerTotal)}</strong>
 				<strong>
  			</strong>

@@ -39,7 +39,6 @@
 			prohibited.amount === undefined ||
 			prohibited.starter === undefined
 		) {
-			console.log('Número, monto y monto de arranque son requeridos');
 			return;
 		}
 

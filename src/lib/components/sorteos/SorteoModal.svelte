@@ -40,7 +40,6 @@
 		}
 
 		hasConfirmed = true;
-		console.log('Submitting sorteo:', sorteo, 'with payload:', payload);
 		if (sorteo?.id !== -1) {
 			await updateSorteo(payload);
 		} else {

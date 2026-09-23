@@ -16,12 +16,16 @@
 		onDeleteSchedule,
 		onSaveScheduleSettings
 	} = $props();
+	let configuredPuestosBySchedule = $state<Record<number, number[]>>({});
 
 	type Puesto = {
 		id: number;
 		name: string;
 		enabled: boolean;
 		comission: number;
+		buy: number | null;
+		buy_first_place: number | null;
+		prohibited_percentage: number | null;
 	};
 
 	type ScheduleChanges = {
@@ -56,14 +60,116 @@
 		}
 	}
 
-	function handlePuestoChange(field: 'enabled' | 'comission', puesto: Puesto, event: Event) {
+	function isPuestoConfigured(puestoId: number) {
+		return selectedSchedule?.id != null &&
+			(configuredPuestosBySchedule[selectedSchedule.id] ?? []).includes(puestoId);
+	}
+
+	function handleConfigurePuesto(puesto: Puesto) {
+		if (selectedSchedule?.id == null) return;
+
+		const currentPuestos = selectedSchedule.puestos ?? [];
+		const currentPuesto = currentPuestos.find((item) => item.id === puesto.id);
+		const updatedPuestos = currentPuesto
+			? currentPuestos
+			: [...currentPuestos, {
+				...puesto,
+				enabled: true,
+				comission: Number(puesto.comission ?? 0),
+				prohibited_percentage: Number(puesto.prohibited_percentage ?? 0),
+				buy: puesto.buy ?? null,
+				buy_first_place: puesto.buy_first_place ?? null
+			}];
+
+		updateSelectedSchedule({ puestos: updatedPuestos });
+		configuredPuestosBySchedule = {
+			...configuredPuestosBySchedule,
+			[selectedSchedule.id]: [
+				...(configuredPuestosBySchedule[selectedSchedule.id] ?? []).filter((id) => id !== puesto.id),
+				puesto.id
+			]
+		};
+	}
+
+	function handlePuestoChange(field: 'enabled' | 'comission' | 'prohibited_percentage', puesto: Puesto, event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
 		const currentPuestos = selectedSchedule?.puestos ?? [];
 		const currentPuesto = currentPuestos.find((item) => item.id === puesto.id);
 		const value = field === 'enabled' ? input.checked : (input.value === '' ? 0 : Number(input.value));
 		const updatedPuestos = currentPuesto
 			? currentPuestos.map((item) => item.id === puesto.id ? { ...item, [field]: value } : item)
-			: [...currentPuestos, { ...puesto, enabled: field === 'enabled' ? Boolean(value) : true, comission: field === 'comission' ? Number(value) : 0 }];
+			: [...currentPuestos, {
+				...puesto,
+				enabled: field === 'enabled' ? Boolean(value) : true,
+				comission: field === 'comission' ? Number(value) : Number(puesto.comission ?? 0),
+				prohibited_percentage: field === 'prohibited_percentage'
+					? Number(value)
+					: Number(puesto.prohibited_percentage ?? 0),
+				buy: puesto.buy ?? null,
+				buy_first_place: puesto.buy_first_place ?? null
+			}];
+
+		updateSelectedSchedule({ puestos: updatedPuestos });
+	}
+
+	function handleBuyChange(puesto: Puesto, event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const currentPuestos = selectedSchedule?.puestos ?? [];
+		const currentPuesto = currentPuestos.find((item) => item.id === puesto.id);
+		const value = input.value === '' ? 0 : Number(input.value);
+		const updatedPuestos = currentPuesto
+			? currentPuestos.map((item) => item.id === puesto.id ? { ...item, buy: value } : item)
+			: [...currentPuestos, {
+				...puesto,
+				enabled: true,
+				comission: Number(puesto.comission ?? 0),
+				prohibited_percentage: Number(puesto.prohibited_percentage ?? 0),
+				buy: value,
+				buy_first_place: puesto.buy_first_place ?? null
+			}];
+
+		updateSelectedSchedule({ puestos: updatedPuestos });
+	}
+
+	function handleBuyFirstPlaceChange(puesto: Puesto, event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const currentPuestos = selectedSchedule?.puestos ?? [];
+		const currentPuesto = currentPuestos.find((item) => item.id === puesto.id);
+		const value = input.value === '' ? 0 : Number(input.value);
+		const updatedPuestos = currentPuesto
+			? currentPuestos.map((item) => item.id === puesto.id ? { ...item, buy_first_place: value } : item)
+			: [...currentPuestos, {
+				...puesto,
+				enabled: true,
+				comission: Number(puesto.comission ?? 0),
+				prohibited_percentage: Number(puesto.prohibited_percentage ?? 0),
+				buy: puesto.buy ?? null,
+				buy_first_place: value
+			}];
+
+		updateSelectedSchedule({ puestos: updatedPuestos });
+	}
+
+	function handleBuyToggle(puesto: Puesto, event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const currentPuestos = selectedSchedule?.puestos ?? [];
+		const currentPuesto = currentPuestos.find((item) => item.id === puesto.id);
+		const updatedPuestos = currentPuesto
+			? currentPuestos.map((item) => item.id === puesto.id
+				? {
+					...item,
+					buy: input.checked ? (item.buy ?? 0) : null,
+					buy_first_place: input.checked ? (item.buy_first_place ?? 0) : null
+				}
+				: item)
+			: [...currentPuestos, {
+				...puesto,
+				enabled: true,
+				comission: Number(puesto.comission ?? 0),
+				prohibited_percentage: Number(puesto.prohibited_percentage ?? 0),
+				buy: input.checked ? (puesto.buy ?? 0) : null,
+				buy_first_place: input.checked ? (puesto.buy_first_place ?? 0) : null
+			}];
 
 		updateSelectedSchedule({ puestos: updatedPuestos });
 	}
@@ -95,6 +201,27 @@
 		if ((selectedSchedule.puestos ?? []).some((p) => p.enabled && (p.comission <= 0 || isNaN(p.comission)))) {
 			acts.add({
 				message: 'Asigne una comisión válida',
+				mode: 'error',
+				lifetime: 3
+			});
+			return;
+		}
+		if ((selectedSchedule.puestos ?? []).some((p) =>
+			p.buy !== null && (p.buy === '' || !Number.isFinite(Number(p.buy)) || Number(p.buy) < 0)
+		)) {
+			acts.add({
+				message: 'Asigne una compra válida',
+				mode: 'error',
+				lifetime: 3
+			});
+			return;
+		}
+		if ((selectedSchedule.puestos ?? []).some((p) =>
+			p.buy_first_place !== null &&
+			(p.buy_first_place === '' || !Number.isFinite(Number(p.buy_first_place)) || Number(p.buy_first_place) < 0)
+		)) {
+			acts.add({
+				message: 'Asigne una compra del primer lugar válida',
 				mode: 'error',
 				lifetime: 3
 			});
@@ -249,25 +376,96 @@
 								<div class="puesto-list scroll-thin">
 									<h3>Puestos del horario</h3>
 									{#each puestoOptions as puesto}
+										{@const selectedPuesto = (selectedSchedule.puestos ?? []).find((p) => p.id === puesto.id)}
 										<div class="puesto-item" >
-											<label class="puesto-check">
-												<input
-													type="checkbox"
-													checked={(selectedSchedule.puestos ?? []).some((p) => p.id === puesto.id && p.enabled !== false)}
-													onchange={(e) => handlePuestoChange("enabled", puesto, e)}
-												/>
-												<span>{puesto.name}</span>
-											</label>
-											<label class="puesto-comission">
-												<span>Comision</span>
-												<input
-													type="number"
-													min="0"
-													step="0.01"
-													value={(selectedSchedule.puestos ?? []).find((p) => p.id === puesto.id)?.comission || ''}
-													oninput={(e) => handlePuestoChange("comission", puesto, e)}
-												/>
-											</label>
+											<div>
+    											<label class="puesto-check">
+    												<input
+    													type="checkbox"
+    													checked={(selectedSchedule.puestos ?? []).some((p) => p.id === puesto.id && p.enabled !== false)}
+    													onchange={(e) => handlePuestoChange("enabled", puesto, e)}
+    												/>
+    												<span>{puesto.name}</span>
+         											<button
+        												type="button"
+        												hidden={isPuestoConfigured(puesto.id)}
+                                                        class="configure-puesto"
+        												onclick={() => handleConfigurePuesto(puesto)}
+         											>
+        												Configurar >
+         											</button>
+                                                    <button
+                                                        type="button"
+                                                        class="configure-puesto"
+                                                        hidden={!isPuestoConfigured(puesto.id)}
+                                                        onclick={() => {
+                                                       	configuredPuestosBySchedule = {
+                                                       		...configuredPuestosBySchedule,
+                                                       		[selectedSchedule.id]: (configuredPuestosBySchedule[selectedSchedule.id] ?? [])
+                                                       			.filter((id) => id !== puesto.id)
+                                                       	};
+                                                    }}>
+                                                    	Ocultar configuración
+                                                    </button>
+    											</label>
+    										</div>
+    										<div class="row puesto-settings" hidden={!isPuestoConfigured(puesto.id)}>
+    											<label class="puesto-comission">
+    												<span>Comision</span>
+    												<input
+    													type="number"
+    													min="0"
+    													step="0.01"
+    													value={selectedPuesto?.comission ?? puesto.comission ?? ''}
+    													oninput={(e) => handlePuestoChange("comission", puesto, e)}
+    												/>
+    											</label>
+    											<label class="puesto-comission">
+    												<span>Prohibidos</span>
+    												<input
+    													type="number"
+    													min="0"
+    													max="100"
+    													step="0.01"
+    													value={selectedPuesto?.prohibited_percentage ?? puesto.prohibited_percentage ?? ''}
+    													oninput={(e) => handlePuestoChange("prohibited_percentage", puesto, e)}
+    												/>
+    											</label>
+    											<div class="row option-compra">
+    												<input
+    												    type="checkbox"
+                                                        class="checkbox-compra"
+    												    checked={selectedPuesto?.buy !== null && selectedPuesto?.buy !== undefined}
+    												    onchange={(e) => handleBuyToggle(puesto, e)}
+												    />
+    								                <span>Compra</span>
+     											    <label
+     											    	class="column puesto-comission "
+     											    	hidden={selectedPuesto?.buy === null || selectedPuesto?.buy === undefined}
+     											    >
+             											<div class="row">
+                                                            <span>Comision</span>
+            												<input
+                     											type="number"
+                          										min="0"
+                          										step="1"
+                          										value={selectedPuesto?.buy ?? 0}
+                          										disabled={selectedPuesto?.buy === null || selectedPuesto?.buy === undefined}
+                          										oninput={(e) => handleBuyChange(puesto, e)}
+                    								        />
+                                                            <span>Ganador</span>
+            												<input
+                     											type="number"
+                          										min="0"
+                          										step="1"
+                          										value={selectedPuesto?.buy_first_place ?? 0}
+                          										disabled={selectedPuesto?.buy === null || selectedPuesto?.buy === undefined}
+                          										oninput={(e) => handleBuyFirstPlaceChange(puesto, e)}
+                    								        />
+                                                        </div>
+         											</label>
+                                                </div>
+                                            </div>
 										</div>
 									{/each}
 								</div>
@@ -379,8 +577,8 @@
 	}
 	.puesto-item {
 		display: flex;
-		flex-direction: row;
-		align-items: center;
+		flex-direction: column;
+		align-items: start;
 		justify-content: space-between;
 		gap: 0.55rem;
 		padding: 0.65rem 0.75rem;
@@ -399,7 +597,17 @@
 		flex-direction: row;
 		align-items: center;
 		gap: 0.35rem;
-		font-size: 0.9rem;}
+	}
+
+	.puesto-comission input {
+	    width: 3rem;
+	}
+
+	.puesto-settings {
+		flex-wrap: wrap;
+		font-size: 0.9rem;
+	}
+
 	.schedule-main {
 		display: flex;
 		flex-direction: column;
@@ -442,5 +650,25 @@
 		font-weight: 600;
 		border-radius: 0;
 		border: 1px solid var(--color-border);
+	}
+
+	.configure-puesto {
+		background: var(--color-bg-2);
+		padding: 0.5rem;
+		color: var(--color-theme-1);
+		font-size: 0.8rem;
+	}
+
+	.configure-puesto:hover {
+	    text-decoration: underline;
+	}
+
+	.checkbox-compra {
+	    margin-right: -0.5rem;
+	}
+
+	.option-compra {
+    	padding: 0.5rem;
+    	border: 1px solid var(--color-border);
 	}
 </style>

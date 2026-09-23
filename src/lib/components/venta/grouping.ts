@@ -3,7 +3,8 @@ export type GroupingMode = 'branch' | 'draw_schedule' | 'draw' | 'date';
 export type ReportItem = {
 	branch_id: number;
     branch_name: string;
-	branch_comission: number;
+    branch_comission: number;
+	branch_buy: number;
 	draw_schedule_id: number;
 	draw_schedule_name: string;
 	draw_id: number;
