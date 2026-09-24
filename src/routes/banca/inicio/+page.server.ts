@@ -7,7 +7,14 @@ export const load: PageServerLoad = async ({ fetch, locals, cookies }) => {
     const bankingId = locals.user?.bankingId;
 
     if (!baseUrl || !bankingId) {
-        return { prohibitedItems: [], reportTodayItems: [], branchNames: [], scheduleNames: [] };
+        return {
+            prohibitedItems: [],
+            reportTodayItems: [],
+            winnersFilteredItems: [],
+            prohibitedFilteredItems: [],
+            branchNames: [],
+            scheduleNames: []
+        };
     }
 
     try {
@@ -51,8 +58,40 @@ export const load: PageServerLoad = async ({ fetch, locals, cookies }) => {
         const reportTodayPayload = reportTodayResponse.ok ? await reportTodayResponse.json().catch(() => null) : null;
         const reportTodayItems = Array.isArray(reportTodayPayload?.items) ? reportTodayPayload.items : [];
 
-        return { prohibitedItems, reportTodayItems, branchNames, scheduleNames };
+        const winnersFilteredResponse = await fetch(`${baseUrl}/winner/filtered?date_from=${utcMinus6Date}&date_to=${utcMinus6Date}&branches=${encodeURIComponent(branchIds.join(','))}&draw_schedules=${encodeURIComponent(scheduleIds.join(','))}`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'X-Auth-App': 'banca'
+            }
+        });
+        const winnersFilteredPayload = winnersFilteredResponse.ok ? await winnersFilteredResponse.json().catch(() => null) : null;
+        const winnersFilteredItems = Array.isArray(winnersFilteredPayload?.items) ? winnersFilteredPayload.items : [];
+
+        const prohibitedFilteredResponse = await fetch(`${baseUrl}/number/prohibited/filtered?date_from=${utcMinus6Date}&date_to=${utcMinus6Date}&branches=${encodeURIComponent(branchIds.join(','))}`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'X-Auth-App': 'banca'
+            }
+        });
+        const prohibitedFilteredPayload = prohibitedFilteredResponse.ok ? await prohibitedFilteredResponse.json().catch(() => null) : null;
+        const prohibitedFilteredItems = Array.isArray(prohibitedFilteredPayload?.items) ? prohibitedFilteredPayload.items : [];
+
+        return {
+            prohibitedItems,
+            reportTodayItems,
+            winnersFilteredItems,
+            prohibitedFilteredItems,
+            branchNames,
+            scheduleNames
+        };
     } catch {
-        return { prohibitedItems: [], reportTodayItems: [], branchNames: [], scheduleNames: [] };
+        return {
+            prohibitedItems: [],
+            reportTodayItems: [],
+            winnersFilteredItems: [],
+            prohibitedFilteredItems: [],
+            branchNames: [],
+            scheduleNames: []
+        };
     }
 };

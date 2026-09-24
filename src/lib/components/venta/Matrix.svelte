@@ -15,7 +15,9 @@
         isLoading = $bindable<boolean>(false),
         report = $bindable<ReportItem[]>([]),
         groupingModes = $bindable<GroupingMode[]>([]),
-        groupingMode = $bindable<GroupingMode | null>(null)
+        groupingMode = $bindable<GroupingMode | null>(null),
+        winnerNumbers = [],
+        reportProhibitedNumbers = []
     } = $props();
 
     import { sellingMatrix } from '../../stores/UpdateSellMatrix';
@@ -80,6 +82,8 @@
                         <div
                             class={`matrix-cell
                                 ${$prohibitedNumbers.some((n) => n.number === index) ? "prohibited-number" : ""}
+                                ${reportProhibitedNumbers.includes(index) ? "report-prohibited-number" : ""}
+                                ${winnerNumbers.includes(index) ? "winner-number" : ""}
                                 ${groupedNumbers[index]?.length > 0 ? "has-report" : ""
                             }`}
                             role="group"
@@ -186,15 +190,40 @@
 		gap: 0.45rem;
 	}
 
-    .prohibited-number input[type="number"] {
+    .prohibited-number input[type="number"],
+    .report-prohibited-number input[type="number"] {
+        background-color: #f8d7da !important;
+        border-color: #f5c6cb !important;
+        color: #721c24 !important;
+    }
+
+    .prohibited-number input[type="number"]:first-child,
+    .report-prohibited-number input[type="number"]:first-child {
+        background-color: #f8c3c7 !important;
+        border-color: #f5c6cb !important;
+    }
+
+    .winner-number input[type="number"] {
+        background-color: #d1e7dd !important;
+        border-color: #badbcc !important;
+        color: #0f5132  !important;
+    }
+
+    .winner-number input[type="number"]:first-child {
+        background-color: #b9dfc9 !important;
+        border-color: #badbcc !important;
+    }
+
+    .report-prohibited-number.winner-number input[type="number"]:first-child {
+        background-color: #b9dfc9 !important;
+        border-color: #badbcc !important;
+        color: #0f5132 !important;
+    }
+
+    .report-prohibited-number.winner-number input[type="number"]:not(:first-child) {
         background-color: #f8d7da;
         border-color: #f5c6cb;
         color: #721c24;
-    }
-
-    .prohibited-number input[type="number"]:first-child {
-        background-color: #f8c3c7;
-        border-color: #f5c6cb;
     }
 
     .has-report:hover {

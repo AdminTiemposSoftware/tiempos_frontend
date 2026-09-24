@@ -4,6 +4,7 @@
     import ConfirmModal from '../ConfirmModal.svelte';
     import Matrix from '../venta/Matrix.svelte';
 	import ReportModal from './ReportModal.svelte';
+	import ReportSummary from './ReportSummary.svelte';
 	import ExportModal from './ExportModal.svelte';
 	import {acts} from '@tadashi/svelte-notification'
 	import SelectModal from '../SelectModal.svelte';
@@ -309,6 +310,7 @@
 			branch_name: String(item.branch_name),
 			branch_comission: Number(item.branch_comission),
 			branch_buy: Number(item.branch_buy),
+			branch_buy_first_place: Number(item.branch_buy_first_place),
 			draw_schedule_id: Number(item.draw_schedule_id),
 			draw_schedule_name: String(item.draw_schedule_name),
 			draw_id: Number(item.draw_id),
@@ -320,6 +322,20 @@
 			date: String(item.date)
 		})).filter((item) => Number.isFinite(item.number) && Number.isFinite(item.amount))
 		.sort((a, b) => a.number - b.number);
+	});
+
+	$effect(() => {
+		const winnersFilteredItems = Array.isArray(data?.winnersFilteredItems)
+			? (data.winnersFilteredItems as WinnerItem[])
+			: [];
+		winnersFiltered = winnersFilteredItems;
+	});
+
+	$effect(() => {
+		const prohibitedFilteredItems = Array.isArray(data?.prohibitedFilteredItems)
+			? (data.prohibitedFilteredItems as prohibitedItem[])
+			: [];
+		prohibitedFiltered = prohibitedFilteredItems;
 	});
 
 	function validFilters() {
@@ -387,11 +403,13 @@
     			? (data.items as any[])
     			: [];
 
+            console.log(dataItems);
     		report = dataItems.map((item) => ({
     			branch_id: Number(item.branch_id),
     			branch_name: String(item.branch_name),
                 branch_comission: Number(item.branch_comission),
                 branch_buy: Number(item.branch_buy),
+                branch_buy_first_place: Number(item.branch_buy_first_place),
     			draw_schedule_id: Number(item.draw_schedule_id),
     			draw_schedule_name: String(item.draw_schedule_name),
     			draw_id: Number(item.draw_id),
@@ -407,6 +425,8 @@
 
     		totalAmountReport = report.reduce((acc, item) => acc + item.amount, 0);
     		isLoading = false;
+			await fetchWinnersFiltered();
+			await fetchProhibitedNumbers();
 		} catch (error) {
 			acts.add({
 				message: "Error al aplicar filtros.",
@@ -443,8 +463,6 @@
 				});
 			}
 			winnersFiltered = winnerItems;
-
-			showReportModal = true;
 		} catch (error) {
 			acts.add({
 				message: "Error al aplicar filtros.",
@@ -561,9 +579,7 @@
 
 	async function showReport() {
         if (!validFilters()) return;
-		await applyFilters();
-		await fetchWinnersFiltered();
-		await fetchProhibitedNumbers();
+		showReportModal = true;
 	}
 </script>
 
@@ -655,7 +671,24 @@
 	                <p class="total-amount-label">₡{formatAmount(totalAmountReport)} </p>
 	            </div>
             </div>
-	        <Matrix bind:report={report} bind:isLoading={isLoading} bind:groupingModes={groupingModes} mode={matrixMode} />
+	        <Matrix
+				bind:report={report}
+				bind:isLoading={isLoading}
+				bind:groupingModes={groupingModes}
+				mode={matrixMode}
+				winnerNumbers={winnersFiltered
+					.filter((item) => item.winner_number != null)
+					.map((item) => Number(item.winner_number))
+					.filter((number) => Number.isFinite(number))}
+				reportProhibitedNumbers={prohibitedFiltered
+					.map((item) => Number(item.number))
+					.filter((number) => Number.isFinite(number))}
+				/>
+			<ReportSummary
+				report={report}
+				prohibitedNumbers={prohibitedFiltered}
+				winners={winnersFiltered}
+			/>
         </div>
         <div class="right">
             <div class="column">
@@ -680,7 +713,7 @@
                 <button
                     type="button"
                     class={`option-button ${matrixMode === '10x10' ? 'selected-mode' : ''}`}
-                    onclick={() => { matrixMode = '10x10'; }}
+                    onclick={() => {  console.log(prohibitedFiltered)}}
                 >
                 10x10
                 </button>

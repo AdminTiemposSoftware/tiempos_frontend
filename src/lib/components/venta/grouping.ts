@@ -5,6 +5,7 @@ export type ReportItem = {
     branch_name: string;
     branch_comission: number;
 	branch_buy: number;
+    branch_buy_first_place?: number | null;
 	draw_schedule_id: number;
 	draw_schedule_name: string;
 	draw_id: number;
