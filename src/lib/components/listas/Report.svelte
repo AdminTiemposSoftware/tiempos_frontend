@@ -713,7 +713,7 @@
                 <button
                     type="button"
                     class={`option-button ${matrixMode === '10x10' ? 'selected-mode' : ''}`}
-                    onclick={() => {  console.log(prohibitedFiltered)}}
+                    onclick={() => { matrixMode = '10x10'; }}
                 >
                 10x10
                 </button>

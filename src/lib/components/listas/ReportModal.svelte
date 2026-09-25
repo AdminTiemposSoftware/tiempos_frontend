@@ -38,6 +38,7 @@
 		amount: number;
 		branch_comission: number;
 		branch_buy: number;
+		branch_buy_first_place: number;
 		is_reventado: boolean;
 		is_megareventado: boolean;
 		date: string;
@@ -45,8 +46,9 @@
 
 	// Represents winner information associated with a position.
 	type Winner = {
-	    draw_id: number;
-		draw_schedule_id: number;
+	    draw_id?: number;
+		draw_schedule_id?: number;
+		schedule_id?: number;
 		date: string;
 		position_id: number;
 		position_number: number;
@@ -155,26 +157,47 @@
 	}
 
 	function getOverageAmountOnProhibited(prohibitedNumber: Prohibited, amount: number, total: number) {
-		if (prohibitedNumber?.by_amount) {
-			if (amount > prohibitedNumber.amount) {
-				return amount - prohibitedNumber.amount;
-			}
-		} else if (prohibitedNumber?.by_percentage){
-			if (amount && (total * prohibitedNumber.percentage*0.01) < amount && amount > prohibitedNumber.starter) {
-				return amount - (total * prohibitedNumber.percentage*0.01);
+		const value = Number(amount);
+		if (!Number.isFinite(value)) {
+			return 0;
+		}
+
+		if (prohibitedNumber.by_amount) {
+			const limit = Number(prohibitedNumber.amount);
+			return Number.isFinite(limit) && value > limit ? value - limit : 0;
+		}
+
+		if (prohibitedNumber.by_percentage) {
+			const starter = Number(prohibitedNumber.starter);
+			const percentage = Number(prohibitedNumber.percentage);
+			const limit = total * percentage * 0.01;
+
+			if (
+				Number.isFinite(starter) &&
+				Number.isFinite(percentage) &&
+				value > starter &&
+				value > limit
+			) {
+				return value - limit;
 			}
 		}
+
 		return 0;
 	}
 
-	function getDevolution(total: number, overageNumbers: { number: number; amount: number; overage: number; prohibited: Prohibited }[]) {
-		let devolution = 0;
-	    for (const overageNumber of overageNumbers) {
-	        if (overageNumber.prohibited) {
-	            devolution += getOverageAmountOnProhibited(overageNumber.prohibited, overageNumber.amount, total);
-	        }
-	    }
-	    return devolution;
+	function getDevolution(
+		total: number,
+		overageNumbers: { number: number; amount: number; overage: number; prohibited: Prohibited }[]
+	) {
+		return overageNumbers.reduce(
+			(devolution, overageNumber) =>
+				devolution + getOverageAmountOnProhibited(overageNumber.prohibited, overageNumber.amount, total),
+			0
+		);
+	}
+
+	function getScopeKey(item: ReportItem) {
+		return `${getDateKey(item.date)}|${item.branch_id}|${item.draw_schedule_id}`;
 	}
 
 	// Returns the unique grouping key for a report item
@@ -249,6 +272,14 @@
 		)?.label ?? mode);
 	}
 
+	function getWinnerScheduleId(winner: Winner) {
+		return winner.schedule_id ?? winner.draw_schedule_id;
+	}
+
+	function getDateKey(date: string) {
+		return date?.split('T')[0] ?? '';
+	}
+
 	// Groups report items according to the selected primary and secondary grouping modes.
 	// It also calculates the total sales and commission for each group.
 	function buildGroups(
@@ -264,6 +295,7 @@
 		const primaryMap = new Map<string,{ label: string; secondary: Map<string, GroupRow> }>();
 		const winnersBySchedule = new Map<string, Winner[]>();
 		const prohibitedByNumber = new Map<string, Prohibited>();
+		const totalsByScope = new Map<string, number>();
 		const uniqueWinners = new Map<number, Winner>();
 
 		for (const winner of winners) {
@@ -274,7 +306,7 @@
 		}
 
 		for (const winner of uniqueWinners.values()) {
-			const key = `${winner.date}|${winner.draw_schedule_id}`;
+			const key = `${getDateKey(winner.date)}|${getWinnerScheduleId(winner)}`;
 			const existing = winnersBySchedule.get(key) ?? [];
 
 			existing.push(winner);
@@ -282,8 +314,15 @@
 		}
 
 		for (const prohibitedNumber of prohibitedNumbers) {
-			const key = `${prohibitedNumber.date.split('T')[0]}|${prohibitedNumber.branch_id}|${prohibitedNumber.number}`;
+			const key = `${getDateKey(prohibitedNumber.date)}|${prohibitedNumber.branch_id}|${prohibitedNumber.number}`;
 			prohibitedByNumber.set(key, prohibitedNumber);
+		}
+
+		for (const item of items) {
+			totalsByScope.set(
+				getScopeKey(item),
+				(totalsByScope.get(getScopeKey(item)) ?? 0) + Number(item.amount)
+			);
 		}
 
 		for (const item of items) {
@@ -291,8 +330,9 @@
 			const pLabel = config.primaryLabel(item);
 			const sId = config.secondaryId(item);
 			const sLabel = config.secondaryLabel(item);
-			const winnerKey = `${item.date}|${item.draw_schedule_id}`;
-			const prohibitedKey = `${item.date}|${item.branch_id}|${item.number}`;
+			const winnerKey = `${getDateKey(item.date)}|${item.draw_schedule_id}`;
+			const prohibitedKey = `${getDateKey(item.date)}|${item.branch_id}|${item.number}`;
+			const scopeTotal = totalsByScope.get(getScopeKey(item)) ?? 0;
 
 			// Create the primary group if it doesn't exist.
 			if (!primaryMap.has(pId)) {
@@ -311,9 +351,27 @@
 			let overageNumber: { number: number; amount: number; overage: number; prohibited: Prohibited } | null = null;
 
 			// If current reportItem is a winner
-			const matchingWinner = rowWinners.find((rowWinner) => rowWinner.winner_number === item.number);
+			const matchingWinner = rowWinners.find(
+				(rowWinner) => Number(rowWinner.winner_number) === Number(item.number)
+			);
 			if (matchingWinner) {
-				winner += item.amount * matchingWinner.position_multiplier;
+				const winnerDevolution = prohibitedNumber
+					? getDevolution(scopeTotal, [{
+						number: item.number,
+						amount: item.amount,
+						overage: 0,
+						prohibited: prohibitedNumber
+					}])
+					: 0;
+
+
+				const branchBuyFirstPlace = Number(item.branch_buy_first_place);
+				const normalPayout =
+					(item.amount - winnerDevolution) * matchingWinner.position_multiplier;
+				const prohibitedPayout = Number.isFinite(branchBuyFirstPlace)
+					? winnerDevolution * branchBuyFirstPlace
+					: 0;
+				winner += normalPayout + prohibitedPayout;
 			}
 
 			// If current number is prohibited push to overageNumbers
@@ -337,12 +395,22 @@
 				}
 
 				// We have to calculate devolution after the current item is added to the group.
-				current.devolution = getDevolution(current.total, current.overageNumbers);
+				current.devolution = current.overageNumbers.reduce(
+					(sum, overageNumber) =>
+						sum + getOverageAmountOnProhibited(
+							overageNumber.prohibited,
+							overageNumber.amount,
+							totalsByScope.get(getScopeKey(item)) ?? 0
+						),
+					0
+				);
 				current.comission = (current.total - current.devolution) * getComissionPercentage(item)*0.01;
 				current.buy = current.devolution * getBuyPercentage(item) * 0.01;
 			} else {
 				// Create a new secondary group for this item.
-				devolution = getDevolution(item.amount, overageNumber ? [overageNumber] : []);
+				devolution = overageNumber
+					? getDevolution(scopeTotal, [overageNumber])
+					: 0;
 				primary.secondary.set(sId, {
 					id: sId,
 					label: `${sLabel}`,
@@ -478,12 +546,12 @@
 			<p class="empty">No hay datos para mostrar.</p>
 		{:else}
 			<div class="totals-head">
-			    <span>Total vendido</span>
+			    <span>Total</span>
 				<span>Comisión</span>
 				<span>Devolución</span>
 				<span>Compra</span>
 				<span>Premio</span>
-				<span>Numero ganador</span>
+				<span>Numero</span>
 				<span>Neto</span>
 			</div>
 
@@ -730,6 +798,7 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+		font-size: 0.85rem;
 	}
 
 	.totals strong, .totals-head span {
