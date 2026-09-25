@@ -163,6 +163,10 @@
 
 <div class="report-summary">
 	<table>
+		<colgroup>
+			<col class="label-column" />
+			<col span="4" class="data-column" />
+		</colgroup>
 		<thead>
 			<tr>
 				<th class="corner"></th>
@@ -200,15 +204,24 @@
 
 <style>
 	.report-summary {
-		width: 50%;
+		width: 75%;
 		margin-top: 0.75rem;
 	}
 
 	table {
 		font-size: 1rem;
 		width: 100%;
+		table-layout: fixed;
 		border-collapse: collapse;
 		background: #fff;
+	}
+
+	.label-column {
+		width: 18%;
+	}
+
+	.data-column {
+		width: 20%;
 	}
 
 	th,
