@@ -13,7 +13,8 @@ export const load: PageServerLoad = async ({ fetch, locals, cookies }) => {
             winnersFilteredItems: [],
             prohibitedFilteredItems: [],
             branchNames: [],
-            scheduleNames: []
+            scheduleNames: [],
+            scheduleBranch: []
         };
     }
 
@@ -76,13 +77,23 @@ export const load: PageServerLoad = async ({ fetch, locals, cookies }) => {
         const prohibitedFilteredPayload = prohibitedFilteredResponse.ok ? await prohibitedFilteredResponse.json().catch(() => null) : null;
         const prohibitedFilteredItems = Array.isArray(prohibitedFilteredPayload?.items) ? prohibitedFilteredPayload.items : [];
 
+        const scheduleBranchResponse = await fetch(`${baseUrl}/draw-schedule-branch/by-banking/${bankingId}`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'X-Auth-App': 'banca'
+            }
+        });
+        const scheduleBranchPayload = scheduleBranchResponse.ok ? await scheduleBranchResponse.json().catch(() => null) : null;
+        const scheduleBranch = Array.isArray(scheduleBranchPayload?.items) ? scheduleBranchPayload.items : [];
+
         return {
             prohibitedItems,
             reportTodayItems,
             winnersFilteredItems,
             prohibitedFilteredItems,
             branchNames,
-            scheduleNames
+            scheduleNames,
+            scheduleBranch
         };
     } catch {
         return {
@@ -91,7 +102,8 @@ export const load: PageServerLoad = async ({ fetch, locals, cookies }) => {
             winnersFilteredItems: [],
             prohibitedFilteredItems: [],
             branchNames: [],
-            scheduleNames: []
+            scheduleNames: [],
+            scheduleBranch: []
         };
     }
 };

@@ -216,7 +216,7 @@
 
 <style>
 	.report-summary {
-		width: 75%;
+		width: 80%;
 		margin-top: 0.75rem;
 	}
 
@@ -229,7 +229,7 @@
 	}
 
 	.label-column {
-		width: 18%;
+		width: 20%;
 	}
 
 	.data-column {

@@ -26,6 +26,7 @@
 	let selectedProhibitedNumber = $state<prohibitedNumber>({id: -1, number: 0, amount: 0, starter: 0, can_sell_after_amount: false, by_amount: false, by_percentage: true});
 	let branchNames = $state<{ value: number; label: string }[]>([]);
 	let drawScheduleNames = $state<{ value: number; label: string }[]>([]);
+	let scheduleBranch = $state<{ value: number; label: string }[]>([]);
 	let selectedBranch = $state<number[]>([]);
 	let selectedDrawSchedule = $state<number[]>([]);
 	let { data, user, ignoredGroupingModes = [] }: ReportProps = $props();
@@ -626,6 +627,9 @@
 	sorteos={sorteosQr}
 	dateTo={to}
 	total={totalQr}
+	branchNames={branchNames}
+	drawScheduleNames={drawScheduleNames}
+	scheduleBranch={data?.scheduleBranch ?? []}
 />
 
 <ReportModal

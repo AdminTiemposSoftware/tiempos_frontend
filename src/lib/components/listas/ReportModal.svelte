@@ -1,6 +1,7 @@
 <script lang="ts">
-	// Available grouping options and the type representing a grouping mode.
 	import { GROUPING_OPTIONS, type GroupingMode } from '../venta/grouping';
+	import { PrinterSolid } from "flowbite-svelte-icons";
+
 	let {
 		report = [],
 		showModal = $bindable(false),
@@ -23,8 +24,6 @@
 			dateTo: string;
 		};
 	}>();
-
- import { PrinterSolid } from "flowbite-svelte-icons";
 
 	// Represents a single record from the report.
 	type ReportItem = {

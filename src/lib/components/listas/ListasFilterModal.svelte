@@ -134,7 +134,7 @@
         display: flex;
         flex-direction: column;
         height: 80vh;
-        width: 40vw;
+        width: 45vw;
         box-sizing: border-box;
     }
 
@@ -157,8 +157,8 @@
 
     .selection-option {
         display: flex;
-        align-items: center;
         gap: 0.5rem;
+        justify-content: left;
         min-width: 0;
         padding: 0.5rem;
         border: 1px solid var(--color-border);

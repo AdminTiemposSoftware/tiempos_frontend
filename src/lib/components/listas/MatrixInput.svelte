@@ -3,7 +3,9 @@
         mode = '10x10',
         animateKey = $bindable<string | number | null>(null),
         isLoading = $bindable<boolean>(false),
-        valueMap = $bindable<Record<number, number>>({})
+        valueMap = $bindable<Record<number, number>>({}),
+        selectionMode = false,
+        selectedCells = $bindable<Record<number, boolean>>({})
     } = $props();
 
     let rows = $state(10);
@@ -34,6 +36,10 @@
         }
 
         valueMap = nextMap;
+    }
+
+    function toggleCellSelection(index: number, checked: boolean) {
+        selectedCells = { ...selectedCells, [index]: checked };
     }
 
     function sanitizeNumericInput(input: HTMLInputElement) {
@@ -125,7 +131,15 @@
                     {#each Array.from({ length: columns }) as _, colIndex}
                         {@const index = colIndex * rows + rowIndex}
                         <div class="matrix-cell">
-                            <input type="number" value={index} disabled={true} />
+                            <div class="matrix-cell-number">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedCells[index] ?? false}
+                                    aria-label={`Seleccionar número ${index}`}
+                                    onchange={(event) => toggleCellSelection(index, event.currentTarget.checked)}
+                                />
+                                {index}
+                            </div>
                             <input
                                 type="number"
                                 value={valueMap[index] ?? ''}
@@ -155,10 +169,6 @@
 </div>
 
 <style>
-    .matrix-container {
-        flex: 5;
-    }
-
     @keyframes spin {
         from {
             transform: rotate(0deg);

@@ -1,4 +1,6 @@
 <script lang="ts">
+    type Matrix = Record<number, number>;
+
     type MatrixModificationState = {
         number_total_id: number;
         originalValue: number;
@@ -15,13 +17,18 @@
         date?: unknown;
     };
 
+    import OperationsMatrixModal from './OperationsMatrixModal.svelte';
+
     let {
         mode = '10x10',
         animateKey = $bindable<string | number | null>(null),
         isLoading = $bindable<boolean>(false),
         valueMap = $bindable<Record<number, number>>({}),
         modificationMap = $bindable<Record<number, MatrixModificationState>>({}),
-        operations = [] as OperationItem[]
+        operations = [] as OperationItem[],
+        showOperationsMatrix = $bindable<boolean>(false),
+        allowNegative = false,
+        selectedCells = $bindable<Record<number, boolean>>({})
     } = $props();
 
     let rows = $state(10);
@@ -69,6 +76,10 @@
         modificationMap = nextMap;
     }
 
+    function toggleCellSelection(index: number, checked: boolean) {
+        selectedCells = { ...selectedCells, [index]: checked };
+    }
+
     function sanitizeNumericInput(input: HTMLInputElement) {
         const sanitizedValue = input.value
             .replace(/[^\d.-]/g, '')
@@ -99,7 +110,10 @@
             const index = columnIndex * rows + rowIndex;
             const modification = getModificationState(index);
             const baseValue = valueMap[index] ?? 0;
-            const signedModification = modification.operation === '+' ? modification.modification : -modification.modification;
+            const subtraction = allowNegative
+                ? modification.modification
+                : Math.min(modification.modification, Math.max(0, baseValue));
+            const signedModification = modification.operation === '+' ? modification.modification : -subtraction;
 
             return baseValue + signedModification;
         }).reduce((sum, amount) => sum + amount, 0);
@@ -159,21 +173,23 @@
         focusInput((index + 1) % (rows * columns));
     }
 
-    function getOperationSymbol(operation: unknown) {
-        const normalizedOperation = String(operation ?? '').trim().toLowerCase();
-        return normalizedOperation === '-' || normalizedOperation === 'sub' || normalizedOperation === 'subtract'
-            ? '-'
-            : '+';
-    }
-
-    function formatOperation(item: OperationItem) {
-        const operation = getOperationSymbol(item.operation);
-        return `${String(item.number ?? '')} : ${operation}${String(item.amount ?? '')}`;
-    }
-
     const sortedOperations = $derived(
         [...operations].sort((first, second) => Number(first.number) - Number(second.number))
     );
+
+    const originalMatrix = $derived.by(() => Object.entries(modificationMap).reduce<Matrix>(
+        (matrix, [rawNumber, modification]) => {
+            const number = Number(rawNumber);
+            const originalValue = Number(modification.originalValue);
+
+            if (Number.isInteger(number) && Number.isFinite(originalValue)) {
+                matrix[number] = originalValue;
+            }
+
+            return matrix;
+        },
+        {}
+    ));
 
 </script>
 
@@ -191,7 +207,15 @@
                     {#each Array.from({ length: columns }) as _, colIndex}
                         {@const index = colIndex * rows + rowIndex}
                         <div class="matrix-cell">
-                            <input type="number" value={index} disabled={true} />
+                            <div class="matrix-cell-number">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedCells[index] ?? false}
+                                    aria-label={`Seleccionar número ${index}`}
+                                    onchange={(event) => toggleCellSelection(index, event.currentTarget.checked)}
+                                />
+                                 {index}
+                            </div>
                             <div class="modification-wrapper">
                                 <input
                                     type="number"
@@ -234,89 +258,14 @@
             </div>
         </div>
     {/key}
-
-    <section class="operations-history" aria-labelledby="operations-history-title">
-        <h2 id="operations-history-title">Operaciones realizadas</h2>
-        {#if sortedOperations.length === 0}
-            <p class="empty-operations">No hay operaciones registradas para esta lista.</p>
-        {:else}
-            <div class="operations-inline" aria-label="Historial de operaciones">
-                {#each sortedOperations as item, index}
-                    <span
-                        class="operation-item"
-                        class:operation-add={getOperationSymbol(item.operation) === '+'}
-                        class:operation-subtract={getOperationSymbol(item.operation) === '-'}
-                    >
-                        {formatOperation(item)}
-                    </span>
-                    {#if index < sortedOperations.length - 1}
-                        <span class="operation-separator" aria-hidden="true">|</span>
-                    {/if}
-                {/each}
-            </div>
-        {/if}
-    </section>
+    <OperationsMatrixModal
+        bind:showModal={showOperationsMatrix}
+        originalMatrix={originalMatrix}
+        operations={sortedOperations}
+    />
 </div>
 
 <style>
-    .matrix-container {
-        flex: 5;
-    }
-
-    .operations-history {
-        display: flex;
-        flex-direction: column;
-        margin-top: 1rem;
-    }
-
-    .operations-history h2 {
-        margin: 0 0 0.75rem;
-        font-size: 1.1rem;
-    }
-
-    .operations-inline {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 0.45rem;
-        min-height: 2.75rem;
-        padding: 0.7rem 0.9rem;
-        border: 1px solid var(--color-border);
-        border-radius: 0.65rem;
-        background-color: var(--color-box-background);
-        color: var(--color-text);
-        font-variant-numeric: tabular-nums;
-    }
-
-    .operation-item {
-        padding: 0.25rem 0.45rem;
-        border-radius: 0.35rem;
-        font-weight: 600;
-        white-space: nowrap;
-    }
-
-    .operation-add {
-        color: #15803d;
-        background: rgba(22, 163, 74, 0.1);
-    }
-
-    .operation-subtract {
-        color: #b91c1c;
-        background: rgba(220, 38, 38, 0.1);
-    }
-
-    .operation-separator {
-        color: var(--color-border);
-        font-weight: 600;
-    }
-
-    .empty-operations {
-        margin: 0;
-        padding: 1rem;
-        border: 1px solid var(--color-border);
-        background-color: var(--color-box-background);
-    }
-
     .modification-wrapper {
         display: flex;
         align-items: center;
