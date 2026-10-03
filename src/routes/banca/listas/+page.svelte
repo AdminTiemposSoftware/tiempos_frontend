@@ -1019,6 +1019,7 @@
                 selectedSchedule={getDisplayName(selectedDrawSchedule, drawScheduleNames)}
                 drawScheduleNames={drawScheduleNames}
                 branchNames={branchNames}
+                scheduleBranch={data.scheduleBranch ?? []}
             />
         {:else}
             <MatrixInput

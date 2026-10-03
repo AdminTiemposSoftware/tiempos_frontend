@@ -16,7 +16,8 @@
         selectedBranch,
         selectedSchedule,
         drawScheduleNames,
-        branchNames
+        branchNames,
+        scheduleBranch,
     } = $props<{
         originalMatrix?: Matrix;
         operations?: OperationItem[];
@@ -27,6 +28,7 @@
     let showCurrentExport = $state(false);
     let showOperationsExport = $state(false);
     let showOriginalExport = $state(false);
+    let showRecorteExport = $state(false);
 
     function getOperationSign(operation: unknown) {
         const normalized = String(operation ?? '').trim().toLowerCase();
@@ -35,6 +37,10 @@
 
     function amount(matrix: Matrix, number: number) {
         return Number.isFinite(matrix[number]) ? matrix[number] : 0;
+    }
+
+    function displayAmount(matrix: Matrix, number: number) {
+        return amount(matrix, number).toFixed(2);
     }
 
     const summedOperations = $derived.by(() => {
@@ -67,9 +73,23 @@
         return matrix;
     });
 
+    const recorteMatrix = $derived.by(() => {
+        const matrix: Matrix = {};
+
+        for (let number = 0; number < 100; number += 1) {
+            matrix[number] = amount(revertedMatrix, number) - amount(originalMatrix, number);
+        }
+
+        return matrix;
+    });
+
     function columnTotal(matrix: Matrix, columnIndex: number) {
         return Array.from({ length: 20 }, (_, rowIndex) => amount(matrix, columnIndex * 20 + rowIndex))
             .reduce((total, value) => total + value, 0);
+    }
+
+    function displayColumnTotal(matrix: Matrix, columnIndex: number) {
+        return columnTotal(matrix, columnIndex).toFixed(2);
     }
 
     function matrixTotal(matrix: Matrix) {
@@ -77,11 +97,12 @@
             .reduce((total, value) => total + value, 0);
     }
 
-    function openExport(exportType: 'current' | 'operations' | 'original') {
+    function openExport(exportType: 'current' | 'operations' | 'original' | 'recorte') {
         showModal = false;
         showCurrentExport = exportType === 'current';
         showOperationsExport = exportType === 'operations';
         showOriginalExport = exportType === 'original';
+        showRecorteExport = exportType === 'recorte';
     }
 
     function close() {
@@ -99,6 +120,7 @@
     sorteos={[selectedSchedule]}
     drawScheduleNames={drawScheduleNames}
     branchNames={branchNames}
+    scheduleBranch={scheduleBranch}
 />
 <ExportModal
     bind:showModal={showOperationsExport}
@@ -110,6 +132,7 @@
     sorteos={[selectedSchedule]}
     drawScheduleNames={drawScheduleNames}
     branchNames={branchNames}
+    scheduleBranch={scheduleBranch}
 />
 <ExportModal
     bind:showModal={showOriginalExport}
@@ -121,6 +144,19 @@
     sorteos={[selectedSchedule]}
     drawScheduleNames={drawScheduleNames}
     branchNames={branchNames}
+    scheduleBranch={scheduleBranch}
+/>
+<ExportModal
+    bind:showModal={showRecorteExport}
+    data={recorteMatrix}
+    dateFrom={exportDate}
+    dateTo={exportDate}
+    total={matrixTotal(recorteMatrix)}
+    puestos={[selectedBranch]}
+    sorteos={[selectedSchedule]}
+    drawScheduleNames={drawScheduleNames}
+    branchNames={branchNames}
+    scheduleBranch={scheduleBranch}
 />
 
 {#if showModal}
@@ -151,14 +187,14 @@
                                 {@const number = columnIndex * 20 + rowIndex}
                                 <div class="matrix-cell">
                                     <input type="number" value={number} disabled />
-                                    <input type="number" class="price" value={amount(originalMatrix, number)} disabled />
+                                    <input type="number" class="price" value={displayAmount(originalMatrix, number)} disabled />
                                 </div>
                             {/each}
                         {/each}
                         {#each Array.from({ length: 5 }) as _, columnIndex}
                             <div class="matrix-cell operations-total-cell">
                                 <span aria-hidden="true"></span>
-                                <input type="number" class="price" value={columnTotal(originalMatrix, columnIndex)} disabled />
+                                <input type="number" class="price" value={displayColumnTotal(originalMatrix, columnIndex)} disabled />
                             </div>
                         {/each}
                     </div>
@@ -175,14 +211,14 @@
                                 {@const number = columnIndex * 20 + rowIndex}
                                 <div class="matrix-cell">
                                     <input type="number" value={number} disabled />
-                                    <input type="number" class="price" value={amount(summedOperations, number)} disabled />
+                                    <input type="number" class="price" value={displayAmount(summedOperations, number)} disabled />
                                 </div>
                             {/each}
                         {/each}
                         {#each Array.from({ length: 5 }) as _, columnIndex}
                             <div class="matrix-cell">
                                 <span aria-hidden="true"></span>
-                                <input type="number" class="price" value={columnTotal(summedOperations, columnIndex)} disabled />
+                                <input type="number" class="price" value={displayColumnTotal(summedOperations, columnIndex)} disabled />
                             </div>
                         {/each}
                     </div>
@@ -199,14 +235,38 @@
                                 {@const number = columnIndex * 20 + rowIndex}
                                 <div class="matrix-cell">
                                     <input type="number" value={number} disabled />
-                                    <input type="number" class="price" value={amount(revertedMatrix, number)} disabled />
+                                    <input type="number" class="price" value={displayAmount(revertedMatrix, number)} disabled />
                                 </div>
                             {/each}
                         {/each}
                         {#each Array.from({ length: 5 }) as _, columnIndex}
                             <div class="matrix-cell operations-total-cell">
                                 <span aria-hidden="true"></span>
-                                <input type="number" class="price" value={columnTotal(revertedMatrix, columnIndex)} disabled />
+                                <input type="number" class="price" value={displayColumnTotal(revertedMatrix, columnIndex)} disabled />
+                            </div>
+                        {/each}
+                    </div>
+                </div>
+
+                <div class="matrix-wrapper">
+                    <div class="matrix-heading">
+                        <h3>Recorte</h3>
+                        <button type="button" onclick={() => openExport('recorte')}>Exportar</button>
+                    </div>
+                    <div class="matrix" aria-label="Recorte: Original menos Lista actual" style="--cols: {5}">
+                        {#each Array.from({ length: 20 }) as _, rowIndex}
+                            {#each Array.from({ length: 5 }) as _, columnIndex}
+                                {@const number = columnIndex * 20 + rowIndex}
+                                <div class="matrix-cell">
+                                    <input type="number" value={number} disabled />
+                                    <input type="number" class="price" value={displayAmount(recorteMatrix, number)} disabled />
+                                </div>
+                            {/each}
+                        {/each}
+                        {#each Array.from({ length: 5 }) as _, columnIndex}
+                            <div class="matrix-cell operations-total-cell">
+                                <span aria-hidden="true"></span>
+                                <input type="number" class="price" value={displayColumnTotal(recorteMatrix, columnIndex)} disabled />
                             </div>
                         {/each}
                     </div>

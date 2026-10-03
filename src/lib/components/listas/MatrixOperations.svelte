@@ -33,6 +33,7 @@
         selectedSchedule = $bindable<string>(''),
         drawScheduleNames = $bindable(),
         branchNames = $bindable([]),
+        scheduleBranch
     } = $props();
 
     let rows = $state(10);
@@ -255,6 +256,7 @@
         selectedSchedule={selectedSchedule}
         drawScheduleNames={drawScheduleNames}
         branchNames={branchNames}
+        scheduleBranch={scheduleBranch}
     />
 </div>
 
