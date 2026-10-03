@@ -1015,6 +1015,10 @@
                 selectionMode={selectionMode}
                 mode="20x5"
                 operations={hasLoadedListToModify ? listOperations : []}
+                selectedBranch={getDisplayName(selectedBranch, branchNames)}
+                selectedSchedule={getDisplayName(selectedDrawSchedule, drawScheduleNames)}
+                drawScheduleNames={drawScheduleNames}
+                branchNames={branchNames}
             />
         {:else}
             <MatrixInput

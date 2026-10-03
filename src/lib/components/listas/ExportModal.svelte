@@ -56,28 +56,17 @@
 
         return new Date(year, month - 1, day);
     }
-    /**
-     * TODO : IMPLEMENT THIS PART TO EXPORT NEGATIVE NUMBERS
-     function serializeNumber(value: number, bits: number): string {
-         const numberValue = BigInt(value);
-         const encodedValue = numberValue < 0n
-             ? (1n << BigInt(bits)) + numberValue
-             : numberValue;
+    function serializeNumber(value: number, bits: number): string {
+        const numberValue = BigInt(value);
+        const encodedValue = numberValue < 0n
+            ? (1n << BigInt(bits)) + numberValue
+            : numberValue;
 
-         return encodedValue.toString(16).toUpperCase().padStart(bits / 4, '0');
-     }
-
-     function serializeData(data: Record<number, number>): string {
-         let result = Object.values(data).map((amount) =>amount.toString(16).toUpperCase().padStart(6, '0')).join('');
-         result += total.toString(16).toUpperCase().padStart(8, '0');
-         let result = Object.values(data).map((amount) => serializeNumber(amount, 24)).join('');
-         result += serializeNumber(total, 32);
-         if (dateFrom === dateTo) {
-             result += formatDate(parseDate(dateFrom));
-     */
+        return encodedValue.toString(16).toUpperCase().padStart(bits / 4, '0');
+    }
     function toFiniteNumber(value: ExportValue): number {
         const parsed = Number(value);
-        return Number.isFinite(parsed) ? parsed : 0;
+        return Number.isFinite(parsed) ? Math.round(parsed) : 0;
     }
 
     function getExportValues(): Record<number, number> {
@@ -100,8 +89,8 @@
 
     function serializeData(data: Record<number, ExportValue>): string {
         const values = Object.values(getExportValuesFrom(data));
-        let result = values.map((amount) => amount.toString(16).toUpperCase().padStart(6, '0')).join('');
-        result += toFiniteNumber(total).toString(16).toUpperCase().padStart(8, '0');
+        let result = values.map((amount) => serializeNumber(amount, 24)).join('');
+        result += serializeNumber(toFiniteNumber(total), 32);
         if (dateFrom === dateTo) {
             result += formatDate(parseDate(dateFrom));
         } else {
@@ -263,7 +252,7 @@
         onclick={(e) => e.stopPropagation()}
         role="presentation"
     >
-        <h2 class="modal-title">Lista
+        <h2 class="modal-title">
         {#if dateFrom === dateTo}
             {dateFrom}
         {:else}

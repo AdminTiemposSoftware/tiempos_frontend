@@ -16,6 +16,7 @@
         report = $bindable<ReportItem[]>([]),
         groupingModes = $bindable<GroupingMode[]>([]),
         groupingMode = $bindable<GroupingMode | null>(null),
+        useSellingMatrixFallback = true,
         winnerNumbers = [],
         reportProhibitedNumbers = []
     } = $props();
@@ -61,7 +62,12 @@
     }
 
     function getAmount(index: number) {
-        return groupedNumbers[index]?.reduce((sum, item) => sum + item.amount, 0) || $sellingMatrix[index] || 0;
+        const reportAmount = groupedNumbers[index]?.reduce((sum, item) => sum + item.amount, 0);
+        if (reportAmount !== undefined) {
+            return reportAmount;
+        }
+
+        return useSellingMatrixFallback ? ($sellingMatrix[index] || 0) : 0;
     }
 
 </script>

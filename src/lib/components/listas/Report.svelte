@@ -680,6 +680,7 @@
 				bind:isLoading={isLoading}
 				bind:groupingModes={groupingModes}
 				mode={matrixMode}
+				useSellingMatrixFallback={false}
 				winnerNumbers={winnersFiltered
 					.filter((item) => item.winner_number != null)
 					.map((item) => Number(item.winner_number))

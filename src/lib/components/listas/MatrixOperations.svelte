@@ -28,7 +28,11 @@
         operations = [] as OperationItem[],
         showOperationsMatrix = $bindable<boolean>(false),
         allowNegative = false,
-        selectedCells = $bindable<Record<number, boolean>>({})
+        selectedCells = $bindable<Record<number, boolean>>({}),
+        selectedBranch = $bindable<string>(''),
+        selectedSchedule = $bindable<string>(''),
+        drawScheduleNames = $bindable(),
+        branchNames = $bindable([]),
     } = $props();
 
     let rows = $state(10);
@@ -176,21 +180,6 @@
     const sortedOperations = $derived(
         [...operations].sort((first, second) => Number(first.number) - Number(second.number))
     );
-
-    const originalMatrix = $derived.by(() => Object.entries(modificationMap).reduce<Matrix>(
-        (matrix, [rawNumber, modification]) => {
-            const number = Number(rawNumber);
-            const originalValue = Number(modification.originalValue);
-
-            if (Number.isInteger(number) && Number.isFinite(originalValue)) {
-                matrix[number] = originalValue;
-            }
-
-            return matrix;
-        },
-        {}
-    ));
-
 </script>
 
 <div class="matrix-container">
@@ -260,8 +249,12 @@
     {/key}
     <OperationsMatrixModal
         bind:showModal={showOperationsMatrix}
-        originalMatrix={originalMatrix}
+        originalMatrix={valueMap}
         operations={sortedOperations}
+        selectedBranch={selectedBranch}
+        selectedSchedule={selectedSchedule}
+        drawScheduleNames={drawScheduleNames}
+        branchNames={branchNames}
     />
 </div>
 
