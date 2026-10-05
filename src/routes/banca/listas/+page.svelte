@@ -1365,7 +1365,7 @@
             onclick={hasLoadedListToModify && !hasLoadedMultipleListsToModify
                 ? saveModifications
                 : openSaveConfiguration}
-            disabled={isSaving || !matrixIsDirty}
+            disabled={isSaving}
         >
             {isSaving ? 'Guardando...' : 'Guardar'}
         </button>
