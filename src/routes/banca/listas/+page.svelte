@@ -1313,7 +1313,7 @@
         <button
             onclick={() => {showModifyMultipleLists = true}}
         >
-            Modificar varias listas
+            Recorte
         </button>
         <button
             onclick={() => {showOperationsMatrix = true}}
