@@ -1,18 +1,37 @@
-<script>
+<script lang="ts">
+    type SelectionMode = 'single' | 'multiple';
+    type SelectionValue = number | number[] | undefined;
+
     let {
         selectedDate = $bindable(),
+        from = $bindable(),
+        to = $bindable(),
         selectedBranch = $bindable(),
         branchNames,
         drawScheduleNames,
         scheduleBranch = [],
         selectedDrawSchedule = $bindable(),
+        selectionMode: selectionModeProp = 'single',
         includeReventado = false,
         selectedReventado = $bindable(false),
         selectedMegareventado = $bindable(false),
         onConfirm,
-        showModal = $bindable() } = $props();
+        showModal = $bindable()
+    } = $props();
 
-    function hasAssociation(branchId, drawScheduleId) {
+    function isMultipleSelection() {
+        return (selectionModeProp as SelectionMode) === 'multiple';
+    }
+
+    function selectedValues(value: SelectionValue): number[] {
+        if (Array.isArray(value)) {
+            return value;
+        }
+
+        return value === undefined ? [] : [value];
+    }
+
+    function hasAssociation(branchId: number, drawScheduleId: number) {
         return scheduleBranch.some((item) =>
             Number(item.branch_id) === branchId &&
             Number(item.draw_schedule_id) === drawScheduleId &&
@@ -23,30 +42,48 @@
         );
     }
 
-    function isBranchDisabled(branchId) {
-        return selectedDrawSchedule !== undefined &&
-            !hasAssociation(branchId, selectedDrawSchedule);
+    function isBranchDisabled(branchId: number) {
+        const schedules = selectedValues(selectedDrawSchedule);
+        return schedules.length > 0 &&
+            !schedules.some((scheduleId) => hasAssociation(branchId, scheduleId));
     }
 
-    function isDrawScheduleDisabled(drawScheduleId) {
-        return selectedBranch !== undefined &&
-            !hasAssociation(selectedBranch, drawScheduleId);
+    function isDrawScheduleDisabled(drawScheduleId: number) {
+        const branches = selectedValues(selectedBranch);
+        return branches.length > 0 &&
+            !branches.some((branchId) => hasAssociation(branchId, drawScheduleId));
     }
 
-    function toggleBranch(value) {
+    function isSelected(value: number, selection: SelectionValue) {
+        return selectedValues(selection).includes(value);
+    }
+
+    function toggleSelection(value: number, selection: SelectionValue, update: (value: SelectionValue) => void) {
+        if (!isMultipleSelection()) {
+            update(isSelected(value, selection) ? undefined : value);
+            return;
+        }
+
+        const values = selectedValues(selection);
+        update(values.includes(value)
+            ? values.filter((selectedValue) => selectedValue !== value)
+            : [...values, value]);
+    }
+
+    function toggleBranch(value: number) {
         if (isBranchDisabled(value)) {
             return;
         }
 
-        selectedBranch = selectedBranch === value ? undefined : value;
+        toggleSelection(value, selectedBranch, (selection) => selectedBranch = selection);
     }
 
-    function toggleDrawSchedule(value) {
+    function toggleDrawSchedule(value: number) {
         if (isDrawScheduleDisabled(value)) {
             return;
         }
 
-        selectedDrawSchedule = selectedDrawSchedule === value ? undefined : value;
+        toggleSelection(value, selectedDrawSchedule, (selection) => selectedDrawSchedule = selection);
     }
 
 </script>
@@ -66,8 +103,16 @@
     >
     <div class="row">
         <div class="total">
-            <label for="from">Fecha</label>
-            <input id="from" type="date" bind:value={selectedDate}/>
+            {#if selectionModeProp === 'multiple'}
+                <label for="from">Desde</label>
+                <input id="from" type="date" bind:value={from}/>
+                <label for="to">Hasta</label>
+                <input id="to" type="date" bind:value={to}/>
+            {/if}
+            {#if selectionModeProp === 'single'}
+                <label for="from">Fecha</label>
+                <input id="from" type="date" bind:value={selectedDate}/>
+            {/if}
         </div>
         <div class="field">
             <label for="puesto">Puesto</label>
@@ -76,11 +121,17 @@
                     <button
                         type="button"
                         class="selection-option"
-                        class:selected={selectedBranch === option.value}
+                        class:selected={isSelected(option.value, selectedBranch)}
                         disabled={isBranchDisabled(option.value)}
                         onclick={() => toggleBranch(option.value)}
                     >
-                        <input type="radio" name="puesto" checked={selectedBranch === option.value} disabled={isBranchDisabled(option.value)} readonly />
+                        <input
+                            type={isMultipleSelection() ? 'checkbox' : 'radio'}
+                            name="puesto"
+                            checked={isSelected(option.value, selectedBranch)}
+                            disabled={isBranchDisabled(option.value)}
+                            readonly
+                        />
                         <span>{option.label}</span>
                     </button>
                 {:else}
@@ -95,11 +146,17 @@
                     <button
                         type="button"
                         class="selection-option"
-                        class:selected={selectedDrawSchedule === option.value}
+                        class:selected={isSelected(option.value, selectedDrawSchedule)}
                         disabled={isDrawScheduleDisabled(option.value)}
                         onclick={() => toggleDrawSchedule(option.value)}
                     >
-                        <input type="radio" name="sorteo" checked={selectedDrawSchedule === option.value} disabled={isDrawScheduleDisabled(option.value)} readonly />
+                        <input
+                            type={isMultipleSelection() ? 'checkbox' : 'radio'}
+                            name="sorteo"
+                            checked={isSelected(option.value, selectedDrawSchedule)}
+                            disabled={isDrawScheduleDisabled(option.value)}
+                            readonly
+                        />
                         <span>{option.label}</span>
                     </button>
                 {:else}

@@ -50,13 +50,11 @@ export function formatAmount(value: number) {
     }
 
     const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
-    const [integerPart, decimalPart] = Math.abs(rounded).toFixed(2).split(".");
+    const integerPart = Math.round(Math.abs(rounded)).toString();
     const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
     const sign = rounded < 0 ? "-" : "";
 
-    return decimalPart === "00"
-        ? `${sign}${groupedInteger}`
-        : `${sign}${groupedInteger},${decimalPart}`;
+    return `${sign}${groupedInteger}`;
 }
 
 export function serializeListQrData(data: Record<number, number>): string {

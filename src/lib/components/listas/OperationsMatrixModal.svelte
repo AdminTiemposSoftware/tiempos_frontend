@@ -40,7 +40,7 @@
     }
 
     function displayAmount(matrix: Matrix, number: number) {
-        return amount(matrix, number).toFixed(2);
+        return Math.round(amount(matrix, number));
     }
 
     const summedOperations = $derived.by(() => {
@@ -89,7 +89,7 @@
     }
 
     function displayColumnTotal(matrix: Matrix, columnIndex: number) {
-        return columnTotal(matrix, columnIndex).toFixed(2);
+        return Math.round(columnTotal(matrix, columnIndex));
     }
 
     function matrixTotal(matrix: Matrix) {
@@ -178,6 +178,29 @@
             <div class="operations-comparison">
                 <div class="matrix-wrapper">
                     <div class="matrix-heading">
+                        <h3>Recorte</h3>
+                        <button type="button" onclick={() => openExport('recorte')}>Exportar</button>
+                    </div>
+                    <div class="matrix" aria-label="Recorte: Original menos Lista actual" style="--cols: {5}">
+                        {#each Array.from({ length: 20 }) as _, rowIndex}
+                            {#each Array.from({ length: 5 }) as _, columnIndex}
+                                {@const number = columnIndex * 20 + rowIndex}
+                                <div class="matrix-cell">
+                                    <input type="number" value={number} disabled />
+                                    <input type="number" class="price" value={displayAmount(recorteMatrix, number)} disabled />
+                                </div>
+                            {/each}
+                        {/each}
+                        {#each Array.from({ length: 5 }) as _, columnIndex}
+                            <div class="matrix-cell operations-total-cell">
+                                <span aria-hidden="true"></span>
+                                <input type="number" class="price" value={displayColumnTotal(recorteMatrix, columnIndex)} disabled />
+                            </div>
+                        {/each}
+                    </div>
+                </div>
+                <div class="matrix-wrapper">
+                    <div class="matrix-heading">
                         <h3>Lista actual</h3>
                         <button type="button" onclick={() => openExport('current')}>Exportar</button>
                     </div>
@@ -229,7 +252,7 @@
                         <h3>Original</h3>
                         <button type="button" onclick={() => openExport('original')}>Exportar</button>
                     </div>
-                    <div class="matrix" aria-label="Lista original revertida" style="--cols: {5}">
+                    <div class="matrix" aria-label="Original" style="--cols: {5}">
                         {#each Array.from({ length: 20 }) as _, rowIndex}
                             {#each Array.from({ length: 5 }) as _, columnIndex}
                                 {@const number = columnIndex * 20 + rowIndex}
@@ -243,30 +266,6 @@
                             <div class="matrix-cell operations-total-cell">
                                 <span aria-hidden="true"></span>
                                 <input type="number" class="price" value={displayColumnTotal(revertedMatrix, columnIndex)} disabled />
-                            </div>
-                        {/each}
-                    </div>
-                </div>
-
-                <div class="matrix-wrapper">
-                    <div class="matrix-heading">
-                        <h3>Recorte</h3>
-                        <button type="button" onclick={() => openExport('recorte')}>Exportar</button>
-                    </div>
-                    <div class="matrix" aria-label="Recorte: Original menos Lista actual" style="--cols: {5}">
-                        {#each Array.from({ length: 20 }) as _, rowIndex}
-                            {#each Array.from({ length: 5 }) as _, columnIndex}
-                                {@const number = columnIndex * 20 + rowIndex}
-                                <div class="matrix-cell">
-                                    <input type="number" value={number} disabled />
-                                    <input type="number" class="price" value={displayAmount(recorteMatrix, number)} disabled />
-                                </div>
-                            {/each}
-                        {/each}
-                        {#each Array.from({ length: 5 }) as _, columnIndex}
-                            <div class="matrix-cell operations-total-cell">
-                                <span aria-hidden="true"></span>
-                                <input type="number" class="price" value={displayColumnTotal(recorteMatrix, columnIndex)} disabled />
                             </div>
                         {/each}
                     </div>

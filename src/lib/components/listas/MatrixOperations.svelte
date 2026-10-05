@@ -209,7 +209,7 @@
                             <div class="modification-wrapper">
                                 <input
                                     type="number"
-                                    value={valueMap[index] ?? 0}
+                                    value={Math.round(valueMap[index] ?? 0)}
                                     class="price matrix-price-input"
                                     readonly={true}
                                     disabled={true}
@@ -239,7 +239,7 @@
                     <div class="matrix-cell">
                         <input
                             type="number"
-                            value={getColumnTotal(colIndex)}
+                            value={Math.round(getColumnTotal(colIndex))}
                             disabled
                             class="price"
                         />

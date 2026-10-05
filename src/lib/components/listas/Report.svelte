@@ -5,6 +5,7 @@
     import Matrix from '../venta/Matrix.svelte';
 	import ReportModal from './ReportModal.svelte';
 	import ReportSummary from './ReportSummary.svelte';
+	import DevolutionBreakdown from './DevolutionBreakdown.svelte';
 	import ExportModal from './ExportModal.svelte';
 	import {acts} from '@tadashi/svelte-notification'
 	import SelectModal from '../SelectModal.svelte';
@@ -90,11 +91,13 @@
         banking_id: number;
         number: number;
         starter: string;
+        percentage?: number | string;
         can_sell_after_amount: boolean;
         by_amount: boolean;
         by_percentage: boolean;
         amount: string;
         date: string;
+        branch_id?: number;
     };
 
 	type prohibitedNumber = {

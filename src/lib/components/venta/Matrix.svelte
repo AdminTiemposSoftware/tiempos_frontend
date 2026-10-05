@@ -116,7 +116,7 @@
                                 class="price price-animated"
                                 class:price-loading={isLoading}
                                 style={`--delay: ${index * 4}ms;`}
-                                value={getAmount(index)}
+                                value={Math.round(getAmount(index))}
                                 disabled={true}
                             />
                             <div

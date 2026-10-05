@@ -39,9 +39,14 @@
     let branchNames = $state<{ value: number; label: string }[]>([]);
 	let drawScheduleNames = $state<{ value: number; label: string }[]>([]);
 	let selectedDate =  $state(utcMinus6Date.toISOString().split('T')[0]);
+	let from = $state(utcMinus6Date.toISOString().split('T')[0]);
+	let to = $state(utcMinus6Date.toISOString().split('T')[0]);
 	let selectedBranch = $state<number | undefined>();
 	let selectedDrawSchedule = $state<number | undefined>();
+	let selectedBranches = $state<number[]>([]);
+	let selectedDrawSchedules = $state<number[]>([]);
     let hasLoadedListToModify = $state(false);
+    let hasLoadedMultipleListsToModify = $state(false);
 	let isSaving = $state(false);
     let showSaveModal = $state(false);
     let showOverwriteModal = $state(false);
@@ -49,9 +54,11 @@
     let saveMegareventado = $state(false);
     let existingListExists = $state(false);
     let existingMatrix = $state<Record<number, number>>({});
+    let originalMatrix = $state<Record<number, number>>({});
     let savedMatrix = $state<Record<number, number>>({});
     let showLoadList = $state(false);
     let showLoadListByQR = $state(false);
+    let showModifyMultipleLists = $state(false);
     let qrInput = $state('');
     let matrixMode = $state<'input' | 'operations'>('input');
     let isListLoaded = $state(false);
@@ -81,6 +88,7 @@
 
         return currentKeys.length > 0 && (
             isListLoaded ||
+            hasLoadedMultipleListsToModify ||
             currentKeys.length !== savedKeys.length ||
                 currentKeys.some((key) => createSelection[Number(key)] !== savedMatrix[Number(key)]));
     });
@@ -240,8 +248,10 @@
         createSelection = {};
         createSelectionModifications = {};
         hasLoadedListToModify = false;
+        hasLoadedMultipleListsToModify = false;
         matrixMode = 'input';
         isListLoaded = false;
+        originalMatrix = {};
         savedMatrix = {};
         listOperations = [];
         qrInput = '';
@@ -269,6 +279,7 @@
         } else {
             createSelection = decodedValues;
             createSelectionModifications = {};
+            originalMatrix = {};
             savedMatrix = { ...decodedValues };
             isListLoaded = true;
         }
@@ -286,11 +297,99 @@
         }
     }
 
+    function getModifiedValue(index: number) {
+        const baseValue = Number(createSelection[index] ?? 0);
+        const modification = createSelectionModifications[index];
+
+        if (!Number.isFinite(baseValue) || !modification || !Number.isFinite(modification.modification)) {
+            return Number.isFinite(baseValue) ? baseValue : 0;
+        }
+
+        const amount = modification.operation === '-'
+            ? getEffectiveSubtraction(modification.modification, baseValue)
+            : modification.modification;
+
+        return baseValue + (modification.operation === '+' ? amount : -amount);
+    }
+
+    function getSaveMatrix() {
+        if (!hasLoadedMultipleListsToModify) {
+            return createSelection;
+        }
+
+        return Object.fromEntries(
+            Array.from({ length: 100 }, (_, number) => [number, getModifiedValue(number)])
+        );
+    }
+
     function getSaveNumbers() {
+        const saveMatrix = getSaveMatrix();
+
         return Array.from({ length: 100 }, (_, number) => ({
             number,
-            amount: Number.isFinite(createSelection[number]) ? createSelection[number] : 0
+            amount: Number.isFinite(saveMatrix[number]) ? saveMatrix[number] : 0
         }));
+    }
+
+    function subtractOriginalFromCurrent() {
+        if (Object.keys(originalMatrix).length === 0 || Object.keys(createSelection).length === 0) {
+            acts.add({
+                message: 'Cargue una lista original y una matriz para realizar la resta.',
+                mode: 'error',
+                lifetime: 3
+            });
+            return;
+        }
+
+        createSelection = Object.fromEntries(
+            Object.keys(createSelection).map((rawIndex) => {
+                const index = Number(rawIndex);
+                const currentValue = getModifiedValue(index);
+                const originalValue = Number(originalMatrix[index] ?? 0);
+
+                return [
+                    index,
+                    Number.isFinite(currentValue) && Number.isFinite(originalValue)
+                        ?  originalValue - currentValue
+                        : 0
+                ];
+            })
+        );
+
+        createSelectionModifications = Object.fromEntries(
+            Object.entries(createSelectionModifications).map(([index, item]) => [
+                index,
+                {
+                    ...item,
+                    originalValue: createSelection[Number(index)] ?? 0,
+                    modification: 0
+                }
+            ])
+        );
+    }
+
+    function applyOperationsWithoutSaving() {
+        if (!hasLoadedMultipleListsToModify) {
+            return;
+        }
+
+        createSelection = Object.fromEntries(
+            Object.keys(createSelectionModifications).map((rawIndex) => {
+                const index = Number(rawIndex);
+                return [index, getModifiedValue(index)];
+            })
+        );
+
+        createSelectionModifications = Object.fromEntries(
+            Object.entries(createSelectionModifications).map(([index, item]) => [
+                index,
+                {
+                    ...item,
+                    originalValue: createSelection[Number(index)] ?? item.originalValue,
+                    modification: 0
+                }
+            ])
+        );
     }
 
     async function checkExistingList() {
@@ -381,7 +480,11 @@
             createSelection = {};
             createSelectionModifications = {};
             savedMatrix = {};
+            originalMatrix = {};
             isListLoaded = false;
+            hasLoadedListToModify = false;
+            hasLoadedMultipleListsToModify = false;
+            matrixMode = 'input';
             showOverwriteModal = false;
             acts.add({ message: 'Lista guardada correctamente.', mode: 'success', lifetime: 3 });
         } catch (error) {
@@ -396,7 +499,7 @@
     }
 
     function handleChangeModifications(action: 'add' | 'sub') {
-        if (!hasLoadedListToModify) {
+        if (!hasLoadedListToModify && !hasLoadedMultipleListsToModify) {
             return;
         }
 
@@ -760,6 +863,7 @@
                     fetchedValues,
                     fetchedNumberTotalIds
                 );
+                originalMatrix = { ...fetchedValues };
             }
 
             hasLoadedListToModify = true;
@@ -842,6 +946,8 @@
                 matrixMode = 'input';
                 isListLoaded = true;
             }
+
+            originalMatrix = { ...fetchedValues };
 
             showLoadList = false;
         } catch (error) {
@@ -940,6 +1046,67 @@
             isSaving = false;
         }
     }
+
+    async function fetchMultipleListsToModify() {
+        try {
+            const response = await fetch(`/banca/listas/filtered?date_from=${from}&date_to=${to}&branches=${encodeURIComponent(selectedBranches.join(','))}&draw_schedules=${encodeURIComponent(selectedDrawSchedules.join(','))}`, {
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json'
+				}
+			});
+            const payload = await response.json();
+
+            const dataItems: RegistryItem[] = (Array.isArray(payload?.items) ? payload.items : [])
+            console.log('dataItems', dataItems);
+            if (dataItems.length === 0) {
+                acts.add({
+                    message: 'Esta lista no existe',
+                    mode: 'error',
+                    lifetime: 3
+                });
+                return;
+            }
+
+            const fetchedValues = dataItems.reduce<Record<number, number>>((acc, item) => {
+                const number = Number(item?.number);
+                const value = Number(item?.amount);
+
+                if (Number.isFinite(number) && Number.isFinite(value)) {
+                    acc[number] = value;
+                }
+
+                return acc;
+            }, {});
+            if (Object.keys(fetchedValues).length > 0) {
+                loadFetchedValuesToModify(fetchedValues);
+                originalMatrix = { ...fetchedValues };
+            } else {
+                acts.add({
+                    message: 'La respuesta no contiene números válidos.',
+                    mode: 'error',
+                    lifetime: 3
+                });
+                return;
+            }
+
+            hasLoadedListToModify = false;
+            isListLoaded = false;
+            matrixMode = 'operations';
+            showModifyMultipleLists = false;
+            hasLoadedMultipleListsToModify = true;
+        } catch {
+            acts.add({
+                message: 'Error al cargar la lista',
+                mode: 'error',
+                lifetime: 3
+            });
+            matrixMode = 'input';
+            hasLoadedMultipleListsToModify = false;
+        } finally {
+            isSaving = false;
+        }
+    }
 </script>
 
 <svelte:head>
@@ -956,6 +1123,19 @@
     bind:selectedDrawSchedule={selectedDrawSchedule}
     onConfirm={fetchListToModify}
     bind:showModal={showModifyList}
+/>
+
+<ListasFilterModal
+    bind:from={from}
+    bind:to={to}
+    bind:selectedBranch={selectedBranches}
+    branchNames={branchNames}
+    drawScheduleNames={drawScheduleNames}
+    scheduleBranch={data?.scheduleBranch ?? []}
+    bind:selectedDrawSchedule={selectedDrawSchedules}
+    onConfirm={fetchMultipleListsToModify}
+    bind:showModal={showModifyMultipleLists}
+    selectionMode="multiple"
 />
 
 <ListasFilterModal
@@ -994,7 +1174,7 @@
     confirm={saveList}
     existingListExists={existingListExists}
     existingMatrix={existingMatrix}
-    createdMatrix={createSelection}
+    createdMatrix={getSaveMatrix()}
     selectedBranchName={getDisplayName(selectedBranch, branchNames)}
     selectedScheduleName={getDisplayName(selectedDrawSchedule, drawScheduleNames)}
     selectedDate={selectedDate}
@@ -1105,7 +1285,13 @@
                     />
                 </div>
             </div>
-
+            <button
+                type="button"
+                onclick={subtractOriginalFromCurrent}
+                hidden={!hasLoadedMultipleListsToModify}
+            >
+                Restar a la original
+            </button>
         </div>
     </div>
     <div class="right">
@@ -1125,6 +1311,11 @@
             Modificar lista
         </button>
         <button
+            onclick={() => {showModifyMultipleLists = true}}
+        >
+            Modificar varias listas
+        </button>
+        <button
             onclick={() => {showOperationsMatrix = true}}
             hidden={!hasLoadedListToModify}
         >
@@ -1142,11 +1333,12 @@
             Total: {formatAmount(originalTotal)}
         </h2>
         <h2>
-            Total +/-: {formatAmount(modifiedTotal)}
+            Total +/-: {
+            formatAmount(modifiedTotal)}
         </h2>
 
         <div class="row">
-            {#if hasLoadedListToModify}
+            {#if hasLoadedListToModify || hasLoadedMultipleListsToModify}
             <button
                 type="button"
                 onclick={() => handleChangeModifications('add')}
@@ -1161,9 +1353,19 @@
             </button>
             {/if}
         </div>
+        {#if hasLoadedMultipleListsToModify}
+            <button
+                type="button"
+                onclick={applyOperationsWithoutSaving}
+            >
+                Aplicar operaciones
+            </button>
+        {/if}
         <button
-            onclick={hasLoadedListToModify ? saveModifications : openSaveConfiguration}
-            disabled={isSaving || (hasLoadedListToModify ? false : !matrixIsDirty)}
+            onclick={hasLoadedListToModify && !hasLoadedMultipleListsToModify
+                ? saveModifications
+                : openSaveConfiguration}
+            disabled={isSaving || !matrixIsDirty}
         >
             {isSaving ? 'Guardando...' : 'Guardar'}
         </button>
