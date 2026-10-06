@@ -6,6 +6,7 @@
 	import AssignSorteoModal from '$lib/components/sorteos/AssignSorteoModal.svelte';
 	import { acts } from '@tadashi/svelte-notification'
 	import { auth } from '$lib/stores/auth';
+	import { invalidateBancaFilterCache } from '$lib/stores/bancaFilterCache';
 
 	let { data } = $props();
 
@@ -250,6 +251,7 @@
 				lifetime: 3
 			})
 			showSorteoModal = false;
+			invalidateBancaFilterCache();
 
 		} catch (error) {
 			console.error('Error adding sorteo', error);
@@ -262,6 +264,7 @@
 	}
 
 	function handleAddScheduleSubmit(payload: { sorteoId: any; name: any; time: any; id: any; is_reventado: any; is_megareventado: any; }) {
+		invalidateBancaFilterCache();
 		draws = draws.map((sorteo) => sorteo.id === payload.sorteoId ? {
 			...sorteo,
 			schedules: [
@@ -309,6 +312,7 @@
 				lifetime: 3
 			})
 			showSorteoModal = false;
+			invalidateBancaFilterCache();
 			const isOpen = expandedSorteo.includes(updatedSorteo.id);
 			if (isOpen) {
 				expandedSorteo = expandedSorteo.filter((id) => id !== updatedSorteo.id);
@@ -383,6 +387,7 @@
 					return;
 				}
 			}
+			invalidateBancaFilterCache();
 			draws = draws.map((sorteo) => ({
 				...sorteo,
 				schedules: sorteo.schedules.map((slot) =>
@@ -430,6 +435,7 @@
 				...sorteo,
 				schedules: sorteo.schedules.filter((slot) => slot.id !== scheduleToDelete?.id) //Asume schedule ids are unique across draws for simplicity, otherwise also check sorteoId
 			}));
+			invalidateBancaFilterCache();
 			scheduleToDelete = { id: -1, name: '', time: '', is_reventado: false, is_megareventado: false };
 		} catch (error) {
 			console.error('Error deleting schedule', error);
@@ -471,6 +477,7 @@
 				mode: 'success',
 				lifetime: 3
 			})
+			invalidateBancaFilterCache();
 			draws = draws.filter((sorteo) => sorteo.id !== sorteoId);
 			expandedSorteo = expandedSorteo.filter((id) => id !== sorteoId);
 			sorteoToDelete = undefined;

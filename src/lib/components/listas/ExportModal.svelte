@@ -91,12 +91,8 @@
         const values = Object.values(getExportValuesFrom(data));
         let result = values.map((amount) => serializeNumber(amount, 24)).join('');
         result += serializeNumber(toFiniteNumber(total), 32);
-        if (dateFrom === dateTo) {
-            result += formatDate(parseDate(dateFrom));
-        } else {
-            result += formatDate(parseDate(dateFrom));
-            result += formatDate(parseDate(dateTo));
-        }
+        result += '000000'
+        result += formatDate(parseDate(dateFrom));
 
         return result;
     }

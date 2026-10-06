@@ -8,6 +8,7 @@
     import MatrixComparisonModal from '$lib/components/listas/MatrixComparisonModal.svelte';
     import { decodeExportedListQrData, formatAmount } from '$lib/printing/printing';
     import { auth } from '$lib/stores/auth';
+    import { getBancaFilterData } from '$lib/stores/bancaFilterCache';
 
     type ListItemModification = {
         number_total_id: number;
@@ -131,9 +132,8 @@
     }
 
    	$effect(() => {
-		const branchNamesItems = Array.isArray(data?.branchNames)
-			? (data.branchNames as any[])
-			: [];
+		const filterData = getBancaFilterData(data ?? {});
+		const branchNamesItems = filterData.branchNames as any[];
 		branchNames = [
 			...branchNamesItems.map((item) => ({
 				value: Number(item.id),
@@ -143,9 +143,8 @@
 	});
 
 	$effect(() => {
-		const scheduleNamesItems = Array.isArray(data?.scheduleNames)
-			? (data.scheduleNames as any[])
-			: [];
+		const filterData = getBancaFilterData(data ?? {});
+		const scheduleNamesItems = filterData.scheduleNames as any[];
 		drawScheduleNames = [
 			...scheduleNamesItems.map((item) => ({
 				value: Number(item.draw_schedule_id),
@@ -1119,7 +1118,7 @@
     bind:selectedBranch={selectedBranch}
     branchNames={branchNames}
     drawScheduleNames={drawScheduleNames}
-    scheduleBranch={data?.scheduleBranch ?? []}
+    scheduleBranch={getBancaFilterData(data ?? {}).scheduleBranch}
     bind:selectedDrawSchedule={selectedDrawSchedule}
     onConfirm={fetchListToModify}
     bind:showModal={showModifyList}
@@ -1131,7 +1130,7 @@
     bind:selectedBranch={selectedBranches}
     branchNames={branchNames}
     drawScheduleNames={drawScheduleNames}
-    scheduleBranch={data?.scheduleBranch ?? []}
+    scheduleBranch={getBancaFilterData(data ?? {}).scheduleBranch}
     bind:selectedDrawSchedule={selectedDrawSchedules}
     onConfirm={fetchMultipleListsToModify}
     bind:showModal={showModifyMultipleLists}
@@ -1143,7 +1142,7 @@
     bind:selectedBranch={selectedBranch}
     branchNames={branchNames}
     drawScheduleNames={drawScheduleNames}
-    scheduleBranch={data?.scheduleBranch ?? []}
+    scheduleBranch={getBancaFilterData(data ?? {}).scheduleBranch}
     bind:selectedDrawSchedule={selectedDrawSchedule}
     onConfirm={fetchList}
     bind:showModal={showLoadList}
@@ -1160,7 +1159,7 @@
     bind:selectedBranch={selectedBranch}
     branchNames={branchNames}
     drawScheduleNames={drawScheduleNames}
-    scheduleBranch={data?.scheduleBranch ?? []}
+    scheduleBranch={getBancaFilterData(data ?? {}).scheduleBranch}
     bind:selectedDrawSchedule={selectedDrawSchedule}
     includeReventado={false}
     bind:selectedReventado={saveReventado}
@@ -1199,7 +1198,7 @@
                 selectedSchedule={getDisplayName(selectedDrawSchedule, drawScheduleNames)}
                 drawScheduleNames={drawScheduleNames}
                 branchNames={branchNames}
-                scheduleBranch={data.scheduleBranch ?? []}
+                scheduleBranch={getBancaFilterData(data ?? {}).scheduleBranch}
             />
         {:else}
             <MatrixInput

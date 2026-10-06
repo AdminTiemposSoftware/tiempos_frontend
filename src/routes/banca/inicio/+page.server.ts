@@ -46,11 +46,9 @@ export const load: PageServerLoad = async ({ fetch, locals, cookies }) => {
         const scheduleNamesPayload = scheduleNamesResponse.ok ? await scheduleNamesResponse.json().catch(() => null) : null;
         const scheduleNames = Array.isArray(scheduleNamesPayload?.items) ? scheduleNamesPayload.items : [];
 
-        const branchIds = branchNames.map((branch: any) => branch.id);
-        const scheduleIds = scheduleNames.map((schedule: any) => schedule.draw_schedule_id);
         const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-        const reportTodayResponse = await fetch(`${baseUrl}/report/filtered?date_from=${utcMinus6Date}&date_to=${utcMinus6Date}&branches=${encodeURIComponent(branchIds.join(','))}&draw_schedules=${encodeURIComponent(scheduleIds.join(','))}`, {
+        const reportTodayResponse = await fetch(`${baseUrl}/report/today/${bankingId}`, {
             headers: {
                 Authorization: `Bearer ${token}`,
                 'X-Auth-App': 'banca'
@@ -58,6 +56,8 @@ export const load: PageServerLoad = async ({ fetch, locals, cookies }) => {
         );
         const reportTodayPayload = reportTodayResponse.ok ? await reportTodayResponse.json().catch(() => null) : null;
         const reportTodayItems = Array.isArray(reportTodayPayload?.items) ? reportTodayPayload.items : [];
+        const branchIds = branchNames.map((branch: any) => branch.id);
+        const scheduleIds = scheduleNames.map((schedule: any) => schedule.draw_schedule_id);
 
         const winnersFilteredResponse = await fetch(`${baseUrl}/winner/filtered?date_from=${utcMinus6Date}&date_to=${utcMinus6Date}&branches=${encodeURIComponent(branchIds.join(','))}&draw_schedules=${encodeURIComponent(scheduleIds.join(','))}`, {
             headers: {

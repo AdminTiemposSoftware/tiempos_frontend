@@ -4,6 +4,7 @@
 	import UserModal from '../../../lib/components/puestos/UserModal.svelte';
 	import { PenSolid, TrashBinSolid } from 'flowbite-svelte-icons';
 	import { auth } from '$lib/stores/auth';
+	import { invalidateBancaFilterCache } from '$lib/stores/bancaFilterCache';
 	import { acts } from '@tadashi/svelte-notification'
 
 	let { data } = $props();
@@ -139,6 +140,7 @@
 				lifetime: 3
 			});
 			puestos = puestos.filter((item) => item.id !== puestoToDelete?.id);
+			invalidateBancaFilterCache();
 			expandedPuestos = expandedPuestos.filter((id) => id !== puestoToDelete?.id);
 			puestoToDelete = null;
 		} catch (error) {
@@ -185,6 +187,7 @@
 				});
 				return;
 			}
+			invalidateBancaFilterCache();
 
 			const result = await response.json().catch(() => null);
 			const id = result?.items?.[0]?.id;
@@ -266,6 +269,7 @@
 				});
 				return;
 			}
+			invalidateBancaFilterCache();
 
 			for (const sorteo of sorteos) {
 				if (!sorteo.draw_schedule_id) {

@@ -11,6 +11,7 @@
 	import SelectModal from '../SelectModal.svelte';
 	import { formatAmount } from '../../printing/printing';
 	import { GROUPING_OPTIONS, type GroupingMode, type ReportItem } from '../venta/grouping';
+	import { getBancaFilterData } from '../../stores/bancaFilterCache';
 
 	type ReportProps = {
 	    data: any;
@@ -281,9 +282,8 @@
     });
 
 	$effect(() => {
-		const branchNamesItems = Array.isArray(data?.branchNames)
-			? (data.branchNames as any[])
-			: [];
+		const filterData = getBancaFilterData(data ?? {});
+		const branchNamesItems = filterData.branchNames as any[];
 		branchNames = [
 			...branchNamesItems.map((item) => ({
 				value: Number(item.id),
@@ -293,9 +293,8 @@
 	});
 
 	$effect(() => {
-		const scheduleNamesItems = Array.isArray(data?.scheduleNames)
-			? (data.scheduleNames as any[])
-			: [];
+		const filterData = getBancaFilterData(data ?? {});
+		const scheduleNamesItems = filterData.scheduleNames as any[];
 		drawScheduleNames = [
 			...scheduleNamesItems.map((item) => ({
 				value: Number(item.draw_schedule_id),
@@ -632,7 +631,7 @@
 	total={totalQr}
 	branchNames={branchNames}
 	drawScheduleNames={drawScheduleNames}
-	scheduleBranch={data?.scheduleBranch ?? []}
+	scheduleBranch={getBancaFilterData(data ?? {}).scheduleBranch}
 />
 
 <ReportModal
