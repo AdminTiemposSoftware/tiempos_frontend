@@ -9,7 +9,6 @@ export const load: PageServerLoad = async ({ fetch, locals, cookies }) => {
     if (!baseUrl || !bankingId) {
         return {
             prohibitedItems: [],
-            reportTodayItems: [],
             winnersFilteredItems: [],
             prohibitedFilteredItems: [],
             branchNames: [],
@@ -48,14 +47,6 @@ export const load: PageServerLoad = async ({ fetch, locals, cookies }) => {
 
         const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-        const reportTodayResponse = await fetch(`${baseUrl}/report/today/${bankingId}`, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'X-Auth-App': 'banca'
-            } }
-        );
-        const reportTodayPayload = reportTodayResponse.ok ? await reportTodayResponse.json().catch(() => null) : null;
-        const reportTodayItems = Array.isArray(reportTodayPayload?.items) ? reportTodayPayload.items : [];
         const branchIds = branchNames.map((branch: any) => branch.id);
         const scheduleIds = scheduleNames.map((schedule: any) => schedule.draw_schedule_id);
 
@@ -88,7 +79,6 @@ export const load: PageServerLoad = async ({ fetch, locals, cookies }) => {
 
         return {
             prohibitedItems,
-            reportTodayItems,
             winnersFilteredItems,
             prohibitedFilteredItems,
             branchNames,
@@ -98,7 +88,6 @@ export const load: PageServerLoad = async ({ fetch, locals, cookies }) => {
     } catch {
         return {
             prohibitedItems: [],
-            reportTodayItems: [],
             winnersFilteredItems: [],
             prohibitedFilteredItems: [],
             branchNames: [],

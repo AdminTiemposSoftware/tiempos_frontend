@@ -6,6 +6,7 @@
     import ListasFilterModal from '../../../lib/components/listas/ListasFilterModal.svelte';
     import LoadListFromQrModal from '$lib/components/listas/LoadListFromQrModal.svelte';
     import MatrixComparisonModal from '$lib/components/listas/MatrixComparisonModal.svelte';
+    import ExportModal from '$lib/components/listas/ExportModal.svelte';
     import { decodeExportedListQrData, formatAmount } from '$lib/printing/printing';
     import { auth } from '$lib/stores/auth';
     import { getBancaFilterData } from '$lib/stores/bancaFilterCache';
@@ -79,9 +80,20 @@
     let numberInputElement = $state<HTMLInputElement | null>(null);
     let amountInputElement = $state<HTMLInputElement | null>(null);
     let showOperationsMatrix = $state(false);
+    let showExportModalCurrent = $state(false);
     let allowNegative = $state(false);
 
 	let { data } = $props();
+
+    const currentExportMatrix = $derived.by(() => {
+        if (matrixMode !== 'operations') {
+            return createSelection;
+        }
+
+        return Object.fromEntries(
+            Array.from({ length: 100 }, (_, number) => [number, getModifiedValue(number)])
+        );
+    });
 
     const matrixIsDirty = $derived.by(() => {
         const currentKeys = Object.keys(createSelection);
@@ -1108,6 +1120,17 @@
     }
 </script>
 
+<ExportModal
+    bind:showModal={showExportModalCurrent}
+    data={currentExportMatrix}
+    dateFrom={selectedDate}
+    dateTo={selectedDate}
+    total={matrixMode === 'operations' ? modifiedTotal : originalTotal}
+    puestos={[]}
+    sorteos={[]}
+    qrOnly
+/>
+
 <svelte:head>
     <title>Listas</title>
 </svelte:head>
@@ -1315,6 +1338,12 @@
             Recorte
         </button>
         <button
+            type="button"
+            onclick={() => {showExportModalCurrent = true}}
+        >
+            Ver QR
+        </button>
+        <button
             onclick={() => {showOperationsMatrix = true}}
             hidden={!hasLoadedListToModify}
         >
@@ -1332,8 +1361,7 @@
             Total: {formatAmount(originalTotal)}
         </h2>
         <h2>
-            Total +/-: {
-            formatAmount(modifiedTotal)}
+            Total +/-: {formatAmount(modifiedTotal)}
         </h2>
 
         <div class="row">

@@ -3,6 +3,7 @@
     import ListasFilterModal from '../../../lib/components/listas/ListasFilterModal.svelte';
     import MatrixComparisonModal from '../../../lib/components/listas/MatrixComparisonModal.svelte';
     import { acts } from '@tadashi/svelte-notification';
+    import { formatAmount } from '../../../lib/printing/printing';
 
     let {
         data,
@@ -15,6 +16,7 @@
         branchNames = [],
         drawScheduleNames = [],
         scheduleBranch = [],
+        qrOnly = false,
     } = $props();
 
     type RegistryItem = {
@@ -248,36 +250,43 @@
         onclick={(e) => e.stopPropagation()}
         role="presentation"
     >
-        <h2 class="modal-title">
-        {#if dateFrom === dateTo}
-            {dateFrom}
-        {:else}
-            {dateFrom} - {dateTo}
-        {/if}</h2>
-        <div class="chip-row">
-            {#each puestos as puesto}
-            <p>{puesto}</p>
-            {#if puestos.indexOf(puesto) < puestos.length - 1}
-                •
-            {/if}
-            {/each}
-        </div>
-        <div class="chip-row">
-            {#each sorteos as sorteo}
-                <p>{sorteo}</p>
-                {#if sorteos.indexOf(sorteo) < sorteos.length - 1}
+        {#if !qrOnly}
+            <h2 class="modal-title">
+            {#if dateFrom === dateTo}
+                {dateFrom}
+            {:else}
+                {dateFrom} - {dateTo}
+            {/if}</h2>
+            <div class="chip-row">
+                {#each puestos as puesto}
+                <p>{puesto}</p>
+                {#if puestos.indexOf(puesto) < puestos.length - 1}
                     •
                 {/if}
-            {/each}
-        </div>
+                {/each}
+            </div>
+            <div class="chip-row">
+                {#each sorteos as sorteo}
+                    <p>{sorteo}</p>
+                    {#if sorteos.indexOf(sorteo) < sorteos.length - 1}
+                        •
+                    {/if}
+                {/each}
+            </div>
+        {/if}
         <div class="qr-container">
             <QrCode value={serializeData(data)} size={350} errorCorrection="L" />
+            <span>
+                Total: {formatAmount(total)}
+            </span>
         </div>
-        <div class="row">
-			<button type="button" class="option-button" onclick={() => {showSaveModal = true; showModal = false;}}>
-                Guardar lista
-			</button>
-		</div>
+        {#if !qrOnly}
+            <div class="row">
+                <button type="button" class="option-button" onclick={() => {showSaveModal = true; showModal = false;}}>
+                    Guardar lista
+                </button>
+            </div>
+        {/if}
     </div>
 </div>
 

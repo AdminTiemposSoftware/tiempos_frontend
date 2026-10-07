@@ -304,30 +304,6 @@
 	});
 
 	$effect(() => {
-		const reportTodayItems = Array.isArray(data?.reportTodayItems)
-			? (data.reportTodayItems as any[])
-			: [];
-
-		report = reportTodayItems.map((item) => ({
-			branch_id: Number(item.branch_id),
-			branch_name: String(item.branch_name),
-			branch_comission: Number(item.branch_comission),
-			branch_buy: Number(item.branch_buy),
-			branch_buy_first_place: Number(item.branch_buy_first_place),
-			draw_schedule_id: Number(item.draw_schedule_id),
-			draw_schedule_name: String(item.draw_schedule_name),
-			draw_id: Number(item.draw_id),
-			draw_name: String(item.draw_name),
-			number: Number(item.number),
-			amount: Number(item.amount),
-			is_reventado: Boolean(item.is_reventado),
-			is_megareventado: Boolean(item.is_megareventado),
-			date: String(item.date)
-		})).filter((item) => Number.isFinite(item.number) && Number.isFinite(item.amount))
-		.sort((a, b) => a.number - b.number);
-	});
-
-	$effect(() => {
 		const winnersFilteredItems = Array.isArray(data?.winnersFilteredItems)
 			? (data.winnersFilteredItems as WinnerItem[])
 			: [];
