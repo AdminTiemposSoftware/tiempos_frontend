@@ -18,7 +18,7 @@
 		date: string;
 		branch: string;
 		schedule: string;
-		sales: number;
+		amount: number;
 		limit: number;
 		percentage: number | null;
 		devolution: number;
@@ -82,53 +82,66 @@
 		return totals;
 	});
 
-	const rows = $derived.by<BreakdownRow[]>(() => prohibitedNumbers.flatMap((prohibited) => {
-		const matchingItems = report.filter((item) => matchesProhibited(item, prohibited));
-		const grouped = new Map<string, { items: ReportItem[]; branch: string }>();
+	const rows = $derived.by<BreakdownRow[]>(() => {
+		const calculatedRows = prohibitedNumbers.flatMap((prohibited) => {
+			const matchingItems = report.filter((item) => matchesProhibited(item, prohibited));
+			const grouped = new Map<string, { items: ReportItem[]; branch: string }>();
 
-		for (const item of matchingItems) {
-			const key = scopeKey(item);
-			const existing = grouped.get(key);
-			if (existing) {
-				existing.items.push(item);
-			} else {
-				grouped.set(key, { items: [item], branch: item.branch_name });
+			for (const item of matchingItems) {
+				const key = scopeKey(item);
+				const existing = grouped.get(key);
+				if (existing) {
+					existing.items.push(item);
+				} else {
+					grouped.set(key, { items: [item], branch: item.branch_name });
+				}
+			}
+
+			const groups = grouped.size > 0
+				? Array.from(grouped.values())
+				: [{ items: [], branch: '-' }];
+
+			return groups.map(({ items, branch }) => {
+				const firstItem = items[0];
+				const scopeTotal = firstItem ? totalsByScope.get(scopeKey(firstItem)) ?? 0 : 0;
+				const percentage = Number(prohibited.percentage);
+				const configuredAmount = Number(prohibited.amount);
+				const limit = prohibited.by_percentage && Number.isFinite(percentage)
+					? scopeTotal * percentage * 0.01
+					: configuredAmount;
+				const devolution = items.reduce(
+					(sum, item) => sum + getDevolution(item, prohibited, totalsByScope.get(scopeKey(item)) ?? 0),
+					0
+				);
+
+				return {
+					number: Number(prohibited.number),
+					date: firstItem ? dateKey(firstItem.date) : dateKey(prohibited.date),
+					branch,
+					schedule: firstItem?.draw_schedule_name ?? '-',
+					amount: items.reduce((sum, item) => sum + Number(item.amount), 0),
+					limit: Number.isFinite(limit) ? limit : 0,
+					percentage: Number.isFinite(percentage) ? percentage : null,
+					devolution,
+					mode: prohibited.by_percentage
+						? 'percentage'
+						: prohibited.by_amount
+							? 'amount'
+							: 'none'
+				};
+			}).filter((row) => row.devolution > 0);
+		});
+
+		const uniqueRows = new Map<string, BreakdownRow>();
+		for (const row of calculatedRows) {
+			const key = `${row.number}|${row.date}|${row.branch}|${row.schedule}`;
+			if (!uniqueRows.has(key)) {
+				uniqueRows.set(key, row);
 			}
 		}
 
-		const groups = grouped.size > 0
-			? Array.from(grouped.values())
-			: [{ items: [], branch: '-' }];
-
-		return groups.map(({ items, branch }) => {
-			const firstItem = items[0];
-			const scopeTotal = firstItem ? totalsByScope.get(scopeKey(firstItem)) ?? 0 : 0;
-			const percentage = Number(prohibited.percentage);
-			const configuredAmount = Number(prohibited.amount);
-			const limit = prohibited.by_percentage && Number.isFinite(percentage)
-				? scopeTotal * percentage * 0.01
-				: configuredAmount;
-
-			return {
-				number: Number(prohibited.number),
-				date: firstItem ? dateKey(firstItem.date) : dateKey(prohibited.date),
-				branch,
-				schedule: firstItem?.draw_schedule_name ?? '-',
-				sales: items.reduce((sum, item) => sum + Number(item.amount), 0),
-				limit: Number.isFinite(limit) ? limit : 0,
-				percentage: Number.isFinite(percentage) ? percentage : null,
-				devolution: items.reduce(
-					(sum, item) => sum + getDevolution(item, prohibited, totalsByScope.get(scopeKey(item)) ?? 0),
-					0
-				),
-				mode: prohibited.by_percentage
-					? 'percentage'
-					: prohibited.by_amount
-						? 'amount'
-						: 'none'
-			};
-		});
-	}));
+		return Array.from(uniqueRows.values());
+	});
 
 	const totalDevolution = $derived(rows.reduce((sum, row) => sum + row.devolution, 0));
 	const totalPercentageLimit = $derived(
@@ -136,91 +149,47 @@
 	);
 </script>
 
-<section class="devolution-breakdown" aria-labelledby="devolution-breakdown-title">
-	<div class="breakdown-header">
-		<div>
-			<h2 id="devolution-breakdown-title">Justificación de devolución</h2>
-			<p>La devolución se calcula por número prohibido y por alcance (fecha, puesto y horario).</p>
-		</div>
-		<div class="totals">
-			<div class="total">
-				<span>Suma total × porcentaje</span>
-				<strong>₡{formatAmount(Math.round(totalPercentageLimit))}</strong>
-			</div>
-			<div class="total">
-				<span>Total devolución</span>
-				<strong>₡{formatAmount(Math.round(totalDevolution))}</strong>
-			</div>
-		</div>
-	</div>
+<div class="devolution-breakdown" aria-labelledby="devolution-breakdown-title">
+    <span>Numeros pasados:</span>
 
 	{#if rows.length === 0}
-		<p class="empty">No hay números prohibidos en este reporte.</p>
+		<p class="empty">No hay números pasados en este reporte.</p>
 	{:else}
-		<table>
-			<thead>
-				<tr>
-					<th>Número</th>
-					<th>Fecha</th>
-					<th>Puesto</th>
-					<th>Horario</th>
-					<th>Ventas</th>
-					<th>Límite aplicado</th>
-					<th>Devolución</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each rows as row}
-					<tr>
-						<td>{row.number}</td>
-						<td>{row.date}</td>
-						<td>{row.branch}</td>
-						<td>{row.schedule}</td>
-						<td>₡{formatAmount(Math.round(row.sales))}</td>
-						<td>
-							{#if row.mode === 'percentage'}
-								₡{formatAmount(Math.round(row.limit))}
-								<span>{row.sales > 0 ? ` (total del alcance × ${row.percentage}%)` : ` (ventas del alcance × ${row.percentage}%)`}</span>
-							{:else if row.mode === 'amount'}
-								₡{formatAmount(Math.round(row.limit))}
-							{:else}
-								-
-							{/if}
-						</td>
-						<td>₡{formatAmount(Math.round(row.devolution))}</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
+		<div class="number-list" aria-label="Números con devolución">
+		{#each rows as row}
+			<div
+				class="number-badge"
+				aria-label={`Mostrar detalles del número ${row.number}`}
+			>
+				<div class="number-info" role="tooltip">
+					<span>Fecha: {row.date}</span>
+					<span>Puesto: {row.branch}</span>
+					<span>Horario: {row.schedule}</span>
+					<span>Venta: ₡{formatAmount(Math.round(row.amount))}</span>
+					<span>
+						Límite:
+						{#if row.mode === 'percentage'}
+							₡{formatAmount(Math.round(row.limit))} ({row.percentage}%)
+						{:else if row.mode === 'amount'}
+							₡{formatAmount(Math.round(row.limit))}
+						{:else}
+							-
+						{/if}
+					</span>
+				</div>
+				<p class="number">{row.number}</p>
+				<p>₡{formatAmount(Math.round(row.devolution))}</p>
+			</div>
+		{/each}
+		</div>
 	{/if}
-</section>
+</div>
 
 <style>
 	.devolution-breakdown {
-		width: 100%;
-		margin-top: 0.75rem;
+		width: 40%;
 		padding: 1rem;
 		border: 1px solid var(--color-border);
-		background: #fff;
-	}
-
-	.breakdown-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		margin-bottom: 0.75rem;
-	}
-
-	.totals {
-		display: flex;
-		align-items: flex-end;
-		gap: 1.25rem;
-	}
-
-	h2 {
-		margin: 0;
-		font-size: 1.1rem;
 	}
 
 	p {
@@ -229,49 +198,57 @@
 		font-size: 0.85rem;
 	}
 
-	.total {
+	.number-list {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+		padding-top: 0.5rem;
+	}
+
+	.number-badge {
+		position: relative;
 		display: flex;
 		flex-direction: column;
-		align-items: flex-end;
-		gap: 0.15rem;
+		align-items: center;
+		justify-content: center;
+		border: 1px solid var(--color-border);
+		border-radius: 1rem;
+		padding: 0.4rem;
+		padding-top: 0.2rem;
+		background: #fff;
+		cursor: pointer;
+		outline: none;
+		color: inherit;
 	}
 
-	.total span {
-		font-size: 0.8rem;
-	}
-
-	.total strong {
-		font-size: 1.2rem;
-		white-space: nowrap;
-	}
-
-	table {
-		width: 100%;
-		border-collapse: collapse;
+	.number {
+	    font-weight: 600;
 		font-size: 0.9rem;
 	}
 
-	th,
-	td {
-		padding: 0.45rem 0.55rem;
+	.number-info {
+		position: absolute;
+		z-index: 2;
+		bottom: calc(100% + 0.5rem);
+		left: 50%;
+		display: none;
+		min-width: 13rem;
+		padding: 0.65rem;
+		transform: translateX(-50%);
+		flex-direction: column;
+		gap: 0.2rem;
 		border: 1px solid var(--color-border);
-	}
-
-	th {
+		border-radius: 0.25rem;
+		background: #fff;
+		box-shadow: 0 0.25rem 0.75rem rgb(0 0 0 / 15%);
+		font-size: 0.78rem;
 		text-align: left;
-		background: var(--color-box-background);
 	}
 
-	td:nth-child(5),
-	td:nth-child(6),
-	td:nth-child(7) {
-		text-align: right;
-	}
-
-	td span {
-		display: block;
-		font-size: 0.75rem;
-		color: var(--color-text);
+	.number-badge:hover .number-info,
+	.number-badge:focus-visible .number-info {
+		display: flex;
 	}
 
 	.empty {

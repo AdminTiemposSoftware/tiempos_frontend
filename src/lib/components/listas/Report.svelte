@@ -42,7 +42,7 @@
 		const filtered = modes.filter((mode) => !ignoredGroupingModes.includes(mode));
 		return filtered.length > 0 ? filtered : getDefaultGroupingModes();
 	}
-	let groupingModes = $state<GroupingMode[]>(sanitizeGroupingModes(['branch']));
+	let groupingModes = $state<GroupingMode[]>(sanitizeGroupingModes(['draw_schedule']));
 	$effect(() => {
 		const sanitized = sanitizeGroupingModes(groupingModes);
 		if (sanitized.length !== groupingModes.length || sanitized.some((mode, index) => groupingModes[index] !== mode)) {
@@ -54,6 +54,7 @@
 	let to =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let report = $state<ReportItem[]>([]);
 	let isLoading = $state<boolean>(false);
+	let showGroupingOptions = $state(false);
 	let showReportModal = $state<boolean>(false);
 	let showExportModal = $state<boolean>(false);
 	let reportQrData = $state<Record<number, number>>({});
@@ -619,118 +620,137 @@
 />
 
 <section class="inicio">
-    <div class="content">
-        <div class="left">
-            <div class="filters">
-                <div class="total">
-                    <label for="from">Desde</label>
-                    <input id="from" type="date" bind:value={from}/>
+            <div class="content">
+                <div class="left">
+                    <div class="filters">
+                        <div class="total">
+                            <label for="from">Desde</label>
+                            <input id="from" type="date" bind:value={from}/>
+                        </div>
+                        <div class="field">
+                            <label for="to">Hasta</label>
+                            <input id="to" type="date" bind:value={to}/>
+                        </div>
+                        {#if user !== 'branch'}
+                            <div class="field">
+                                <label for="puesto">Puesto</label>
+           					<SelectModal
+          						options={branchNames}
+          						bind:selected={selectedBranch}
+          						placeholder="Seleccione un puesto"
+           					/>
+            				</div>
+                        {/if}
+           	            <div class="field">
+           	                <label for="sorteo">Sorteo</label>
+           					<SelectModal
+          						options={drawScheduleNames}
+          						bind:selected={selectedDrawSchedule}
+          						placeholder="Seleccione un sorteo"
+           					/>
+           	            </div>
+           	            <div class="total-amount">
+           	                <p class="total-label">Total en esta lista</p>
+           	                <p class="total-amount-label">₡{formatAmount(totalAmountReport)} </p>
+           	            </div>
+                    </div>
+           	        <Matrix
+        				bind:report={report}
+        				bind:isLoading={isLoading}
+        				bind:groupingModes={groupingModes}
+        				mode={matrixMode}
+        				useSellingMatrixFallback={false}
+        				winnerNumbers={winnersFiltered
+       					.filter((item) => item.winner_number != null)
+       					.map((item) => Number(item.winner_number))
+       					.filter((number) => Number.isFinite(number))}
+        				reportProhibitedNumbers={prohibitedFiltered
+       					.map((item) => Number(item.number))
+       					.filter((number) => Number.isFinite(number))}
+        				/>
                 </div>
-                <div class="field">
-                    <label for="to">Hasta</label>
-                    <input id="to" type="date" bind:value={to}/>
+                <div class="right">
+                    <div class="column">
+     			    <button type="button" class="option-button" onclick={applyFilters}>
+       					Filtrar
+                    </button>
+    				<button type="button" class="option-button" onclick={handleShowExportModal}>
+    				    Exportar lista
+    				</button>
+    				<button type="button" class="option-button" onclick={showReport}>
+    				    Obtener reporte
+     			    </button>
+     			</div>
+     			<div class="row view">
+                    <button
+                        type="button"
+                        class={`option-button ${matrixMode === '20x5' ? 'selected-mode' : ''}`}
+                        onclick={() => { matrixMode = '20x5'; }}
+                    >
+                        20x5
+                    </button>
+                    <button
+                        type="button"
+                        class={`option-button ${matrixMode === '10x10' ? 'selected-mode' : ''}`}
+                        onclick={() => { matrixMode = '10x10'; }}
+                    >
+                        10x10
+                    </button>
                 </div>
-                {#if user !== 'branch'}
-                    <div class="field">
-                        <label for="puesto">Puesto</label>
-    					<SelectModal
-    						options={branchNames}
-    						bind:selected={selectedBranch}
-    						placeholder="Seleccione un puesto"
-    					/>
-    				</div>
-                {/if}
-	            <div class="field">
-	                <label for="sorteo">Sorteo</label>
-					<SelectModal
-						options={drawScheduleNames}
-						bind:selected={selectedDrawSchedule}
-						placeholder="Seleccione un sorteo"
-					/>
-	            </div>
-	            <div class="total-amount">
-	                <p class="total-label">Total en esta lista</p>
-	                <p class="total-amount-label">₡{formatAmount(totalAmountReport)} </p>
-	            </div>
+     			<div class="field grouping-field">
+                   	<button
+                  		type="button"
+                  		class="grouping-toggle"
+                  		aria-expanded={showGroupingOptions}
+                  		aria-controls="grouping-options"
+                  		onclick={() => { showGroupingOptions = !showGroupingOptions; }}
+                   	>
+                  		Agrupación {showGroupingOptions ? '⌄' : '>'}
+                   	</button>
+                   	{#if showGroupingOptions}
+              		<div id="grouping-options">
+             			<div class="grouping-options">
+            				{#each availableGroupingOptions as option}
+           					<button
+          						type="button"
+          						class={`grouping-option ${groupingModes.includes(option.value) ? 'selected' : ''}`}
+          						onclick={() => toggleGroupingMode(option.value)}
+           					>
+          						<input type="checkbox" checked={groupingModes.includes(option.value)} readonly />
+          						<span>{option.label}</span>
+           					</button>
+            				{/each}
+             			</div>
+             			<div class="grouping-order">
+            				<label for="orden">Orden</label>
+            				<div class="grouping-chip-list">
+           					{#each groupingModes as mode, index}
+          						<div class="chip">
+         							<span>{index + 1}. {getGroupingModeLabel(mode)}</span>
+         							<div class="grouping-chip-actions">
+        								<button type="button" onclick={() => moveGroupingMode(mode, -1)} disabled={index === 0}>↑</button>
+        								<button type="button" onclick={() => moveGroupingMode(mode, 1)} disabled={index === groupingModes.length - 1}>↓</button>
+         							</div>
+          						</div>
+           					{/each}
+            				</div>
+             			</div>
+              		</div>
+                   	{/if}
+                </div>
             </div>
-	        <Matrix
-				bind:report={report}
-				bind:isLoading={isLoading}
-				bind:groupingModes={groupingModes}
-				mode={matrixMode}
-				useSellingMatrixFallback={false}
-				winnerNumbers={winnersFiltered
-					.filter((item) => item.winner_number != null)
-					.map((item) => Number(item.winner_number))
-					.filter((number) => Number.isFinite(number))}
-				reportProhibitedNumbers={prohibitedFiltered
-					.map((item) => Number(item.number))
-					.filter((number) => Number.isFinite(number))}
-				/>
-			<ReportSummary
+    </div>
+
+    <div class="content">
+        <ReportSummary
 				report={report}
 				prohibitedNumbers={prohibitedFiltered}
 				winners={winnersFiltered}
-			/>
-        </div>
-        <div class="right">
-            <div class="column">
-			    <button type="button" class="option-button" onclick={applyFilters}>
-   					Filtrar
-                </button>
-				<button type="button" class="option-button" onclick={handleShowExportModal}>
-				    Exportar lista
-				</button>
-				<button type="button" class="option-button" onclick={showReport}>
-				    Obtener reporte
- 			    </button>
-			</div>
-			<div class="row view">
-                <button
-                    type="button"
-                    class={`option-button ${matrixMode === '20x5' ? 'selected-mode' : ''}`}
-                    onclick={() => { matrixMode = '20x5'; }}
-                >
-                20x5
-                </button>
-                <button
-                    type="button"
-                    class={`option-button ${matrixMode === '10x10' ? 'selected-mode' : ''}`}
-                    onclick={() => { matrixMode = '10x10'; }}
-                >
-                10x10
-                </button>
-            </div>
-			<div class="field grouping-field">
-				<label for="agrupacion">Agrupación</label>
-					<div class="grouping-options">
-						{#each availableGroupingOptions as option}
-							<button
-								type="button"
-								class={`grouping-option ${groupingModes.includes(option.value) ? 'selected' : ''}`}
-								onclick={() => toggleGroupingMode(option.value)}
-							>
-								<input type="checkbox" checked={groupingModes.includes(option.value)} readonly />
-								<span>{option.label}</span>
-							</button>
-						{/each}
-					</div>
-				<div class="grouping-order">
-					<label for="orden">Orden</label>
-					<div class="grouping-chip-list">
-						{#each groupingModes as mode, index}
-							<div class="chip">
-								<span>{index + 1}. {getGroupingModeLabel(mode)}</span>
-								<div class="grouping-chip-actions">
-									<button type="button" onclick={() => moveGroupingMode(mode, -1)} disabled={index === 0}>↑</button>
-									<button type="button" onclick={() => moveGroupingMode(mode, 1)} disabled={index === groupingModes.length - 1}>↓</button>
-								</div>
-							</div>
-						{/each}
-					</div>
-				</div>
-			</div>
-        </div>
+/>
+<DevolutionBreakdown
+				report={report}
+				prohibitedNumbers={prohibitedFiltered}
+/>
     </div>
     {#if user === 'banking'}
     <header>
@@ -821,11 +841,25 @@
 		width: 100%;
 	}
 
+    .grouping-toggle {
+    	display: flex;
+    	align-items: center;
+    	gap: 0.35rem;
+    	width: fit-content;
+    	padding: 0;
+    	border: 0;
+    	background: transparent;
+    	color: var(--color-text);
+    	font-weight: 600;
+    	cursor: pointer;
+    }
+
     .content {
-		padding: 1rem;
+    	padding: 1rem;
 		background-color: var(--color-box-background);
 		border: 1px solid var(--color-border);
         display: flex;
+        flex-direction: row;
         gap: 1rem;
     }
 

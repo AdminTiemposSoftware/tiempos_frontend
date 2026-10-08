@@ -26,9 +26,9 @@ export type GroupNode = {
 };
 
 export const GROUPING_OPTIONS: { value: GroupingMode; label: string }[] = [
-	{ value: 'branch', label: 'Puesto' },
-	{ value: 'draw_schedule', label: 'Horario' },
+    { value: 'draw_schedule', label: 'Horario' },
 	{ value: 'draw', label: 'Sorteo' },
+	{ value: 'branch', label: 'Puesto' },
 	{ value: 'date', label: 'Fecha' }
 ];
 
