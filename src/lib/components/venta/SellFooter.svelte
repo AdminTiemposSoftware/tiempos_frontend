@@ -10,6 +10,7 @@
 	} = $props();
 
 	let availableAmountOnProhibited = $state($total * prohibitedPercentage*0.01);
+	let sortedProhibitedNumbers = $derived(($prohibitedNumbers ?? []).slice().sort((a, b) => a.number - b.number));
 
 	$effect(() => {
 		availableAmountOnProhibited = $total * prohibitedPercentage*0.01;
@@ -41,8 +42,8 @@
     <div class="prohibited">
         <!-- <span class="label">Excedente:</span> -->
         <div class="prohibited-list">
-            {#if $prohibitedNumbers?.length}
-                {#each $prohibitedNumbers as number}
+            {#if sortedProhibitedNumbers?.length}
+                {#each sortedProhibitedNumbers as number}
                     <div class="prohibited-badge {isOverage(number) ? 'prohibited-over' : ''}">
                         <span>{number.number}</span>
 						<div class="prohibited-info">

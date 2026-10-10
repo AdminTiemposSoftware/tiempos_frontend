@@ -20,9 +20,10 @@
 		schedule: string;
 		amount: number;
 		limit: number;
+		percentageLimit: number;
 		percentage: number | null;
 		devolution: number;
-		mode: 'amount' | 'percentage' | 'none';
+		mode: 'amount' | 'percentage' | 'mixed' | 'none';
 	};
 
 	let {
@@ -121,6 +122,7 @@
 					schedule: firstItem?.draw_schedule_name ?? '-',
 					amount: items.reduce((sum, item) => sum + Number(item.amount), 0),
 					limit: Number.isFinite(limit) ? limit : 0,
+					percentageLimit: prohibited.by_percentage && Number.isFinite(limit) ? limit : 0,
 					percentage: Number.isFinite(percentage) ? percentage : null,
 					devolution,
 					mode: prohibited.by_percentage
@@ -140,12 +142,30 @@
 			}
 		}
 
-		return Array.from(uniqueRows.values());
+		const rowsByNumber = new Map<number, BreakdownRow>();
+		for (const row of uniqueRows.values()) {
+			const existing = rowsByNumber.get(row.number);
+			if (!existing) {
+				rowsByNumber.set(row.number, { ...row });
+				continue;
+			}
+
+			const sameMode = existing.mode === row.mode;
+			const samePercentage = existing.percentage === row.percentage;
+			existing.amount += row.amount;
+			existing.limit += row.limit;
+			existing.percentageLimit += row.percentageLimit;
+			existing.devolution += row.devolution;
+			existing.mode = sameMode ? existing.mode : 'mixed';
+			existing.percentage = sameMode && samePercentage ? existing.percentage : null;
+		}
+
+		return Array.from(rowsByNumber.values());
 	});
 
 	const totalDevolution = $derived(rows.reduce((sum, row) => sum + row.devolution, 0));
 	const totalPercentageLimit = $derived(
-		rows.reduce((sum, row) => sum + (row.mode === 'percentage' ? row.limit : 0), 0)
+		rows.reduce((sum, row) => sum + row.percentageLimit, 0)
 	);
 </script>
 

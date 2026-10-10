@@ -74,7 +74,7 @@
     {/if}
     <span class="space"> </span>
 
-    <div class="line">
+    <div class="line header">
         <span>Monto</span>
         <span>Numero</span>
     </div>
@@ -141,9 +141,17 @@
 
 .line {
     display: flex;
-    align-items: center;
+    align-items: top;
     justify-content: space-between;
     gap: 5px;
+}
+
+.line.header {
+    justify-content: start;
+}
+.header span:first-child {
+    width: 4.5rem;
+    margin-right: 0.5rem;
 }
 
 .space {
@@ -155,19 +163,22 @@
     text-align: left;
     width: auto;
     min-width: 0;
-    flex: 0 1 auto;
+    flex: 6;
     white-space: normal;
     overflow-wrap: break-word;
 }
 
 .amount {
-    text-align: left;
+    flex: 2;
+    text-align: right;
 }
 
 .separator {
-    flex: 1;
+    align-self: flex-start;
+    height: 0;
+    flex: 1.;
     min-width: 5mm;
-    border-bottom: 1px dashed currentColor;
-    transform: translateY(2px);
+    margin-top: 0.6em;
+    border-top: 2px dashed currentColor;
 }
 </style>
