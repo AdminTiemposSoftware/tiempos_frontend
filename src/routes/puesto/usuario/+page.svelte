@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { auth } from '$lib/stores/auth';
+	import AmountNames from '$lib/components/puesto/AmountNames.svelte';
+	let activeTab = $state<'draws' | 'amounts'>('draws');
 	let { data } = $props();
 
 	type AvailableBet = {
@@ -111,7 +113,7 @@
 </script>
 
 <svelte:head>
-	<title>Información del usuario</title>
+	<title>Usuario</title>
 </svelte:head>
 
 <section class="page">
@@ -155,9 +157,16 @@
 	</article>
 
 	<article class="card">
-
-	<h1>Sorteos asignados</h1>
-	{#if drawGroups.length > 0}
+	<div class="tabs" role="tablist" aria-label="Configuración del usuario">
+		<button class:active={activeTab === 'draws'} type="button" role="tab" aria-selected={activeTab === 'draws'} onclick={() => activeTab = 'draws'}>
+			<h1>Sorteos asignados</h1>
+		</button>
+		<button class:active={activeTab === 'amounts'} type="button" role="tab" aria-selected={activeTab === 'amounts'} onclick={() => activeTab = 'amounts'}>
+		    <h1>Rifas</h1>
+		</button>
+	</div>
+	{#if activeTab === 'draws'}
+		{#if drawGroups.length > 0}
 		<div class="mapped-list">
 			{#each drawGroups as draw (draw.draw_id)}
 				<div class="draw-group">
@@ -192,6 +201,12 @@
 		</div>
 	{:else}
 		<p class="empty">No hay horarios asignados para este puesto.</p>
+		{/if}
+	{:else}
+		<AmountNames
+		branchId={$auth.user?.branchId}
+		initialItems={data?.amountItems ?? []}
+		/>
 	{/if}
 	</article>
 </section>
@@ -248,11 +263,32 @@
 		font-size: 1.1rem;
 	}
 
+	.tabs {
+		display: flex;
+		gap: 0.25rem;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.tabs button {
+		padding: 0.7rem 0.8rem;
+		border: 0;
+		border-radius: 0;
+		border-bottom: 2px solid transparent;
+		background: transparent;
+		color: rgba(0, 0, 0, 0.65);
+		cursor: pointer;
+	}
+
+	.tabs button.active {
+		border-bottom-color: var(--color-primary, #2563eb);
+		color: rgba(0, 0, 0, 0.9);
+		font-weight: 600;
+	}
+
 	.mapped-list {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
 		gap: 0.75rem;
-		border-top: 1px solid var(--color-border);
 		padding: 1rem;
 		max-height: 90vh;
 		overflow: auto;

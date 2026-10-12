@@ -8,11 +8,11 @@ export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
     const token = cookies.get('session_puesto') ?? '';
 
 	if (!baseUrl || !branchId) {
-		return { drawItems: [], prohibitedItems: [] };
+		return { drawItems: [], prohibitedItems: [], amountItems: [] };
 	}
 
 	try {
-        const [drawResponse, prohibitedResponse] = await Promise.all([
+        const [drawResponse, prohibitedResponse, amountResponse] = await Promise.all([
 			fetch(`${baseUrl}/draw/by-branch/${branchId}`, {
 				method: 'GET',
 				headers: {
@@ -26,7 +26,15 @@ export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
 					Authorization: `Bearer ${token}`,
 					'X-Auth-App': 'puesto'
 				}
-			})
+			}),
+			fetch(`${baseUrl}/amount/${branchId}`, {
+				method: 'GET',
+				headers: {
+					Authorization: 'Bearer ' + token,
+					'X-Auth-App': 'puesto'
+				}
+            })
+
 		]);
 
 
@@ -39,8 +47,14 @@ export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
 		const prohibitedItems = Array.isArray(prohibitedPayload?.items)
 			? prohibitedPayload.items
 			: [];
-		return { drawItems, prohibitedItems };
+
+		const amountPayload = await amountResponse.json().catch(() => null);
+		const amountItems = amountResponse.ok && Array.isArray(amountPayload?.items)
+			? amountPayload.items
+			: [];
+
+		return { drawItems, prohibitedItems, amountItems };
 	} catch {
-		return { drawItems: [], prohibitedItems: [] };
+		return { drawItems: [], prohibitedItems: [], amountItems: [] };
 	}
 };
