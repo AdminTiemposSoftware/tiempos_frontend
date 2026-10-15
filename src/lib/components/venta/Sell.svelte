@@ -143,6 +143,63 @@
         }));
     }
 
+    function expandNumberExpression(numberInput: string): string[] {
+        const parts = numberInput.split('+').map((part) => part.trim()).filter(Boolean);
+        const expandedNumbers: string[] = [];
+        const addIfValid = (value: number) => {
+            if (Number.isInteger(value) && value >= 0 && value <= 99) {
+                expandedNumbers.push(String(value));
+            }
+        };
+
+        parts.forEach((part) => {
+            if (part.includes('*')) {
+                const cleaned = part.replace('*', '').trim();
+                const base = parseInt(cleaned, 10);
+                if (Number.isNaN(base)) {
+                    return;
+                }
+
+                if (part.startsWith('*') && !part.endsWith('*')) {
+                    if (base < 10) {
+                        for (let i = 0; i < 10; i++) {
+                            addIfValid(i * 10 + base);
+                        }
+                    } else {
+                        addIfValid(base);
+                    }
+                    return;
+                }
+
+                const baseNum = base * 10;
+                for (let i = 0; i < 10; i++) {
+                    addIfValid(baseNum + i);
+                }
+                return;
+            }
+
+            if (part.includes('-')) {
+                const [startRaw, endRaw] = part.split('-').map((value) => value.trim());
+                const start = parseInt(startRaw, 10);
+                const end = parseInt(endRaw, 10);
+                if (Number.isNaN(start) || Number.isNaN(end)) {
+                    return;
+                }
+
+                const from = Math.min(start, end);
+                const to = Math.max(start, end);
+                for (let value = from; value <= to; value++) {
+                    addIfValid(value);
+                }
+                return;
+            }
+
+            addIfValid(parseInt(part, 10));
+        });
+
+        return expandedNumbers;
+    }
+
     function hasProhibitedNumbers(soldSnapshot: Record<string, number>) {
         const prohibitedInSold = $prohibitedNumbers.filter( (p) =>
             soldSnapshot[p.number] !== undefined && p.can_sell_after_amount === false
@@ -268,6 +325,7 @@
             }
             showTicketPreviewModal = true;
             sold = {};
+            soldAmountNames = {};
             detailsSnapshot = details;
             details = '';
         } catch (error) {
@@ -303,60 +361,7 @@
             return;
         }
 
-        // Split by plus sign
-        const parts: string[] = numberInput.split('+').map((n) => n.trim()).filter((n) => n);
-
-        const expandedNumbers: string[] = [];
-        const addIfValid = (value: number) => {
-            if (Number.isNaN(value) || value < 0 || value > 99) {
-                return;
-            }
-            expandedNumbers.push(String(value));
-        };
-
-        parts.forEach((part) => {
-            if (part.includes('*')) {
-                const cleaned = part.replace('*', '').trim();
-                const base = parseInt(cleaned, 10);
-                if (Number.isNaN(base)) {
-                    return;
-                }
-                if (part.startsWith('*') && !part.endsWith('*')) {
-                    if (base < 10) {
-                        for (let i = 0; i < 10; i++) {
-                            addIfValid(i * 10 + base);
-                        }
-                    } else {
-                        addIfValid(base);
-                    }
-                    return;
-                }
-                const baseNum = base * 10;
-                for (let i = 0; i < 10; i++) {
-                    addIfValid(baseNum + i);
-                }
-                return;
-            }
-
-            if (part.includes('-')) {
-                const [startRaw, endRaw] = part.split('-').map((n) => n.trim());
-                const start = parseInt(startRaw, 10);
-                const end = parseInt(endRaw, 10);
-                if (Number.isNaN(start) || Number.isNaN(end)) {
-                    return;
-                }
-                const from = Math.min(start, end);
-                const to = Math.max(start, end);
-                for (let i = from; i <= to; i++) {
-                    addIfValid(i);
-                }
-                return;
-            }
-
-            addIfValid(parseInt(part, 10));
-        });
-
-        updateSalesData(expandedNumbers, parseInt(price, 10));
+        updateSalesData(expandNumberExpression(numberInput), parseInt(price, 10));
     }
 
     function cleanSell() {
@@ -391,12 +396,12 @@
         }
 
         event.preventDefault();
-        const parsedNumber = Number(number);
-        if (!Number.isInteger(parsedNumber) || parsedNumber < 0 || parsedNumber > 99) {
+        const expandedNumbers = expandNumberExpression(number);
+        if (expandedNumbers.length === 0) {
             return true;
         }
 
-        updateSalesData([String(parsedNumber).padStart(2, '0')], amount, shortcut.name);
+        updateSalesData(expandedNumbers, amount, shortcut.name);
         return true;
     }
 
