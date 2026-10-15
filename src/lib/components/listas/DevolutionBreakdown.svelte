@@ -24,6 +24,18 @@
 		percentage: number | null;
 		devolution: number;
 		mode: 'amount' | 'percentage' | 'mixed' | 'none';
+		details: BreakdownDetail[];
+	};
+
+	type BreakdownDetail = {
+		date: string;
+		branch: string;
+		schedule: string;
+		amount: number;
+		limit: number;
+		percentage: number | null;
+		devolution: number;
+		mode: 'amount' | 'percentage' | 'none';
 	};
 
 	let {
@@ -115,21 +127,33 @@
 					0
 				);
 
-				return {
-					number: Number(prohibited.number),
+				const detail = {
 					date: firstItem ? dateKey(firstItem.date) : dateKey(prohibited.date),
 					branch,
 					schedule: firstItem?.draw_schedule_name ?? '-',
 					amount: items.reduce((sum, item) => sum + Number(item.amount), 0),
 					limit: Number.isFinite(limit) ? limit : 0,
-					percentageLimit: prohibited.by_percentage && Number.isFinite(limit) ? limit : 0,
 					percentage: Number.isFinite(percentage) ? percentage : null,
 					devolution,
 					mode: prohibited.by_percentage
 						? 'percentage'
 						: prohibited.by_amount
 							? 'amount'
-							: 'none'
+							: 'none' as const
+				};
+
+				return {
+					number: Number(prohibited.number),
+					date: detail.date,
+					branch: detail.branch,
+					schedule: detail.schedule,
+					amount: detail.amount,
+					limit: detail.limit,
+					percentageLimit: detail.mode === 'percentage' ? detail.limit : 0,
+					percentage: detail.percentage,
+					devolution,
+					mode: detail.mode,
+					details: [detail]
 				};
 			}).filter((row) => row.devolution > 0);
 		});
@@ -156,6 +180,7 @@
 			existing.limit += row.limit;
 			existing.percentageLimit += row.percentageLimit;
 			existing.devolution += row.devolution;
+			existing.details.push(...row.details);
 			existing.mode = sameMode ? existing.mode : 'mixed';
 			existing.percentage = sameMode && samePercentage ? existing.percentage : null;
 		}
@@ -182,20 +207,27 @@
 				aria-label={`Mostrar detalles del número ${row.number}`}
 			>
 				<div class="number-info" role="tooltip">
-					<span>Fecha: {row.date}</span>
-					<span>Puesto: {row.branch}</span>
-					<span>Horario: {row.schedule}</span>
-					<span>Venta: ₡{formatAmount(Math.round(row.amount))}</span>
-					<span>
-						Límite:
-						{#if row.mode === 'percentage'}
-							₡{formatAmount(Math.round(row.limit))} ({row.percentage}%)
-						{:else if row.mode === 'amount'}
-							₡{formatAmount(Math.round(row.limit))}
-						{:else}
-							-
-						{/if}
-					</span>
+					<strong>Número {row.number}</strong>
+					{#each row.details as detail}
+						<div class="number-detail">
+							<span>Fecha: {detail.date}</span>
+							<span>Puesto: {detail.branch}</span>
+							<span>Horario: {detail.schedule}</span>
+							<span>Venta: ₡{formatAmount(Math.round(detail.amount))}</span>
+							<span>
+								Límite:
+								{#if detail.mode === 'percentage'}
+									₡{formatAmount(Math.round(detail.limit))} ({detail.percentage}%)
+								{:else if detail.mode === 'amount'}
+									₡{formatAmount(Math.round(detail.limit))}
+								{:else}
+									-
+								{/if}
+							</span>
+							<strong>Devolución: ₡{formatAmount(Math.round(detail.devolution))}</strong>
+						</div>
+					{/each}
+					<strong>Total devolución: ₡{formatAmount(Math.round(row.devolution))}</strong>
 				</div>
 				<p class="number">{row.number}</p>
 				<p>₡{formatAmount(Math.round(row.devolution))}</p>
@@ -264,6 +296,18 @@
 		box-shadow: 0 0.25rem 0.75rem rgb(0 0 0 / 15%);
 		font-size: 0.78rem;
 		text-align: left;
+	}
+
+	.number-detail {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		padding: 0.35rem 0;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.number-detail:last-of-type {
+		border-bottom: 0;
 	}
 
 	.number-badge:hover .number-info,

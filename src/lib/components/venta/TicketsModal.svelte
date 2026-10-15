@@ -29,6 +29,7 @@
     let {
         showTicketModal = $bindable(false),
         getSoldNumbersForTicket,
+        getSoldAmountNamesForTicket,
         tickets = $bindable(),
         numbersSold=$bindable()
     } = $props();
@@ -38,6 +39,7 @@
     let ticketToDelete = $state<Ticket | null>(null);
     let selectedTicket = $state<Ticket | null>(null);
     let soldNumbersForSelectedTicket = $state<Record<string, number>>({});
+    let selectedAmountNamesForTicket = $state<Record<string, string | null>>({});
     let selectedRowIndex = $state(0);
     let rowRefs: Array<HTMLTableRowElement | null> = [];
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
@@ -74,11 +76,13 @@
     async function handleDelete(ticket: Ticket) {
         ticketToDelete = ticket;
         soldNumbersForSelectedTicket = getSoldNumbersForTicket(ticket.id);
+        selectedAmountNamesForTicket = getSoldAmountNamesForTicket(ticket.id);
         showDeleteConfirm = true;
     }
 
     function handleView(ticket: Ticket) {
         soldNumbersForSelectedTicket = getSoldNumbersForTicket(ticket.id);
+        selectedAmountNamesForTicket = getSoldAmountNamesForTicket(ticket.id);
         selectedTicket = ticket;
     }
 
@@ -169,7 +173,8 @@
             ].filter(Boolean),
             numbers: Object.entries(numbers).map(([number, price]) => ({
                 number,
-                amount: price
+                amount: price,
+                amount_name: selectedAmountNamesForTicket[number] ?? null
             })),
             total: Object.values(numbers).reduce((sum, value) => sum + (Number(value) || 0), 0),
             footerLines: [
@@ -347,7 +352,8 @@
                             ].filter(Boolean),
                             numbers: Object.entries(soldNumbersForSelectedTicket).map(([number, price]) => ({
                                 number,
-                                amount: price
+                                amount: price,
+                                amount_name: selectedAmountNamesForTicket[number] ?? null
                             })),
                             total: soldNumbersTotal,
                             footerLines: [

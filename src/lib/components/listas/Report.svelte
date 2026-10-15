@@ -383,7 +383,6 @@
     			? (data.items as any[])
     			: [];
 
-            console.log(dataItems);
     		report = dataItems.map((item) => ({
     			branch_id: Number(item.branch_id),
     			branch_name: String(item.branch_name),
@@ -403,85 +402,34 @@
     			(item) => Number.isFinite(item.number) && Number.isFinite(item.amount))
     		.sort((a, b) => a.number - b.number);
 
-    		totalAmountReport = report.reduce((acc, item) => acc + item.amount, 0);
-    		isLoading = false;
-			await fetchWinnersFiltered();
-			await fetchProhibitedNumbers();
-		} catch (error) {
-			acts.add({
-				message: "Error al aplicar filtros.",
-				mode: 'error',
-				lifetime: 3
-			});
-			isLoading = false;
-			console.error(error);
-		}
-	}
+			const winnerItems = Array.isArray(data?.winnersFilteredItems)
+				? data.winnersFilteredItems as WinnerItem[]
+				: [];
+			const prohibitedItems = Array.isArray(data?.prohibitedFilteredItems)
+				? data.prohibitedFilteredItems as prohibitedItem[]
+				: [];
 
-	async function fetchWinnersFiltered() {
-		try {
-		    isLoading = true;
-			let response;
-			if (user === 'banking') {
-				response = await fetch(`/banca/ganadores/filtered?date_from=${from}&date_to=${to}&branches=${encodeURIComponent(selectedBranch.join(','))}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
-					method: 'GET',
-					headers: { 'Content-Type': 'application/json' }
-				});
-			} else {
-				response = await fetch(`/puesto/ganadores/filtered?date_from=${from}&date_to=${to}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
-					method: 'GET',
-					headers: { 'Content-Type': 'application/json' }
-				});
-			}
-			const data = await response.json();
-			const winnerItems = Array.isArray(data.items) ? data.items as WinnerItem[] : [];
-			if (winnerItems.find(item => item.winner_number === null)) {
+			if (winnerItems.find((item) => item.winner_number === null)) {
 				acts.add({
 					message: "No se han asignado algunos ganadores para los filtros seleccionados.",
 					mode: 'warning',
 					lifetime: 3
 				});
 			}
+
 			winnersFiltered = winnerItems;
+			prohibitedFiltered = prohibitedItems;
+
+			totalAmountReport = report.reduce((acc, item) => acc + item.amount, 0);
+			isLoading = false;
 		} catch (error) {
 			acts.add({
 				message: "Error al aplicar filtros.",
 				mode: 'error',
 				lifetime: 3
 			});
-			console.error(error);
-		} finally {
 			isLoading = false;
-		}
-	}
-
-	async function fetchProhibitedNumbers() {
-		try {
-		    isLoading = true;
-			let response;
-			if (user === 'banking') {
-				response = await fetch(`/number/prohibited?date_from=${from}&date_to=${to}&branches=${encodeURIComponent(selectedBranch.join(','))}`, {
-					method: 'GET',
-					headers: { 'Content-Type': 'application/json' }
-				});
-			} else {
-				response = await fetch(`/puesto/number/prohibited?date_from=${from}&date_to=${to}`, {
-					method: 'GET',
-					headers: { 'Content-Type': 'application/json' }
-				});
-			}
-			const data = await response.json();
-			const prohibitedItems = Array.isArray(data.items) ? data.items as prohibitedItem[] : [];
-			prohibitedFiltered = prohibitedItems;
-		} catch (error) {
-			acts.add({
-				message: "Error al obtener números prohibidos.",
-				mode: 'error',
-				lifetime: 3
-			});
 			console.error(error);
-		} finally {
-			isLoading = false;
 		}
 	}
 

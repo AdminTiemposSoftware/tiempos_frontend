@@ -44,7 +44,8 @@
         const numbers = (ticketWinner?.items ?? [])
             .map((item) => ({
                 number: String(item.number).padStart(2, '0'),
-                amount: Number(item.amount) || 0
+                amount: Number(item.amount) || 0,
+                amount_name: item.amount_name ?? null
             }));
 
         const total = numbers.reduce((sum, item) => sum + item.amount, 0);
@@ -219,12 +220,12 @@
 
 							<div class="winner-information">
 								<div class="information-item">
-									<span>Número ganador</span>
+									<p>Número ganador</p>
 									<strong>{ticketWinner?.winner_number}</strong>
 								</div>
 
 								<div class="information-item">
-									<span>Monto</span>
+									<p>Monto</p>
 									<strong>
 										{formatAmount(
 											ticketWinner?.items.find(
@@ -235,12 +236,12 @@
 								</div>
 
 								<div class="information-item">
-									<span>Multiplicador</span>
+									<p>Multiplicador</p>
 									<strong>x{ticketWinner?.multiplier}</strong>
 								</div>
 
 								<div class="information-item total">
-									<span>Total a pagar</span>
+									<p>Total a pagar</p>
 									<strong>
 										{formatAmount(
 											(ticketWinner?.items.find(
@@ -373,19 +374,5 @@
 		align-items: center;
 		padding: 0.75rem 1rem;
 		border: 1px solid var(--color-border);
-	}
-
-	.information-item span {
-		font-size: 0.9rem;
-		opacity: 0.75;
-	}
-
-	.information-item strong {
-		font-size: 1.3rem;
-	}
-
-	.information-item.total {
-		font-size: 2rem;
-		font-weight: 700;
 	}
 </style>

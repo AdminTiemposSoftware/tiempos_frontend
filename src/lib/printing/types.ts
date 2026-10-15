@@ -1,6 +1,7 @@
 export interface TicketPrintNumber {
     number: string;
     amount: number;
+    amount_name?: string | null;
 }
 
 export interface TicketPrintData {

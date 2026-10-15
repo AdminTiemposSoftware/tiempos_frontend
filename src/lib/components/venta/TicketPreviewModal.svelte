@@ -10,12 +10,14 @@
         selectedBet = null,
         selectedDate = '',
         details = $bindable(''),
+        amountNames = {},
         createdTicket,
         winnerTicket = null,
         showPrintButton = true
     } = $props();
 
     const previewSold = $derived(winnerTicket?.numbersSold ?? sold);
+    const previewAmountNames = $derived(winnerTicket?.amountNames ?? amountNames);
     const previewSerial = $derived(winnerTicket?.serial ?? createdTicket?.ticket_serial ?? '');
     const previewDetails = $derived(winnerTicket?.details ?? details);
 
@@ -26,7 +28,8 @@
             .sort(([leftNumber], [rightNumber]) => Number(leftNumber) - Number(rightNumber))
             .map(([number, item]) => ({
                 number: String(number).padStart(2, '0'),
-                amount: Number(item) || 0
+                amount: Number(item) || 0,
+                amount_name: previewAmountNames[number] ?? null
             }));
 
         const total = numbers.reduce((sum, item) => sum + item.amount, 0);

@@ -19,6 +19,7 @@
         is_reventado: boolean;
         multiplier: number;
         numbersSold: Record<number, number>;
+        amountNames: Record<number, string | null>;
         numberFlags: Record<number, {
             is_reventado: boolean;
             is_megareventado: boolean;

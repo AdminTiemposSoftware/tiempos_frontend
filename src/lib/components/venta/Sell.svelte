@@ -2,12 +2,15 @@
     let {
         getTickets,
         getSoldNumbersForTicket,
+        getSoldAmountNamesForTicket,
         selectedBet,
         selectedDate,
-        isPrintConfirmationOpen = $bindable(false)
+        isPrintConfirmationOpen = $bindable(false),
+        amountNameItems = [],
     } = $props();
 
     let sold= $state<Record<string, number>>({});
+    let soldAmountNames = $state<Record<string, string | null>>({});
     let priceInput: HTMLInputElement;
     let randomCountInput: HTMLInputElement;
     let priceValue = $state('');
@@ -36,6 +39,7 @@
     }
     let detailsSnapshot = $state('');
     let soldSnapshot: Record<string, number> = $state({});
+    let soldAmountNamesSnapshot: Record<string, string | null> = $state({});
     let showConfirmModal = $state(false);
     let createdTicket: { ticket_serial: string; ticket_amount: number; printed_at: string; ticket_number: string } | null = $state(null);
     let formElement: HTMLFormElement;
@@ -111,16 +115,19 @@
         }
     }
 
-    function updateSalesData(numbers: string[], price: number) {
+    function updateSalesData(numbers: string[], price: number, amountName: string | null = null) {
         const newSelled = { ...sold };
+        const newAmountNames = { ...soldAmountNames };
         numbers.forEach((num) => {
             if (newSelled[num]) {
                 newSelled[num] += price;
             } else {
                 newSelled[num] = price;
             }
+            newAmountNames[num] = amountName;
         });
         sold = newSelled;
+        soldAmountNames = newAmountNames;
         formElement.reset();
         priceInput?.focus();
         priceValue = '';
@@ -131,7 +138,8 @@
             number: parseInt(number, 10),
             amount: price,
             is_reventado: 0,
-            is_megareventado: 0
+            is_megareventado: 0,
+            amount_name: soldAmountNames[number] ?? null
         }));
     }
 
@@ -218,6 +226,7 @@
         if (hasProhibitedNumbers(soldSnapshot)) return;
 
         soldSnapshot = { ...sold };
+        soldAmountNamesSnapshot = { ...soldAmountNames };
         isSubmitting = true;
         try {
             const response = await fetch('/puesto/venta', {
@@ -274,7 +283,9 @@
 
     function deleteNumber(number: string) {
         const { [number]: _, ...rest } = sold;
+        const { [number]: _amountName, ...restAmountNames } = soldAmountNames;
         sold = rest;
+        soldAmountNames = restAmountNames;
     }
 
     function onSubmit(event: Event) {
@@ -353,6 +364,40 @@
             return;
         }
         sold = {};
+        soldAmountNames = {};
+    }
+
+    function handleAmountNameShortcut(event: KeyboardEvent) {
+        if (
+            event.repeat ||
+            showConfirmModal ||
+            showTicketPreviewModal ||
+            showTicketsModal ||
+            showQrModal ||
+            showJalarModal ||
+            event.target !== numberInput
+        ) {
+            return false;
+        }
+
+        const shortcut = amountNameItems.find((item: { key?: string }) =>
+            String(item.key ?? '').toLowerCase() === event.key.toLowerCase()
+        );
+        const number = numberInput?.value.trim();
+        const amount = shortcut ? Number(shortcut.amount) : NaN;
+
+        if (!shortcut || !number || !Number.isFinite(amount) || amount < 0) {
+            return false;
+        }
+
+        event.preventDefault();
+        const parsedNumber = Number(number);
+        if (!Number.isInteger(parsedNumber) || parsedNumber < 0 || parsedNumber > 99) {
+            return true;
+        }
+
+        updateSalesData([String(parsedNumber).padStart(2, '0')], amount, shortcut.name);
+        return true;
     }
 
     function generateRandomNumbers() {
@@ -439,6 +484,10 @@
                 event.preventDefault();
                 await handleConfirmDetails();
             }
+            return;
+        }
+
+        if (handleAmountNameShortcut(event)) {
             return;
         }
 
@@ -563,6 +612,7 @@
     bind:showTicketPreviewModal={showTicketPreviewModal}
     createdTicket={createdTicket}
     bind:sold={soldSnapshot}
+    amountNames={soldAmountNamesSnapshot}
     details={detailsSnapshot}
     selectedBet={ticketPreviewBet}
     selectedDate={ticketPreviewDate}
@@ -588,6 +638,7 @@
     bind:tickets={tickets}
     bind:numbersSold={sold}
     getSoldNumbersForTicket={getSoldNumbersForTicket}
+    getSoldAmountNamesForTicket={getSoldAmountNamesForTicket}
 />
 
 <JalarTicketModal

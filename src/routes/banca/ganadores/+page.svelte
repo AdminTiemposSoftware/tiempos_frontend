@@ -65,6 +65,7 @@
         is_reventado: boolean;
         multiplier: number;
         numbersSold: Record<number, number>;
+        amountNames: Record<number, string | null>;
         numberFlags: Record<number, {
             is_reventado: boolean;
             is_megareventado: boolean;
@@ -438,6 +439,7 @@
                         is_reventado: false,
                         multiplier: Number(item.position_multiplier ?? 0),
                         numbersSold: initialNumbersSold,
+                        amountNames: {},
                         numberFlags: {},
                         paid: Boolean(item.paid),
                         paid_by: String(item.paid_by ?? ''),
@@ -456,6 +458,7 @@
 
                 if (number !== null && Number.isFinite(number) && Number.isFinite(amount)) {
                     ticket.numbersSold[number] = (ticket.numbersSold[number] ?? 0) + amount;
+                    ticket.amountNames[number] = item.amount_name ?? null;
                     ticket.numberFlags[number] = {
                         is_reventado: Boolean(item.is_reventado),
                         is_megareventado: Boolean(item.is_megareventado)

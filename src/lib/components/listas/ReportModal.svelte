@@ -69,13 +69,20 @@
         date: string;
 	};
 
+	type OverageNumber = {
+		number: number;
+		amount: number;
+		overage: number;
+		prohibited: Prohibited;
+	};
+
 	// Represents a secondary row inside a grouped report section.
 	type GroupRow = {
 		id: string;
 		label: string;
 		winners: Winner[];
 		winner_total: number;
-		overageNumbers: {number: number; amount: number; overage: number; prohibited: Prohibited}[];
+		overageNumbers: OverageNumber[];
 		devolution: number;
 		total: number;
 		comission: number;
@@ -90,7 +97,7 @@
 		rows: GroupRow[];
 		winners: Winner;
 		winner_total: number;
-		overageNumbers: {number: number; amount: number; overage: number; prohibited: Prohibited}[];
+		overageNumbers: OverageNumber[];
 		devolution: number;
 		total: number;
 		comission: number;
@@ -182,17 +189,6 @@
 		}
 
 		return 0;
-	}
-
-	function getDevolution(
-		total: number,
-		overageNumbers: { number: number; amount: number; overage: number; prohibited: Prohibited }[]
-	) {
-		return overageNumbers.reduce(
-			(devolution, overageNumber) =>
-				devolution + getOverageAmountOnProhibited(overageNumber.prohibited, overageNumber.amount, total),
-			0
-		);
 	}
 
 	function getScopeKey(item: ReportItem) {
@@ -332,6 +328,10 @@
 			const winnerKey = `${getDateKey(item.date)}|${item.draw_schedule_id}`;
 			const prohibitedKey = `${getDateKey(item.date)}|${item.branch_id}|${item.number}`;
 			const scopeTotal = totalsByScope.get(getScopeKey(item)) ?? 0;
+			const prohibitedNumber = prohibitedByNumber.get(prohibitedKey);
+			const itemDevolution = prohibitedNumber
+				? getOverageAmountOnProhibited(prohibitedNumber, item.amount, scopeTotal)
+				: 0;
 
 			// Create the primary group if it doesn't exist.
 			if (!primaryMap.has(pId)) {
@@ -344,38 +344,32 @@
 			const primary = primaryMap.get(pId)!;
 			const current = primary.secondary.get(sId);
 			const rowWinners = winnersBySchedule.get(winnerKey) ?? [];
-			const prohibitedNumber = prohibitedByNumber.get(prohibitedKey);
 			let winner = 0;
 			let devolution = 0;
-			let overageNumber: { number: number; amount: number; overage: number; prohibited: Prohibited } | null = null;
+			let overageNumber: OverageNumber | null = null;
 
 			// If current reportItem is a winner
 			const matchingWinner = rowWinners.find(
 				(rowWinner) => Number(rowWinner.winner_number) === Number(item.number)
 			);
 			if (matchingWinner) {
-				const winnerDevolution = prohibitedNumber
-					? getDevolution(scopeTotal, [{
-						number: item.number,
-						amount: item.amount,
-						overage: 0,
-						prohibited: prohibitedNumber
-					}])
-					: 0;
-
-
 				const branchBuyFirstPlace = Number(item.branch_buy_first_place);
 				const normalPayout =
-					(item.amount - winnerDevolution) * matchingWinner.position_multiplier;
+					(item.amount - itemDevolution) * matchingWinner.position_multiplier;
 				const prohibitedPayout = Number.isFinite(branchBuyFirstPlace)
-					? winnerDevolution * branchBuyFirstPlace
+					? itemDevolution * branchBuyFirstPlace
 					: 0;
 				winner += normalPayout + prohibitedPayout;
 			}
 
 			// If current number is prohibited push to overageNumbers
 			if (prohibitedNumber) {
-				overageNumber = { number: item.number, amount: item.amount, overage: 0, prohibited: prohibitedNumber };
+				overageNumber = {
+					number: item.number,
+					amount: item.amount,
+					overage: 0,
+					prohibited: prohibitedNumber
+				};
 			}
 
 			if (current) {
@@ -393,23 +387,14 @@
 					current.overageNumbers.push(overageNumber);
 				}
 
-				// We have to calculate devolution after the current item is added to the group.
-				current.devolution = current.overageNumbers.reduce(
-					(sum, overageNumber) =>
-						sum + getOverageAmountOnProhibited(
-							overageNumber.prohibited,
-							overageNumber.amount,
-							totalsByScope.get(getScopeKey(item)) ?? 0
-						),
-					0
-				);
+				// Keep each item's devolution tied to its original scope. A row can
+				// combine schedules depending on the selected grouping hierarchy.
+				current.devolution += itemDevolution;
 				current.comission = (current.total - current.devolution) * getComissionPercentage(item)*0.01;
 				current.buy = current.devolution * getBuyPercentage(item) * 0.01;
 			} else {
 				// Create a new secondary group for this item.
-				devolution = overageNumber
-					? getDevolution(scopeTotal, [overageNumber])
-					: 0;
+				devolution = itemDevolution;
 				primary.secondary.set(sId, {
 					id: sId,
 					label: `${sLabel}`,

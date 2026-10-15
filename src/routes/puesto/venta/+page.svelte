@@ -65,6 +65,7 @@
         ticket_header_serial: string;
         number: number;
         amount: string | number;
+        amount_name?: string | null;
         is_reventado: boolean;
         is_megareventado: boolean;
     };
@@ -80,6 +81,13 @@
         time?: string;
     };
 
+    type AmountNameItem = {
+        id: number;
+        amount: string | number;
+        name: string;
+        key: string;
+    };
+
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
     let selectedDate = $state(utcMinus6Date.toISOString().split('T')[0]);
     let selectedBet = $state<AvailableBet | null>(null);
@@ -89,6 +97,7 @@
     let isPrintConfirmationOpen = $state(false);
     let tickets = $state<TicketRow[]>([]);
     let ticketNumbers = $state<Numbers[]>([]);
+    let amountNameItems = $state<AmountNameItem[]>([]);
     let now = $state(new Date());
 
     function formatCloseTime(scheduleTime: string) {
@@ -210,6 +219,16 @@
     });
 
     $effect(() => {
+        const items = Array.isArray(data?.amountNameItems) ? (data.amountNameItems as AmountNameItem[]) : [];
+        amountNameItems = items.map((item) => ({
+            id: item.id,
+            amount: item.amount,
+            name: item.name,
+            key: item.key
+        }));
+    });
+
+    $effect(() => {
         const intervalId = setInterval(() => {now = new Date(); }, 1000);
         return () => clearInterval(intervalId);
     });
@@ -316,6 +335,18 @@
                 return sold;
             }, {});
     }
+
+    function getSoldAmountNamesForTicket(ticketId: number): Record<string, string | null> {
+        const ticket = tickets.find((item) => item.id === ticketId);
+        if (!ticket) return {};
+
+        return ticketNumbers
+            .filter((number) => number.ticket_header_serial === ticket.serial)
+            .reduce<Record<string, string | null>>((names, number) => {
+                names[String(number.number).padStart(2, '0')] = number.amount_name ?? null;
+                return names;
+            }, {});
+    }
 </script>
 
 <svelte:head>
@@ -336,9 +367,11 @@
             getTickets={getTickets}
             selectedDate={selectedDate}
             getSoldNumbersForTicket={getSoldNumbersForTicket}
+            getSoldAmountNamesForTicket={getSoldAmountNamesForTicket}
             selectedBet={selectedBet}
             prohibitedPercentage={prohibitedPercentage}
             bind:isPrintConfirmationOpen={isPrintConfirmationOpen}
+            amountNameItems={amountNameItems}
         />
         <Matrix
             mode={'20x5'}

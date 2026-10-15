@@ -27,10 +27,14 @@
 
     const lines = $derived.by(() => {
         const sourceItems = receipt.numbers ?? [];
-        const groups = new Map<string, { numbers: string[]; amount: string | number }>();
+        const groups = new Map<string, {
+            numbers: string[];
+            amount: string | number;
+            amount_name?: string | null;
+        }>();
 
         for (const item of sourceItems) {
-            const key = String(item.amount);
+            const key = `${item.amount}|${item.amount_name ?? ''}`;
             const current = groups.get(key);
 
             if (current) {
@@ -41,6 +45,7 @@
             groups.set(key, {
                 numbers: [String(item.number)],
                 amount: item.amount,
+                amount_name: item.amount_name,
             });
         }
 
@@ -61,7 +66,7 @@
 {#if receipt.ticket_number}
 <div class="line">
     <p>{receipt.serial}</p>
-    <span class="separator" aria-hidden="true"></span>
+    <span class="separator top" aria-hidden="true"></span>
     <p>{receipt.ticket_number}</p>
 </div>
 {:else if receipt.serial}
@@ -74,30 +79,39 @@
     {/if}
     <span class="space"> </span>
 
-    <div class="line header">
-        <span>Monto</span>
-        <span>Numero</span>
+    <div class="line">
+        <span class="amount">Monto</span>
+        <span class="separator" aria-hidden="true"></span>
+        <span class="numbers">Numero</span>
     </div>
+
     <hr>
+
     {#each lines as item}
         <div class="line">
-            <span class="amount">₡{item.amount}</span>
+            <span class="amount v">
+                {item.amount_name || `₡${item.amount}`}
+            </span>
+
             <span class="separator" aria-hidden="true"></span>
 
             <span class="numbers">
                 {#each chunk(item.numbers, 4) as numbers, i}
-                    {#if i > 0}<br />{/if}
+                    {#if i > 0}<br>{/if}
                     {numbers.join(' x ')}
                 {/each}
             </span>
         </div>
     {/each}
-    <hr>
-    <div class="line total">
 
-        <span>₡{receipt.total}</span>
-        <span>Total</span>
+    <hr>
+
+    <div class="line total">
+        <span class="amount">₡{receipt.total}</span>
+        <span class="separator" aria-hidden="true"></span>
+        <span class="numbers">Total</span>
     </div>
+
     {#if details}
         <p>Detalles</p>
         <p>{details}</p>
@@ -181,4 +195,14 @@
     margin-top: 0.6em;
     border-top: 2px dashed currentColor;
 }
+
+.separator.top {
+    width: 100%;
+}
+
+.amount.v {
+    width: 20mm ;
+    overflow-wrap: break-word;
+}
+
 </style>

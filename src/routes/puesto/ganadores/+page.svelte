@@ -112,6 +112,7 @@
                 acc[item.serial].items.push({
                     number: item.number,
                     amount: Number(item.amount),
+                    amount_name: item.amount_name ?? null,
                     is_reventado: item.is_reventado,
                     is_megareventado: item.is_megareventado
                 });

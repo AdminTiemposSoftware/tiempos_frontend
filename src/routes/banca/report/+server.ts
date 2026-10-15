@@ -3,15 +3,15 @@ import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ request, fetch, locals, cookies }) => {
     const baseUrl = env.API_URL;
-	const bankingId = locals.user?.bankingId;
-	const token = cookies.get('session_banca') ?? null;
+    const bankingId = locals.user?.bankingId;
+    const token = cookies.get('session_banca') ?? null;
 
-	if (!baseUrl || !bankingId) {
-		return new Response(JSON.stringify({ error: 'Missing API_URL or bankingId.' }), {
-			status: 400,
-			headers: { 'Content-Type': 'application/json' }
-		});
-	}
+    if (!baseUrl || !bankingId) {
+        return new Response(JSON.stringify({ error: 'Missing API_URL or bankingId.' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+        });
+    }
 
     const url = new URL(request.url);
     const dateFrom = url.searchParams.get('date_from');
@@ -26,17 +26,37 @@ export const GET: RequestHandler = async ({ request, fetch, locals, cookies }) =
         });
     }
 
-    const response = await fetch(`${baseUrl}/report/filtered?date_from=${dateFrom}&date_to=${dateTo}&branches=${encodeURIComponent(branches)}&draw_schedules=${encodeURIComponent(drawSchedules)}`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-            'X-Auth-App': 'banca' }
-    });
+    const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        'X-Auth-App': 'banca'
+    };
+    const reportQuery = `date_from=${dateFrom}&date_to=${dateTo}&branches=${encodeURIComponent(branches)}&draw_schedules=${encodeURIComponent(drawSchedules)}`;
+    const prohibitedQuery = `date_from=${dateFrom}&date_to=${dateTo}&branches=${encodeURIComponent(branches)}`;
 
-    const responsePayload = await response.json().catch(() => null);
+    const [reportResponse, winnersResponse, prohibitedResponse] = await Promise.all([
+        fetch(`${baseUrl}/report/filtered?${reportQuery}`, { method: 'GET', headers }),
+        fetch(`${baseUrl}/winner/filtered?${reportQuery}`, { method: 'GET', headers }),
+        fetch(`${baseUrl}/number/prohibited/filtered?${prohibitedQuery}`, { method: 'GET', headers })
+    ]);
 
-    return new Response(JSON.stringify(responsePayload ?? { items: [] }), {
-        status: response.ok ? 200 : response.status,
+    const [reportPayload, winnersPayload, prohibitedPayload] = await Promise.all([
+        reportResponse.json().catch(() => null),
+        winnersResponse.json().catch(() => null),
+        prohibitedResponse.json().catch(() => null)
+    ]);
+
+    const responsePayload = {
+        items: Array.isArray(reportPayload?.items) ? reportPayload.items : [],
+        winnersFilteredItems: Array.isArray(winnersPayload?.items) ? winnersPayload.items : [],
+        prohibitedFilteredItems: Array.isArray(prohibitedPayload?.items) ? prohibitedPayload.items : []
+    };
+    const failedResponse = [reportResponse, winnersResponse, prohibitedResponse].find(
+        (response) => !response.ok
+    );
+
+    return new Response(JSON.stringify(responsePayload), {
+        status: failedResponse?.status ?? 200,
         headers: { 'Content-Type': 'application/json' }
     });
-}
+};

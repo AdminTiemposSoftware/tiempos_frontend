@@ -29,6 +29,20 @@
     const activeGroupingModes = $derived(
         ((groupingModes.length > 0 ? groupingModes : groupingMode ? [groupingMode] : ['branch']) as GroupingMode[])
     );
+    const prohibitedNumberSet = $derived(
+        new Set($prohibitedNumbers.map((item) => item.number))
+    );
+    const reportProhibitedNumberSet = $derived(new Set(reportProhibitedNumbers));
+    const winnerNumberSet = $derived(new Set(winnerNumbers));
+    const amountsByNumber = $derived.by(() => {
+        const amounts = new Map<number, number>();
+
+        for (const item of report) {
+            amounts.set(item.number, (amounts.get(item.number) ?? 0) + item.amount);
+        }
+
+        return amounts;
+    });
 
     let hoveredReportItems = $derived(hoveredIndex === null ? [] : (groupedNumbers[hoveredIndex] ?? []));
 
@@ -62,7 +76,7 @@
     }
 
     function getAmount(index: number) {
-        const reportAmount = groupedNumbers[index]?.reduce((sum, item) => sum + item.amount, 0);
+        const reportAmount = amountsByNumber.get(index);
         if (reportAmount !== undefined) {
             return reportAmount;
         }
@@ -87,9 +101,9 @@
 
                         <div
                             class={`matrix-cell
-                                ${$prohibitedNumbers.some((n) => n.number === index) ? "prohibited-number" : ""}
-                                ${reportProhibitedNumbers.includes(index) ? "report-prohibited-number" : ""}
-                                ${winnerNumbers.includes(index) ? "winner-number" : ""}
+                                ${prohibitedNumberSet.has(index) ? "prohibited-number" : ""}
+                                ${reportProhibitedNumberSet.has(index) ? "report-prohibited-number" : ""}
+                                ${winnerNumberSet.has(index) ? "winner-number" : ""}
                                 ${groupedNumbers[index]?.length > 0 ? "has-report" : ""
                             }`}
                             role="group"
