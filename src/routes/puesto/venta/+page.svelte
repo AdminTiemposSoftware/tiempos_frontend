@@ -69,6 +69,13 @@
         is_reventado: boolean;
         is_megareventado: boolean;
     };
+    type TicketEntry = {
+        number: string;
+        amount: number;
+        amount_name: string | null;
+        is_reventado: boolean;
+        is_megareventado: boolean;
+    };
 
     type TicketRow = {
         id: number;
@@ -347,6 +354,20 @@
                 return names;
             }, {});
     }
+
+    function getSoldEntriesForTicket(ticketId: number): TicketEntry[] {
+        const ticket = tickets.find((item) => item.id === ticketId);
+        if (!ticket) return [];
+        return ticketNumbers
+            .filter((number) => number.ticket_header_serial === ticket.serial)
+            .map((number) => ({
+                number: String(number.number).padStart(2, '0'),
+                amount: Number(number.amount) || 0,
+                amount_name: number.amount_name ?? null,
+                is_reventado: number.is_reventado,
+                is_megareventado: number.is_megareventado
+            }));
+    }
 </script>
 
 <svelte:head>
@@ -368,6 +389,7 @@
             selectedDate={selectedDate}
             getSoldNumbersForTicket={getSoldNumbersForTicket}
             getSoldAmountNamesForTicket={getSoldAmountNamesForTicket}
+            getSoldEntriesForTicket={getSoldEntriesForTicket}
             selectedBet={selectedBet}
             prohibitedPercentage={prohibitedPercentage}
             bind:isPrintConfirmationOpen={isPrintConfirmationOpen}

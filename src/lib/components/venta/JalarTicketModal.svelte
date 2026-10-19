@@ -4,7 +4,8 @@
 		input = $bindable(''),
 		confirmText = 'Confirmar (Enter)',
 		cancelText = 'Cancelar',
-		numbersSold = $bindable<Record<string, number>>({})
+		numbersSold = $bindable<Record<string, number>>({}),
+		loadSoldEntries
 	} = $props();
     let inputElement = $state<HTMLInputElement | null>(null);
 	let ticket = $state <Ticket | null>(null);
@@ -24,6 +25,7 @@
 		items: {
 			number: number;
 			amount: number;
+			amount_name?: string | null;
 		}[];
 	};
 
@@ -88,7 +90,8 @@
 
 				acc[item.serial].items.push({
 					number: item.number,
-					amount: Number(item.amount)
+					amount: Number(item.amount),
+					amount_name: item.amount_name ?? null
 				});
 
 				return acc;
@@ -170,13 +173,21 @@
 				return;
 			}
 
-			numbersSold = ticket?.items.reduce<Record<string, number>>(
-				(accumulator, sold) => {
-					accumulator[sold.number] = sold.amount;
-					return accumulator;
-				},
-				{}
-			);
+			if (loadSoldEntries) {
+				loadSoldEntries(ticket.items.map((sold) => ({
+					number: String(sold.number),
+					amount: sold.amount,
+					amount_name: sold.amount_name ?? null
+				})));
+			} else {
+				numbersSold = ticket.items.reduce<Record<string, number>>(
+					(accumulator, sold) => {
+						accumulator[sold.number] = sold.amount;
+						return accumulator;
+					},
+					{}
+				);
+			}
 			onClose();
 		}
 	}

@@ -33,8 +33,10 @@
             amount_name?: string | null;
         }>();
 
-        for (const item of sourceItems) {
-            const key = `${item.amount}|${item.amount_name ?? ''}`;
+        for (const [index, item] of sourceItems.entries()) {
+            const key = item.amount_name
+                ? `named:${index}`
+                : `unnamed:${item.amount}`;
             const current = groups.get(key);
 
             if (current) {

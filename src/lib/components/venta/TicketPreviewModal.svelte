@@ -11,6 +11,7 @@
         selectedDate = '',
         details = $bindable(''),
         amountNames = {},
+        entries = [],
         createdTicket,
         winnerTicket = null,
         showPrintButton = true
@@ -22,14 +23,21 @@
     const previewDetails = $derived(winnerTicket?.details ?? details);
 
     const receipt = $derived.by<Receipt>(() => {
-        const soldEntries = Object.entries(previewSold) as Array<[string, number]>;
+        const soldEntries = [
+            ...Object.entries(previewSold).map(([number, amount]) => ({
+                number,
+                amount: Number(amount) || 0,
+                amount_name: previewAmountNames[number] ?? null
+            })),
+            ...entries
+        ];
 
         const numbers = soldEntries
-            .sort(([leftNumber], [rightNumber]) => Number(leftNumber) - Number(rightNumber))
-            .map(([number, item]) => ({
+            .sort((left, right) => Number(left.number) - Number(right.number))
+            .map(({ number, amount, amount_name }) => ({
                 number: String(number).padStart(2, '0'),
-                amount: Number(item) || 0,
-                amount_name: previewAmountNames[number] ?? null
+                amount,
+                amount_name
             }));
 
         const total = numbers.reduce((sum, item) => sum + item.amount, 0);

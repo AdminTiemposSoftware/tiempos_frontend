@@ -3,18 +3,32 @@
         getTickets,
         getSoldNumbersForTicket,
         getSoldAmountNamesForTicket,
+        getSoldEntriesForTicket,
         selectedBet,
         selectedDate,
         isPrintConfirmationOpen = $bindable(false),
         amountNameItems = [],
     } = $props();
 
+    type SoldEntry = { number: string; amount: number; amount_name: string | null; id: number };
+    type UnnamedSoldEntry = {
+        number: string;
+        amount: number;
+        id: number;
+        is_reventado: number;
+        is_megareventado: number;
+    };
+    type SoldOrderEntry = { type: 'number'; id: number } | { type: 'named'; id: number };
     let sold= $state<Record<string, number>>({});
+    let unnamedSoldEntries = $state<UnnamedSoldEntry[]>([]);
+    let namedSoldEntries = $state<SoldEntry[]>([]);
+    let soldOrder = $state<SoldOrderEntry[]>([]);
+    let nextEntryId = 0;
     let soldAmountNames = $state<Record<string, string | null>>({});
     let priceInput: HTMLInputElement;
     let randomCountInput: HTMLInputElement;
     let priceValue = $state('');
-    let showQrModal = $state(false);
+    let selectedAmountName = $state<string | null>(null);
     let showTicketsModal = $state(false);
     let tickets = $state([]);
     let numberInput: HTMLInputElement;
@@ -37,13 +51,30 @@
                 : []
         };
     }
+
     let detailsSnapshot = $state('');
     let soldSnapshot: Record<string, number> = $state({});
+    let unnamedSoldEntriesSnapshot = $state<UnnamedSoldEntry[]>([]);
+    let namedSoldEntriesSnapshot = $state<SoldEntry[]>([]);
     let soldAmountNamesSnapshot: Record<string, string | null> = $state({});
     let showConfirmModal = $state(false);
     let createdTicket: { ticket_serial: string; ticket_amount: number; printed_at: string; ticket_number: string } | null = $state(null);
     let formElement: HTMLFormElement;
-    let soldAmount = $derived.by(() => {return Object.values(sold).reduce((sum, item) => sum + item, 0);});
+    let soldAmount = $derived.by(() => Object.values(sold).reduce((sum, item) => sum + item, 0)
+        + namedSoldEntries.reduce((sum, item) => sum + item.amount, 0));
+    let displayedSoldEntries = $derived.by(() => [...soldOrder].reverse().flatMap((entry) => {
+        if (entry.type === 'number') {
+            const unnamedEntry = unnamedSoldEntries.find((item) => item.id === entry.id);
+            return unnamedEntry
+                ? [{ type: 'number' as const, number: unnamedEntry.number, price: unnamedEntry.amount, amount_name: null, id: unnamedEntry.id }]
+                : [];
+        }
+
+        const namedEntry = namedSoldEntries.find((item) => item.id === entry.id);
+        return namedEntry
+            ? [{ type: 'named' as const, number: namedEntry.number, price: namedEntry.amount, amount_name: namedEntry.amount_name, id: namedEntry.id }]
+            : [];
+    }));
     let showJalarModal = $state(false);
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
 	const today = utcMinus6Date.toISOString().split('T')[0];
@@ -52,7 +83,6 @@
     import { TrashBinSolid, CubeSolid, QuestionCircleSolid, PrinterSolid, EyeSolid, ReceiptSolid, CameraPhotoSolid } from "flowbite-svelte-icons";
     import { sellingMatrix } from '../../stores/UpdateSellMatrix';
     import { total } from '../../stores/UpdateSellMatrix';
-    import QrModal from './QrModal.svelte';
     import TicketsModal from './TicketsModal.svelte';
     import { prohibitedNumbers } from "../../stores/UpdateSellMatrix";
     import { acts } from '@tadashi/svelte-notification';
@@ -77,6 +107,7 @@
     function handlePriceInput(event: Event) {
         const target = event.target as HTMLInputElement;
         priceValue = formatThousands(target.value);
+        selectedAmountName = null;
     }
 
     function handleNumberInput(event: Event) {
@@ -116,31 +147,79 @@
     }
 
     function updateSalesData(numbers: string[], price: number, amountName: string | null = null) {
+        if (amountName) {
+            namedSoldEntries = [...namedSoldEntries, ...numbers.map((number) => ({
+                number,
+                amount: price,
+                amount_name: amountName,
+                id: nextEntryId++
+            }))];
+            soldOrder = [
+                ...soldOrder,
+                ...namedSoldEntries.slice(-numbers.length).map((entry) => ({ type: 'named' as const, id: entry.id }))
+            ];
+            formElement.reset();
+            priceInput?.focus();
+            priceValue = '';
+            selectedAmountName = null;
+            return;
+        }
         const newSelled = { ...sold };
-        const newAmountNames = { ...soldAmountNames };
         numbers.forEach((num) => {
-            if (newSelled[num]) {
-                newSelled[num] += price;
-            } else {
-                newSelled[num] = price;
-            }
-            newAmountNames[num] = amountName;
+            const unnamedEntry = {
+                number: num,
+                amount: price,
+                id: nextEntryId++,
+                is_reventado: 0,
+                is_megareventado: 0
+            };
+            unnamedSoldEntries = [...unnamedSoldEntries, unnamedEntry];
+            soldOrder = [...soldOrder, { type: 'number', id: unnamedEntry.id }];
+            newSelled[num] = (newSelled[num] ?? 0) + price;
         });
         sold = newSelled;
-        soldAmountNames = newAmountNames;
+        selectedAmountName = null;
         formElement.reset();
         priceInput?.focus();
         priceValue = '';
     }
 
-    function buildNumbersPayload(values: Record<string, number>) {
-        return Object.entries(values).map(([number, price]) => ({
-            number: parseInt(number, 10),
-            amount: price,
-            is_reventado: 0,
-            is_megareventado: 0,
-            amount_name: soldAmountNames[number] ?? null
+    function buildNumbersPayload(entries: UnnamedSoldEntry[], namedEntries: SoldEntry[]) {
+        const unnamedByGroup = new Map<string, {
+            number: number;
+            amount: number;
+            is_reventado: number;
+            is_megareventado: number;
+        }>();
+        for (const entry of entries) {
+            const number = parseInt(entry.number, 10);
+            const key = `${number}:${entry.is_reventado}:${entry.is_megareventado}`;
+            const current = unnamedByGroup.get(key);
+            if (current) {
+                current.amount += entry.amount;
+            } else {
+                unnamedByGroup.set(key, {
+                    number,
+                    amount: entry.amount,
+                    is_reventado: entry.is_reventado,
+                    is_megareventado: entry.is_megareventado
+                });
+            }
+        }
+        const unnamed = Array.from(unnamedByGroup.values()).map((entry) => ({
+            ...entry,
+            amount_name: null
         }));
+        return [
+            ...unnamed,
+            ...namedEntries.map((entry) => ({
+                number: parseInt(entry.number, 10),
+                amount: entry.amount,
+                is_reventado: 0,
+                is_megareventado: 0,
+                amount_name: entry.amount_name
+            }))
+        ];
     }
 
     function expandNumberExpression(numberInput: string): string[] {
@@ -257,6 +336,14 @@
         return false;
     }
 
+    function currentAmountsByNumber() {
+        const amounts = { ...sold };
+        for (const entry of namedSoldEntries) {
+            amounts[entry.number] = (amounts[entry.number] ?? 0) + entry.amount;
+        }
+        return amounts;
+    }
+
     function canSellSelectedNumbers(drawScheduleId : number ) {
         if (!drawScheduleId){
             acts.add({
@@ -266,7 +353,7 @@
             });
             return false;
         }
-        if (Object.keys(sold).length === 0){
+        if (Object.keys(sold).length === 0 && namedSoldEntries.length === 0){
             acts.add({
                 message: 'No hay números seleccionados.',
                 mode: 'error',
@@ -280,10 +367,11 @@
     async function processTicket() {
         const drawScheduleId = selectedBet?.schedule_id ?? selectedBet?.draw_schedule_id;
         if (!canSellSelectedNumbers(drawScheduleId)) return;
-        if (hasProhibitedNumbers(soldSnapshot)) return;
-
         soldSnapshot = { ...sold };
+        unnamedSoldEntriesSnapshot = [...unnamedSoldEntries];
         soldAmountNamesSnapshot = { ...soldAmountNames };
+        namedSoldEntriesSnapshot = [...namedSoldEntries];
+        if (hasProhibitedNumbers(currentAmountsByNumber())) return;
         isSubmitting = true;
         try {
             const response = await fetch('/puesto/venta', {
@@ -295,7 +383,7 @@
                     date: selectedDate,
                     draw_schedule_id: drawScheduleId,
                     details: details,
-                    numbers: buildNumbersPayload(soldSnapshot)
+                    numbers: buildNumbersPayload(unnamedSoldEntriesSnapshot, namedSoldEntriesSnapshot)
                 })
             });
 
@@ -319,13 +407,21 @@
                     for (const [number, price] of Object.entries(soldSnapshot)) {
                         matrix[number] = (matrix[number] || 0) + price;
                     }
+                    for (const entry of namedSoldEntriesSnapshot) {
+                        matrix[entry.number] = (matrix[entry.number] || 0) + entry.amount;
+                    }
                     return matrix;
                 });
-                total.update((n) => n + Object.values(soldSnapshot).reduce((sum, item) => sum + item, 0));
+                total.update((n) => n
+                    + Object.values(soldSnapshot).reduce((sum, item) => sum + item, 0)
+                    + namedSoldEntriesSnapshot.reduce((sum, item) => sum + item.amount, 0));
             }
             showTicketPreviewModal = true;
             sold = {};
+            unnamedSoldEntries = [];
             soldAmountNames = {};
+            namedSoldEntries = [];
+            soldOrder = [];
             detailsSnapshot = details;
             details = '';
         } catch (error) {
@@ -339,11 +435,77 @@
         }
     }
 
-    function deleteNumber(number: string) {
-        const { [number]: _, ...rest } = sold;
-        const { [number]: _amountName, ...restAmountNames } = soldAmountNames;
-        sold = rest;
-        soldAmountNames = restAmountNames;
+    function deleteNumber(id: number) {
+        const entry = unnamedSoldEntries.find((item) => item.id === id);
+        if (!entry) return;
+        unnamedSoldEntries = unnamedSoldEntries.filter((item) => item.id !== id);
+        sold = { ...sold };
+        sold[entry.number] -= entry.amount;
+        if (sold[entry.number] <= 0) delete sold[entry.number];
+        soldOrder = soldOrder.filter((item) => item.type !== 'number' || item.id !== id);
+    }
+
+    function deleteEntry(index: number) {
+        const entry = displayedSoldEntries[index];
+        if (!entry) return;
+
+        if (entry.type === 'number') {
+            deleteNumber(entry.id);
+            return;
+        }
+
+        namedSoldEntries = namedSoldEntries.filter((namedEntry) => namedEntry.id !== entry.id);
+        soldOrder = soldOrder.filter((orderedEntry) =>
+            orderedEntry.type !== 'named' || orderedEntry.id !== entry.id
+        );
+    }
+
+    function loadTicketEntries(entries: Array<{
+        number: string;
+        amount: number;
+        amount_name: string | null;
+        is_reventado?: number | boolean;
+        is_megareventado?: number | boolean;
+    }>) {
+        const unnamedAmounts: Record<string, number> = {};
+        const nextUnnamedEntries: UnnamedSoldEntry[] = [];
+        const nextNamedEntries: SoldEntry[] = [];
+        const nextOrder: SoldOrderEntry[] = [];
+
+        for (const entry of entries) {
+            const number = String(entry.number).padStart(2, '0');
+            if (entry.amount_name) {
+                const namedEntry = {
+                    number,
+                    amount: entry.amount,
+                    amount_name: entry.amount_name,
+                    id: nextEntryId++
+                };
+                nextNamedEntries.push(namedEntry);
+                nextOrder.push({ type: 'named', id: namedEntry.id });
+                continue;
+            }
+
+            const unnamedEntry = {
+                number,
+                amount: entry.amount,
+                id: nextEntryId++,
+                is_reventado: Number(Boolean(entry.is_reventado)),
+                is_megareventado: Number(Boolean(entry.is_megareventado))
+            };
+            nextUnnamedEntries.push(unnamedEntry);
+            nextOrder.push({ type: 'number', id: unnamedEntry.id });
+            unnamedAmounts[number] = (unnamedAmounts[number] ?? 0) + entry.amount;
+        }
+
+        sold = unnamedAmounts;
+        unnamedSoldEntries = nextUnnamedEntries;
+        soldAmountNames = {};
+        namedSoldEntries = nextNamedEntries;
+        soldOrder = nextOrder;
+        selectedAmountName = null;
+        priceValue = '';
+        numberInput?.focus();
     }
 
     function onSubmit(event: Event) {
@@ -361,15 +523,21 @@
             return;
         }
 
-        updateSalesData(expandNumberExpression(numberInput), parseInt(price, 10));
+        updateSalesData(
+            expandNumberExpression(numberInput),
+            parseInt(price, 10),
+            selectedAmountName
+        );
     }
 
     function cleanSell() {
-        if (Object.keys(sold).length === 0) {
+        if (Object.keys(sold).length === 0 && namedSoldEntries.length === 0) {
             return;
         }
         sold = {};
         soldAmountNames = {};
+        namedSoldEntries = [];
+        soldOrder = [];
     }
 
     function handleAmountNameShortcut(event: KeyboardEvent) {
@@ -378,9 +546,9 @@
             showConfirmModal ||
             showTicketPreviewModal ||
             showTicketsModal ||
-            showQrModal ||
             showJalarModal ||
-            event.target !== numberInput
+            event.target instanceof HTMLTextAreaElement ||
+            (event.target instanceof HTMLElement && event.target.isContentEditable)
         ) {
             return false;
         }
@@ -388,20 +556,16 @@
         const shortcut = amountNameItems.find((item: { key?: string }) =>
             String(item.key ?? '').toLowerCase() === event.key.toLowerCase()
         );
-        const number = numberInput?.value.trim();
         const amount = shortcut ? Number(shortcut.amount) : NaN;
 
-        if (!shortcut || !number || !Number.isFinite(amount) || amount < 0) {
+        if (!shortcut || !Number.isFinite(amount) || amount < 0) {
             return false;
         }
 
         event.preventDefault();
-        const expandedNumbers = expandNumberExpression(number);
-        if (expandedNumbers.length === 0) {
-            return true;
-        }
-
-        updateSalesData(expandedNumbers, amount, shortcut.name);
+        selectedAmountName = shortcut.name;
+        priceValue = formatThousands(String(shortcut.amount));
+        numberInput?.focus();
         return true;
     }
 
@@ -462,11 +626,6 @@
         updateSalesData(pairNumbers, price);
     }
 
-    // TODO: Implement functionality for these buttons
-    function viewQR() {
-        showQrModal = true;
-    }
-
     async function viewTickets() {
         tickets = await getTickets();
         showTicketsModal = true;
@@ -512,7 +671,7 @@
                     }
                 } else if (target instanceof HTMLInputElement && target.id === 'price') {
                     numberInput?.focus();
-                } else if (showTicketPreviewModal || showTicketsModal || showQrModal || showJalarModal) {
+                } else if (showTicketPreviewModal || showTicketsModal || showJalarModal) {
                     return;
                 }
                 else {
@@ -522,7 +681,6 @@
                 break;
             case "a":
             case "A":
-                // Agregar button
                 processForm();
                 break;
             case "r":
@@ -531,42 +689,33 @@
                 break;
             case "t":
             case "T":
-                // Ver Tiquetes button
                 viewTickets();
                 break;
             case "J":
             case "j":
                 onJalar();
                 break;
-            case "v":
-            case "V":
-                //TODO : Ver QR button
-                break;
             case "p":
             case "P":
-                //TODO : Pares button
                 generatePairs();
                 break;
             case "l":
             case "L":
-                // Limpiar button
                 cleanSell();
                 break;
             case "i":
             case "I":
                 generateRandomNumbers();
-                // Limpiar inputs
-                //
                 break;
             case "ArrowDown":
-                if (showTicketPreviewModal || showTicketsModal || showQrModal || showJalarModal) {
+                if (showTicketPreviewModal || showTicketsModal || showJalarModal) {
                     return;
                 }
                 event.preventDefault();
                 selectedRowIndex = Math.min(selectedRowIndex + 1, Object.keys(sold).length - 1);
                 break;
             case "ArrowUp":
-                if (showTicketPreviewModal || showTicketsModal || showQrModal || showJalarModal) {
+                if (showTicketPreviewModal || showTicketsModal || showJalarModal) {
                     return;
                 }
                 event.preventDefault();
@@ -575,29 +724,22 @@
             case "x":
             case "X":
                 if (selectedRowIndex >= 0) {
-                    const numberToDelete = Object.keys(sold)[selectedRowIndex];
-                    if (numberToDelete) {
-                        deleteNumber(numberToDelete);
-                        selectedRowIndex = Math.min(selectedRowIndex, Object.keys(sold).length - 1);
-                    }
+                    deleteEntry(selectedRowIndex);
+                    selectedRowIndex = Math.max(0, selectedRowIndex - 1);
                 }
                 break;
             case "q":
             case "Q":
-                hasProhibitedNumbers(sold);
+                hasProhibitedNumbers(currentAmountsByNumber());
                 break;
         }
-    }
-
-    function closeQrModal() {
-        showQrModal = false;
     }
 
     async function handlePrint(event?: SubmitEvent) {
         event?.preventDefault();
 
         const drawScheduleId = selectedBet?.schedule_id ?? selectedBet?.draw_schedule_id;
-        if(!showTicketPreviewModal && canSellSelectedNumbers(drawScheduleId) && !hasProhibitedNumbers(sold)) {
+        if(!showTicketPreviewModal && canSellSelectedNumbers(drawScheduleId) && !hasProhibitedNumbers(currentAmountsByNumber())) {
             showConfirmModal = true;
         }
     }
@@ -618,17 +760,10 @@
     createdTicket={createdTicket}
     bind:sold={soldSnapshot}
     amountNames={soldAmountNamesSnapshot}
+    entries={namedSoldEntriesSnapshot}
     details={detailsSnapshot}
     selectedBet={ticketPreviewBet}
     selectedDate={ticketPreviewDate}
-/>
-
-<QrModal
-    bind:showQRModal={showQrModal}
-    data={$sellingMatrix}
-    total={$total}
-    date={selectedDate}
-    onClose={closeQrModal}
 />
 
 <ConfirmModalWithInput
@@ -644,15 +779,21 @@
     bind:numbersSold={sold}
     getSoldNumbersForTicket={getSoldNumbersForTicket}
     getSoldAmountNamesForTicket={getSoldAmountNamesForTicket}
+    getSoldEntriesForTicket={getSoldEntriesForTicket}
+    loadSoldEntries={loadTicketEntries}
 />
 
 <JalarTicketModal
     bind:showModal={showJalarModal}
     bind:numbersSold={sold}
+    loadSoldEntries={loadTicketEntries}
 />
 
 <svelte:window onkeydown={handlekeyinput} />
 <section class="sell">
+    {#if selectedAmountName}
+        <span class="selected-amount-name">Rifa: {selectedAmountName}</span>
+    {/if}
     <span class="sold-amount">Tiquete: ₡{formatAmount(soldAmount)}</span>
     <form onsubmit={onSubmit} bind:this={formElement}>
         <div class="question monto">
@@ -686,7 +827,7 @@
     <div class="buttons-group">
         <button
             onclick={cleanSell}
-            disabled={Object.keys(sold).length === 0}
+            disabled={Object.keys(sold).length === 0 && namedSoldEntries.length === 0}
         >
             <TrashBinSolid class="shrink-0 h-4 w-4" />
             <div class="button-name"><p>L</p>impiar</div>
@@ -723,7 +864,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {#each Object.entries(sold) as [number, price], index}
+                    {#each displayedSoldEntries as entry, index}
                         <tr
                             bind:this={rowRefs[index]}
                             class:selected-row = {index === selectedRowIndex}
@@ -732,10 +873,10 @@
                             }}
 
                         >
-                            <td>{number}</td>
-                            <td>₡{price}</td>
+                            <td>{entry.number}</td>
+                            <td>{entry.amount_name || `₡${entry.price}`}</td>
                             <td>
-                                <button class="negative" onclick={() => deleteNumber(number)}>X</button>
+                                <button class="negative" onclick={() => deleteEntry(index)}>X</button>
                             </td>
                         </tr>
                     {/each}
@@ -745,19 +886,13 @@
     <form onsubmit={handlePrint}>
         <button
             type="submit"
-            disabled={Object.keys(sold).length === 0 || isSubmitting}
+            disabled={(Object.keys(sold).length === 0 && namedSoldEntries.length === 0) || isSubmitting}
         >
             <PrinterSolid class="shrink-0 h-4 w-4" />
             <div class="button-name">Imp<p>r</p>imir</div>
         </button>
     </form>
     <div class="buttons-group">
-            <button
-                onclick={viewQR} disabled={Object.keys(sold).length === 0}
-            >
-                <EyeSolid class="shrink-0 h-4 w-4" />
-                <div class="button-name"><p>V</p>er QR</div>
-            </button>
             <button onclick={onJalar}>
                 <CameraPhotoSolid class="shrink-0 h-4 w-4" />
                 <div class="button-name"><p>J</p>alar tiquete</div>
@@ -783,6 +918,17 @@
         box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
         flex: 1;
     }
+
+    .selected-amount-name {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        max-width: 45%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
     .sell::before {
         top: -4px;
     }

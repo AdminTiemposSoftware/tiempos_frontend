@@ -30,6 +30,8 @@
         showTicketModal = $bindable(false),
         getSoldNumbersForTicket,
         getSoldAmountNamesForTicket,
+        getSoldEntriesForTicket,
+        loadSoldEntries,
         tickets = $bindable(),
         numbersSold=$bindable()
     } = $props();
@@ -40,6 +42,7 @@
     let selectedTicket = $state<Ticket | null>(null);
     let soldNumbersForSelectedTicket = $state<Record<string, number>>({});
     let selectedAmountNamesForTicket = $state<Record<string, string | null>>({});
+    let soldEntriesForSelectedTicket = $state<Array<{ number: string; amount: number; amount_name: string | null }>>([]);
     let selectedRowIndex = $state(0);
     let rowRefs: Array<HTMLTableRowElement | null> = [];
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
@@ -77,12 +80,14 @@
         ticketToDelete = ticket;
         soldNumbersForSelectedTicket = getSoldNumbersForTicket(ticket.id);
         selectedAmountNamesForTicket = getSoldAmountNamesForTicket(ticket.id);
+        soldEntriesForSelectedTicket = getSoldEntriesForTicket(ticket.id);
         showDeleteConfirm = true;
     }
 
     function handleView(ticket: Ticket) {
         soldNumbersForSelectedTicket = getSoldNumbersForTicket(ticket.id);
         selectedAmountNamesForTicket = getSoldAmountNamesForTicket(ticket.id);
+        soldEntriesForSelectedTicket = getSoldEntriesForTicket(ticket.id);
         selectedTicket = ticket;
     }
 
@@ -171,11 +176,13 @@
                 `Fecha: ${ticket.date}`,
                 `Hora: ${ticket.time.slice(0, 8)}`
             ].filter(Boolean),
-            numbers: Object.entries(numbers).map(([number, price]) => ({
-                number,
-                amount: price,
-                amount_name: selectedAmountNamesForTicket[number] ?? null
-            })),
+            numbers: soldEntriesForSelectedTicket.length > 0
+                ? soldEntriesForSelectedTicket
+                : Object.entries(numbers).map(([number, price]) => ({
+                    number,
+                    amount: price,
+                    amount_name: selectedAmountNamesForTicket[number] ?? null
+                })),
             total: Object.values(numbers).reduce((sum, value) => sum + (Number(value) || 0), 0),
             footerLines: [
                 "------- ATENCION -------",
@@ -226,6 +233,12 @@
     }
 
     function loadSoldNumbers() {
+        if (soldEntriesForSelectedTicket.length > 0 && loadSoldEntries) {
+            loadSoldEntries(soldEntriesForSelectedTicket);
+            onClose();
+            return;
+        }
+
         numbersSold = Object.entries(soldNumbersForSelectedTicket).reduce<Record<string, number>>(
             (accumulator, [number, price]) => {
                 accumulator[number] = price;
@@ -350,11 +363,13 @@
                                 `Fecha: ${selectedTicket.date}`,
                                 `Hora: ${selectedTicket.time.slice(0, 8)}`
                             ].filter(Boolean),
-                            numbers: Object.entries(soldNumbersForSelectedTicket).map(([number, price]) => ({
-                                number,
-                                amount: price,
-                                amount_name: selectedAmountNamesForTicket[number] ?? null
-                            })),
+                            numbers: soldEntriesForSelectedTicket.length > 0
+                                ? soldEntriesForSelectedTicket
+                                : Object.entries(soldNumbersForSelectedTicket).map(([number, price]) => ({
+                                    number,
+                                    amount: price,
+                                    amount_name: selectedAmountNamesForTicket[number] ?? null
+                                })),
                             total: soldNumbersTotal,
                             footerLines: [
                                 "------- ATENCION -------",
