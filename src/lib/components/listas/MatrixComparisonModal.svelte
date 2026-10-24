@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { formatAmount } from '$lib/printing/printing';
+
     type Matrix = Record<number, number>;
 
     let {
@@ -13,19 +15,7 @@
         showModal = $bindable(false),
         confirm,
         cancel
-    } = $props<{
-        existingMatrix?: Matrix;
-        createdMatrix?: Matrix;
-        existingListExists?: boolean;
-        selectedBranchName?: string;
-        selectedScheduleName?: string;
-        selectedDate?: string;
-        isReventado?: boolean;
-        isMegareventado?: boolean;
-        showModal?: boolean;
-        confirm: () => void | Promise<void>;
-        cancel?: () => void;
-    }>();
+    } = $props();
 
     let isConfirming = $state(false);
 
@@ -57,6 +47,14 @@
             return amount(matrix, columnIndex * 20 + rowIndex);
         }).reduce((total, value) => total + value, 0);
     }
+
+    function matrixTotal(matrix: Matrix) {
+        return Array.from({ length: 100 }, (_, number) => amount(matrix, number))
+            .reduce((total, value) => total + value, 0);
+    }
+
+    const existingTotal = $derived.by(() => matrixTotal(existingMatrix));
+    const createdTotal = $derived.by(() => matrixTotal(createdMatrix));
 </script>
 
 {#if showModal}
@@ -73,22 +71,18 @@ onkeydown={(event) => event.key === 'Escape' && close()}
     role="presentation"
     aria-labelledby="comparison-title"
 >
-    <p id="comparison-title">
-        Lista: {selectedBranchName} • {selectedScheduleName} • {selectedDate} • Reventado: {isReventado ? 'Sí' : 'No'} • Mega reventado: {isMegareventado ? 'Sí' : 'No'}
-    </p>
-    {#if existingListExists}
-        <div class="row">
-            <p class="description">
-                Revise la lista existente y los valores que está a punto de guardar.
-            </p>
-            <div class="actions">
-                <button type="button" class="negative" onclick={close} disabled={isConfirming}>Cancelar</button>
-                <button type="button" onclick={handleConfirm} disabled={isConfirming}>
-                    {isConfirming ? 'Guardando...' : existingListExists ? 'Guardar' : 'Crear lista'}
-                </button>
-            </div>
+    <div class="row">
+        <p id="comparison-title">
+            {selectedBranchName} • {selectedScheduleName} • {selectedDate} • Reventado: {isReventado ? 'Sí' : 'No'} • Mega reventado: {isMegareventado ? 'Sí' : 'No'}
+        </p>
+        <div class="actions">
+            <button type="button" class="negative" onclick={close} disabled={isConfirming}>Cancelar</button>
+            <button type="button" onclick={handleConfirm} disabled={isConfirming}>
+                {isConfirming ? 'Guardando...' : existingListExists ? 'Guardar' : 'Crear lista'}
+            </button>
         </div>
-    {:else}
+    </div>
+    {#if !existingListExists}
         <p class="description">
             Esta lista todavía no existe. Revise los valores nuevos y confirme para crearla.
         </p>
@@ -96,7 +90,10 @@ onkeydown={(event) => event.key === 'Escape' && close()}
 
     <div class="comparison">
         <div class="list-panel">
-            <p>Lista existente</p>
+            <div class="row">
+                <p>Lista existente</p>
+                <p>Total: {formatAmount(existingTotal)}</p>
+            </div>
             {#if existingListExists}
                 <div class="matrix" aria-label="Lista existente">
                     {#each Array.from({ length: 20 }, (_, rowIndex) => rowIndex) as rowIndex}
@@ -121,7 +118,10 @@ onkeydown={(event) => event.key === 'Escape' && close()}
         </div>
 
         <div class="list-panel">
-            <p>Lista nueva</p>
+            <div class="row">
+                <p>Lista nueva</p>
+                <p>Total: {formatAmount(createdTotal)}</p>
+            </div>
             <div class="matrix" aria-label="Lista nueva">
                 {#each Array.from({ length: 20 }, (_, rowIndex) => rowIndex) as rowIndex}
                     {#each Array.from({ length: 5 }, (_, columnIndex) => columnIndex) as columnIndex}
@@ -158,7 +158,8 @@ onkeydown={(event) => event.key === 'Escape' && close()}
     .comparison {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 1rem;
+        gap: 3rem;
+        margin-top: 1rem;
     }
 
     .list-panel {

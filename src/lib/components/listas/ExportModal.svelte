@@ -276,17 +276,15 @@
         {/if}
         <div class="qr-container">
             <QrCode value={serializeData(data)} size={350} errorCorrection="L" />
-            <span>
-                Total: {formatAmount(total)}
-            </span>
-        </div>
-        {#if !qrOnly}
             <div class="row">
+                <span>
+                    Total: {formatAmount(total)}
+                </span>
                 <button type="button" class="option-button" onclick={() => {showSaveModal = true; showModal = false;}}>
                     Guardar lista
                 </button>
             </div>
-        {/if}
+        </div>
     </div>
 </div>
 
@@ -307,5 +305,11 @@
         margin-bottom: 0.5rem;
         font-size: 1rem;
         justify-content: center;
+    }
+
+    .row {
+        padding-top: 1rem;
+        justify-content: space-between;
+        align-items: center;
     }
 </style>

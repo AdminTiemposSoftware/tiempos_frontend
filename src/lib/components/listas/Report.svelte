@@ -402,6 +402,8 @@
     			(item) => Number.isFinite(item.number) && Number.isFinite(item.amount))
     		.sort((a, b) => a.number - b.number);
 
+            console.log(report);
+
 			const winnerItems = Array.isArray(data?.winnersFilteredItems)
 				? data.winnersFilteredItems as WinnerItem[]
 				: [];

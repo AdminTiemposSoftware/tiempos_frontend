@@ -10,20 +10,7 @@
 		printable = false,
 		initialGroupingModes,
 		printHeader
-	} = $props<{
-		report: ReportItem[];
-		showModal: boolean;
-		winners?: Winner[];
-		prohibitedNumbers?: Prohibited[];
-		printable?: boolean;
-		initialGroupingModes?: GroupingMode[];
-		printHeader?: {
-			branches: string[];
-			drawSchedules: string[];
-			dateFrom: string;
-			dateTo: string;
-		};
-	}>();
+	} = $props();
 
 	// Represents a single record from the report.
 	type ReportItem = {

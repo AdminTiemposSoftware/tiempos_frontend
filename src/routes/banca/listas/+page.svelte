@@ -3,6 +3,7 @@
     import { acts } from '@tadashi/svelte-notification';
     import MatrixInput from "$lib/components/listas/MatrixInput.svelte";
     import MatrixOperations from "$lib/components/listas/MatrixOperations.svelte";
+    import MatrixValueControls from "$lib/components/listas/MatrixValueControls.svelte";
     import ListasFilterModal from '../../../lib/components/listas/ListasFilterModal.svelte';
     import LoadListFromQrModal from '$lib/components/listas/LoadListFromQrModal.svelte';
     import MatrixComparisonModal from '$lib/components/listas/MatrixComparisonModal.svelte';
@@ -77,8 +78,6 @@
     let selectedCells = $state<Record<number, boolean>>({});
     let numberAmountInput = $state('');
     let numberAmountValue = $state('');
-    let numberInputElement = $state<HTMLInputElement | null>(null);
-    let amountInputElement = $state<HTMLInputElement | null>(null);
     let showOperationsMatrix = $state(false);
     let showExportModalCurrent = $state(false);
     let allowNegative = $state(false);
@@ -342,43 +341,6 @@
         }));
     }
 
-    function subtractOriginalFromCurrent() {
-        if (Object.keys(originalMatrix).length === 0 || Object.keys(createSelection).length === 0) {
-            acts.add({
-                message: 'Cargue una lista original y una matriz para realizar la resta.',
-                mode: 'error',
-                lifetime: 3
-            });
-            return;
-        }
-
-        createSelection = Object.fromEntries(
-            Object.keys(createSelection).map((rawIndex) => {
-                const index = Number(rawIndex);
-                const currentValue = getModifiedValue(index);
-                const originalValue = Number(originalMatrix[index] ?? 0);
-
-                return [
-                    index,
-                    Number.isFinite(currentValue) && Number.isFinite(originalValue)
-                        ?  originalValue - currentValue
-                        : 0
-                ];
-            })
-        );
-
-        createSelectionModifications = Object.fromEntries(
-            Object.entries(createSelectionModifications).map(([index, item]) => [
-                index,
-                {
-                    ...item,
-                    originalValue: createSelection[Number(index)] ?? 0,
-                    modification: 0
-                }
-            ])
-        );
-    }
-
     function applyOperationsWithoutSaving() {
         if (!hasLoadedMultipleListsToModify) {
             return;
@@ -521,274 +483,6 @@
                 { ...item, operation }
             ])
         );
-    }
-
-    function sanitizeNumericInput(input: HTMLInputElement) {
-        const sanitizedValue = input.value
-            .replace(/[^\d.-]/g, '')
-            .replace(/(?!^)-/g, '')
-            .replace(/(\..*)\./g, '$1');
-
-        if (input.value !== sanitizedValue) {
-            input.value = sanitizedValue;
-        }
-
-        return sanitizedValue;
-    }
-
-    function limitNumberExpression(input: HTMLInputElement) {
-        const limitedValue = input.value
-            .replace(/[^\d+\-*\s]/g, '')
-            .replace(/\d+/g, (digits) => digits.slice(0, 2));
-
-        if (input.value !== limitedValue) {
-            input.value = limitedValue;
-        }
-
-        numberAmountInput = limitedValue;
-    }
-
-    function applyBulkValues() {
-        const checkedAmount = applyToAllValue === '' ? 0 : Number(applyToAllValue);
-        const checkedPercentage = applyPercentageToAllValue === '' ? 0 : Number(applyPercentageToAllValue);
-        const uncheckedAmount = applyToUncheckedValue === '' ? 0 : Number(applyToUncheckedValue);
-        const uncheckedPercentage = applyPercentageToUncheckedValue === ''
-            ? 0
-            : Number(applyPercentageToUncheckedValue);
-
-        if (
-            !Number.isFinite(checkedAmount) ||
-            !Number.isFinite(checkedPercentage) ||
-            !Number.isFinite(uncheckedAmount) ||
-            !Number.isFinite(uncheckedPercentage)
-        ) {
-            return;
-        }
-
-        const currentTotal = matrixMode === 'operations' ? modifiedTotal : originalTotal;
-        const checkedPercentageBase = checkedPercentageBaseTotal ?? currentTotal;
-        const uncheckedPercentageBase = uncheckedPercentageBaseTotal ?? currentTotal;
-        const checkedValue = (checkedPercentageBase * checkedPercentage) / 100 + checkedAmount;
-        const uncheckedValue = (uncheckedPercentageBase * uncheckedPercentage) / 100 + uncheckedAmount;
-
-        const selectedIndexes = Object.entries(selectedCells)
-            .filter(([, selected]) => selected)
-            .map(([index]) => Number(index));
-        const selectedIndexSet = new Set(selectedIndexes);
-
-        if (matrixMode === 'operations') {
-            createSelectionModifications = Object.fromEntries(
-                Array.from({ length: 100 }, (_, index) => {
-                    const currentModification = createSelectionModifications[index];
-                    const valueToApply = selectedIndexSet.has(index) ? checkedValue : uncheckedValue;
-
-                    return [
-                        index,
-                        {
-                            number_total_id: currentModification?.number_total_id ?? 0,
-                            originalValue: createSelection[index] ?? currentModification?.originalValue ?? 0,
-                            operation: currentModification?.operation ?? '+',
-                            modification: valueToApply
-                        }
-                    ];
-                })
-            );
-            return;
-        }
-
-        createSelection = Object.fromEntries(
-            Array.from({ length: 100 }, (_, index) => [
-                index,
-                selectedIndexSet.has(index) ? checkedValue : uncheckedValue
-            ])
-        );
-    }
-
-    function commitBulkGroup(isChecked: boolean) {
-        const hasPercentage = isChecked
-            ? applyPercentageToAllValue !== ''
-            : applyPercentageToUncheckedValue !== '';
-        const percentageDirty = isChecked ? checkedPercentageDirty : uncheckedPercentageDirty;
-
-        if (hasPercentage && (percentageDirty || (isChecked
-            ? checkedPercentageBaseTotal === undefined
-            : uncheckedPercentageBaseTotal === undefined))) {
-            const currentTotal = matrixMode === 'operations' ? modifiedTotal : originalTotal;
-
-            if (isChecked) {
-                checkedPercentageBaseTotal = currentTotal;
-                checkedPercentageDirty = false;
-            } else {
-                uncheckedPercentageBaseTotal = currentTotal;
-                uncheckedPercentageDirty = false;
-            }
-        }
-
-        applyBulkValues();
-    }
-
-    function handleBulkValueInput(event: Event, isPercentage = false) {
-        const input = event.currentTarget as HTMLInputElement;
-        const sanitizedValue = sanitizeNumericInput(input);
-
-        if (isPercentage) {
-            applyPercentageToAllValue = sanitizedValue;
-            checkedPercentageDirty = true;
-        } else {
-            applyToAllValue = sanitizedValue;
-        }
-
-        if (event instanceof KeyboardEvent && event.key === 'Enter') {
-            commitBulkGroup(true);
-        }
-    }
-
-    function handleUncheckedBulkValueInput(event: Event, isPercentage = false) {
-        const input = event.currentTarget as HTMLInputElement;
-        const sanitizedValue = sanitizeNumericInput(input);
-
-        if (isPercentage) {
-            applyPercentageToUncheckedValue = sanitizedValue;
-            uncheckedPercentageDirty = true;
-        } else {
-            applyToUncheckedValue = sanitizedValue;
-        }
-
-        if (event instanceof KeyboardEvent && event.key === 'Enter') {
-            commitBulkGroup(false);
-        }
-    }
-
-    function toggleAllCells() {
-        const allSelected = Object.keys(selectedCells).length === 100
-            && Object.values(selectedCells).every(Boolean);
-
-        selectedCells = allSelected
-            ? {}
-            : Object.fromEntries(Array.from({ length: 100 }, (_, index) => [index, true]));
-    }
-
-    function applyAmountToNumbers(): boolean {
-        const amountText = numberAmountValue.replace(/[.,\s]/g, '');
-        const amount = Number(amountText);
-
-        if (!numberAmountInput.trim() || !Number.isFinite(amount)) {
-            return false;
-        }
-
-        const expandedNumbers = new Set<number>();
-        const addIfValid = (value: number) => {
-            if (Number.isInteger(value) && value >= 0 && value <= 99) {
-                expandedNumbers.add(value);
-            }
-        };
-
-        const numberParts = numberAmountInput
-            .split('+')
-            .map((part) => part.trim())
-            .filter(Boolean)
-        const validNumberPart = /^(?:\d{1,2}|\*\d{1,2}|\d{1,2}\*|\d{1,2}-\d{1,2})$/;
-
-        if (numberParts.length === 0 || numberParts.some((part) => !validNumberPart.test(part))) {
-            return false;
-        }
-
-        numberParts.forEach((part) => {
-                if (part.includes('*')) {
-                    const base = Number.parseInt(part.replace('*', '').trim(), 10);
-
-                    if (!Number.isFinite(base)) {
-                        return;
-                    }
-
-                    if (part.startsWith('*') && !part.endsWith('*')) {
-                        if (base < 10) {
-                            for (let digit = 0; digit < 10; digit += 1) {
-                                addIfValid(digit * 10 + base);
-                            }
-                        } else {
-                            addIfValid(base);
-                        }
-                    } else {
-                        for (let digit = 0; digit < 10; digit += 1) {
-                            addIfValid(base * 10 + digit);
-                        }
-                    }
-                    return;
-                }
-
-                if (part.includes('-')) {
-                    const [startRaw, endRaw] = part.split('-').map((value) => value.trim());
-                    const start = Number.parseInt(startRaw, 10);
-                    const end = Number.parseInt(endRaw, 10);
-
-                    if (!Number.isFinite(start) || !Number.isFinite(end)) {
-                        return;
-                    }
-
-                    for (let value = Math.min(start, end); value <= Math.max(start, end); value += 1) {
-                        addIfValid(value);
-                    }
-                    return;
-                }
-
-                addIfValid(Number.parseInt(part, 10));
-            });
-
-        if (matrixMode === 'operations') {
-            createSelectionModifications = Object.fromEntries(
-                Array.from({ length: 100 }, (_, index) => {
-                    const current = createSelectionModifications[index];
-
-                    if (!expandedNumbers.has(index)) {
-                        return [index, current ?? {
-                            number_total_id: 0,
-                            originalValue: createSelection[index] ?? 0,
-                            operation: '+',
-                            modification: 0
-                        }];
-                    }
-
-                    return [index, {
-                        number_total_id: current?.number_total_id ?? 0,
-                        originalValue: createSelection[index] ?? current?.originalValue ?? 0,
-                        operation: current?.operation ?? '+',
-                        modification: (current?.modification ?? 0) + amount
-                    }];
-                })
-            );
-            return expandedNumbers.size > 0;
-        }
-
-        createSelection = Object.fromEntries(
-            Array.from({ length: 100 }, (_, index) => [
-                index,
-                (createSelection[index] ?? 0) + (expandedNumbers.has(index) ? amount : 0)
-            ])
-        );
-
-        return expandedNumbers.size > 0;
-    }
-
-    function handleNumberAmountKeydown(event: KeyboardEvent, inputType: 'number' | 'amount') {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-
-            if (inputType === 'amount') {
-                numberInputElement?.focus();
-                numberInputElement?.select();
-            } else {
-                handleNumberInputEnter();
-            }
-        }
-    }
-
-    function handleNumberInputEnter() {
-        if (applyAmountToNumbers()) {
-            numberAmountInput = '';
-            numberAmountValue = '';
-            amountInputElement?.focus();
-        }
     }
 
     async function fetchListOperations() {
@@ -1128,7 +822,9 @@
     total={matrixMode === 'operations' ? modifiedTotal : originalTotal}
     puestos={[]}
     sorteos={[]}
-    qrOnly
+    branchNames={branchNames}
+	drawScheduleNames={drawScheduleNames}
+	scheduleBranch={getBancaFilterData(data ?? {}).scheduleBranch}
 />
 
 <svelte:head>
@@ -1232,89 +928,28 @@
             />
         {/if}
 
-        <div class="inputs-group row">
-            <div class="apply-to-all-group">
-                <p>Singular</p>
-                <div class="row">
-                    <input
-                        type="text"
-                        placeholder="Monto"
-                        bind:value={numberAmountValue}
-                        bind:this={amountInputElement}
-                        class="amount-input"
-                        aria-label="Monto para los números"
-                        onkeydown={(event) => handleNumberAmountKeydown(event, 'amount')}
-                    />
-                    <input
-                        type="text"
-                        placeholder="Número"
-                        bind:value={numberAmountInput}
-                        bind:this={numberInputElement}
-                        class="number-input"
-                        aria-label="Número o expresión de números"
-                        oninput={(event) => limitNumberExpression(event.currentTarget)}
-                        onkeydown={(event) => handleNumberAmountKeydown(event, 'number')}
-                    />
-                </div>
-            </div>
-            <div class="apply-to-all-group">
-                <p>No marcados</p>
-                <div class="row">
-                    <input
-                        type="number"
-                        class="apply-to-all-input"
-                        placeholder="Monto"
-                        bind:value={applyToUncheckedValue}
-                        inputmode="decimal"
-                        aria-label="Monto"
-                        oninput={(event) => handleUncheckedBulkValueInput(event)}
-                        onkeydown={(event) => handleUncheckedBulkValueInput(event)}
-                    />
-                    <input
-                        type="number"
-                        class="apply-to-all-input"
-                        placeholder="%"
-                        bind:value={applyPercentageToUncheckedValue}
-                        inputmode="decimal"
-                        aria-label="%"
-                        oninput={(event) => handleUncheckedBulkValueInput(event, true)}
-                        onkeydown={(event) => handleUncheckedBulkValueInput(event, true)}
-                    />
-                </div>
-            </div>
-            <div class="apply-to-all-group">
-                <p>Marcados</p>
-                <div class="row">
-                    <input
-                        type="number"
-                        class="apply-to-all-input"
-                        placeholder="Monto"
-                        bind:value={applyToAllValue}
-                        inputmode="decimal"
-                        aria-label="Monto"
-                        oninput={(event) => handleBulkValueInput(event)}
-                        onkeydown={(event) => handleBulkValueInput(event)}
-                    />
-                    <input
-                        type="number"
-                        class="apply-to-all-input"
-                        placeholder="%"
-                        bind:value={applyPercentageToAllValue}
-                        inputmode="decimal"
-                        aria-label="%"
-                        oninput={(event) => handleBulkValueInput(event, true)}
-                        onkeydown={(event) => handleBulkValueInput(event, true)}
-                    />
-                </div>
-            </div>
-            <button
-                type="button"
-                onclick={subtractOriginalFromCurrent}
-                hidden={!hasLoadedMultipleListsToModify}
-            >
-                Restar a la original
-            </button>
-        </div>
+        <MatrixValueControls
+            bind:createSelection
+            bind:createSelectionModifications
+            bind:selectedCells
+            bind:applyToAllValue
+            bind:applyPercentageToAllValue
+            bind:applyToUncheckedValue
+            bind:applyPercentageToUncheckedValue
+            bind:checkedPercentageBaseTotal
+            bind:uncheckedPercentageBaseTotal
+            bind:checkedPercentageDirty
+            bind:uncheckedPercentageDirty
+            bind:numberAmountInput
+            bind:numberAmountValue
+            {originalMatrix}
+            {hasLoadedMultipleListsToModify}
+            {matrixMode}
+            {originalTotal}
+            {modifiedTotal}
+            {allowNegative}
+            {getModifiedValue}
+        />
     </div>
     <div class="right">
         <button
@@ -1425,12 +1060,6 @@
         flex-direction: column;
     }
 
-    .inputs-group {
-        background-color: var(--color-box-background);
-        border: 1px solid var(--color-border);
-        padding: 1rem !important;
-    }
-
     .right {
         flex: 1;
         border: 1px solid var(--color-border);
@@ -1456,11 +1085,6 @@
         gap: 0.5rem;
     }
 
-    .apply-to-all-input {
-        width: 100%;
-        box-sizing: border-box;
-    }
-
     .total {
         margin-top: auto;
     }
@@ -1476,12 +1100,6 @@
         padding-top: 0.25rem;
     }
 
-    .apply-to-all-group {
-        border: 1px solid var(--color-border);
-        padding: 0.5rem;
-        text-align: center;
-    }
-
     :global(.list-container .column.left) {
         flex: 6;
     }
@@ -1495,13 +1113,5 @@
         width: 40%;
         gap: 0.5rem;
         background: var(--color-box-background);
-    }
-
-    .amount-input {
-        width: 30% !important;
-    }
-
-    .number-input {
-        width: 100% !important;
     }
 </style>
