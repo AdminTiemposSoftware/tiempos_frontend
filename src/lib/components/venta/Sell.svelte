@@ -535,6 +535,7 @@
             return;
         }
         sold = {};
+        unnamedSoldEntries = [];
         soldAmountNames = {};
         namedSoldEntries = [];
         soldOrder = [];
