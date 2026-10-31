@@ -2,33 +2,11 @@
 	import { formatAmount } from '../../printing/printing';
 	import type { ReportItem } from '../venta/grouping';
 
-	type ProhibitedItem = {
-		number: number;
-		amount: number | string;
-		starter: number | string;
-		by_amount: boolean;
-		by_percentage: boolean;
-		percentage?: number | string;
-		branch_id?: number;
-		date: string;
-	};
-
-	type WinnerItem = {
-		winner_number: number | null;
-		date: string;
-		schedule_id: number;
-		position_multiplier: number;
-	};
-
 	let {
 		report = [],
 		prohibitedNumbers = [],
 		winners = []
-	} = $props<{
-		report?: ReportItem[];
-		prohibitedNumbers?: ProhibitedItem[];
-		winners?: WinnerItem[];
-	}>();
+	} = $props();
 
 	function dateKey(value: string) {
 		return String(value).split('T')[0];
@@ -165,11 +143,21 @@
 
 
 	const adjustedTotal = $derived(total - devolution);
-	const commissionRate = $derived(total === 0 ? 0 : report.reduce(
-		(sum, item) => sum + (Number(item.amount) / total) * Number(item.branch_comission),
-		0
-	));
-	const commission = $derived(adjustedTotal * commissionRate * 0.01);
+	const commission = $derived.by(() => {
+		const totalsByScope = new Map<string, number>();
+		for (const item of report) {
+			totalsByScope.set(
+				scopeKey(item),
+				(totalsByScope.get(scopeKey(item)) ?? 0) + Number(item.amount)
+			);
+		}
+
+		return report.reduce((sum, item) => {
+			const amount = Number(item.amount);
+			const itemDevolution = getItemDevolution(item, totalsByScope);
+			return sum + (amount - itemDevolution) * Number(item.branch_comission) * 0.01;
+		}, 0);
+	});
 	const netTotal = $derived(adjustedTotal - commission - winnerTotal);
 </script>
 

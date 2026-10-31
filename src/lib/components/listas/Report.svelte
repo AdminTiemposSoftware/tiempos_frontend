@@ -3,7 +3,6 @@
 	import ProhibitedNumberModal from '../ProhibitedNumberModal.svelte';
     import ConfirmModal from '../ConfirmModal.svelte';
     import Matrix from '../venta/Matrix.svelte';
-	import ReportModal from './ReportModal.svelte';
 	import ReportSummary from './ReportSummary.svelte';
 	import DevolutionBreakdown from './DevolutionBreakdown.svelte';
 	import ExportModal from './ExportModal.svelte';
@@ -55,7 +54,6 @@
 	let report = $state<ReportItem[]>([]);
 	let isLoading = $state<boolean>(false);
 	let showGroupingOptions = $state(false);
-	let showReportModal = $state<boolean>(false);
 	let showExportModal = $state<boolean>(false);
 	let reportQrData = $state<Record<number, number>>({});
 	let totalQr = $state<number>(0);
@@ -318,50 +316,19 @@
 		prohibitedFiltered = prohibitedFilteredItems;
 	});
 
-	function validFilters() {
-        if (from > to) {
-            acts.add({
-                message: "La fecha 'Desde' no puede ser mayor que la fecha 'Hasta'.",
-                mode: 'error',
-                lifetime: 3
-            });
-           	return false;
-        }
-
-        if (selectedBranch.length === 0 && user === 'banking') {
-            acts.add({
-                message: "Seleccione al menos un puesto",
-                mode: 'error',
-                lifetime: 3
-            });
-           	return false;
-        }
-
-        if (selectedDrawSchedule.length === 0) {
-            acts.add({
-                message: "Seleccione al menos un horario",
-                mode: 'error',
-                lifetime: 3
-            });
-           	return false;
-        }
-
-        return true;
-	}
-
 	async function applyFilters() {
 		try {
 		    isLoading = true;
 			let response;
 			if (user === 'banking') {
-				response = await fetch(`/banca/report?date_from=${from}&date_to=${to}&branches=${encodeURIComponent(selectedBranch.join(','))}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
+				response = await fetch(`/banca/report-base?date_from=${from}&date_to=${to}&branches=${encodeURIComponent(selectedBranch.join(','))}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
 					method: 'GET',
 					headers: {
 						'Content-Type': 'application/json'
 					}
 				});
 			} else {
-				response = await fetch(`/puesto/report?date_from=${from}&date_to=${to}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
+				response = await fetch(`/puesto/reportes-base?date_from=${from}&date_to=${to}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
 					method: 'GET',
 					headers: {
 						'Content-Type': 'application/json'
@@ -421,6 +388,7 @@
 
 			winnersFiltered = winnerItems;
 			prohibitedFiltered = prohibitedItems;
+			console.log(winnerItems);
 
 			totalAmountReport = report.reduce((acc, item) => acc + item.amount, 0);
 			isLoading = false;
@@ -507,10 +475,6 @@
 		showExportModal = true;
 	}
 
-	async function showReport() {
-        if (!validFilters()) return;
-		showReportModal = true;
-	}
 </script>
 
 <svelte:head>
@@ -525,7 +489,6 @@
 			: `Eliminar el numero ${prohibitedNumberToDelete.number}?`
 	}
 	confirmText="Eliminar"
-	cancelText="Cancelar"
 	confirm={handleConfirmDeleteProhibitedNumber}
 />
 
@@ -534,7 +497,6 @@
 	bind:prohibited={selectedProhibitedNumber}
 	title="Actualizar numero restringido"
 	confirmText="Guardar"
-	cancelText="Cancelar"
 	handleUpdateProhibitedNumber={handleUpdateProhibitedNumber}
 	handleDeleteProhibitedNumber={showDeleteProhibitedNumber}
 />
@@ -544,7 +506,6 @@
 	bind:prohibited={selectedProhibitedNumber}
 	title="Agregar numero restringido"
 	confirmText="Guardar"
-	cancelText="Cancelar"
 	handleAddProhibitedNumber={handleAddProhibitedNumber}
 />
 
@@ -561,146 +522,135 @@
 	scheduleBranch={getBancaFilterData(data ?? {}).scheduleBranch}
 />
 
-<ReportModal
-    bind:showModal={showReportModal}
-    report={report}
-    winners={winnersFiltered}
-    prohibitedNumbers={prohibitedFiltered}
-    printHeader={printHeader}
-/>
-
 <section class="inicio">
-            <div class="content">
-                <div class="left">
-                    <div class="filters">
-                        <div class="total">
-                            <label for="from">Desde</label>
-                            <input id="from" type="date" bind:value={from}/>
-                        </div>
-                        <div class="field">
-                            <label for="to">Hasta</label>
-                            <input id="to" type="date" bind:value={to}/>
-                        </div>
-                        {#if user !== 'branch'}
-                            <div class="field">
-                                <label for="puesto">Puesto</label>
-           					<SelectModal
-          						options={branchNames}
-          						bind:selected={selectedBranch}
-          						placeholder="Seleccione un puesto"
-           					/>
-            				</div>
-                        {/if}
-           	            <div class="field">
-           	                <label for="sorteo">Sorteo</label>
-           					<SelectModal
-          						options={drawScheduleNames}
-          						bind:selected={selectedDrawSchedule}
-          						placeholder="Seleccione un sorteo"
-           					/>
-           	            </div>
-           	            <div class="total-amount">
-           	                <p class="total-label">Total en esta lista</p>
-           	                <p class="total-amount-label">₡{formatAmount(totalAmountReport)} </p>
-           	            </div>
-                    </div>
-           	        <Matrix
-        				bind:report={report}
-        				bind:isLoading={isLoading}
-        				bind:groupingModes={groupingModes}
-        				mode={matrixMode}
-        				useSellingMatrixFallback={false}
-        				winnerNumbers={winnersFiltered
-       					.filter((item) => item.winner_number != null)
-       					.map((item) => Number(item.winner_number))
-       					.filter((number) => Number.isFinite(number))}
-        				reportProhibitedNumbers={prohibitedFiltered
-       					.map((item) => Number(item.number))
-       					.filter((number) => Number.isFinite(number))}
-        				/>
-                </div>
-                <div class="right">
-                    <div class="column">
-     			    <button type="button" class="option-button" onclick={applyFilters}>
-       					Filtrar
-                    </button>
-    				<button type="button" class="option-button" onclick={handleShowExportModal}>
-    				    Exportar lista
-    				</button>
-    				<button type="button" class="option-button" onclick={showReport}>
-    				    Obtener reporte
-     			    </button>
-     			</div>
-     			<div class="row view">
-                    <button
-                        type="button"
-                        class={`option-button ${matrixMode === '20x5' ? 'selected-mode' : ''}`}
-                        onclick={() => { matrixMode = '20x5'; }}
-                    >
-                        20x5
-                    </button>
-                    <button
-                        type="button"
-                        class={`option-button ${matrixMode === '10x10' ? 'selected-mode' : ''}`}
-                        onclick={() => { matrixMode = '10x10'; }}
-                    >
-                        10x10
-                    </button>
-                </div>
-     			<div class="field grouping-field">
-                   	<button
-                  		type="button"
-                  		class="grouping-toggle"
-                  		aria-expanded={showGroupingOptions}
-                  		aria-controls="grouping-options"
-                  		onclick={() => { showGroupingOptions = !showGroupingOptions; }}
-                   	>
-                  		Agrupación {showGroupingOptions ? '⌄' : '>'}
-                   	</button>
-                   	{#if showGroupingOptions}
-              		<div id="grouping-options">
+    <div class="content">
+        <div class="left">
+            <div class="filters">
+            <div class="total">
+                <label for="from">Desde</label>
+                <input id="from" type="date" bind:value={from}/>
+            </div>
+            <div class="field">
+                <label for="to">Hasta</label>
+                <input id="to" type="date" bind:value={to}/>
+            </div>
+            {#if user !== 'branch'}
+                <div class="field">
+                    <label for="puesto">Puesto</label>
+    				<SelectModal
+        				options={branchNames}
+        				bind:selected={selectedBranch}
+        				placeholder="Seleccione un puesto"
+    				/>
+				</div>
+            {/if}
+            <div class="field">
+                <label for="sorteo">Sorteo</label>
+				<SelectModal
+    				options={drawScheduleNames}
+    				bind:selected={selectedDrawSchedule}
+    				placeholder="Seleccione un sorteo"
+				/>
+            </div>
+            <div class="total-amount">
+                <p class="total-label">Total en esta lista</p>
+                <p class="total-amount-label">₡{formatAmount(totalAmountReport)} </p>
+            </div>
+        </div>
+        <Matrix
+			bind:report={report}
+			bind:isLoading={isLoading}
+			bind:groupingModes={groupingModes}
+			mode={matrixMode}
+			useSellingMatrixFallback={false}
+			winnerNumbers={winnersFiltered
+    			.filter((item) => item.winner_number != null)
+    			.map((item) => Number(item.winner_number))
+    			.filter((number) => Number.isFinite(number))}
+			reportProhibitedNumbers={prohibitedFiltered
+    			.map((item) => Number(item.number))
+    			.filter((number) => Number.isFinite(number))}
+			/>
+    </div>
+    <div class="right">
+        <div class="column">
+            <button type="button" class="option-button" onclick={applyFilters}>
+				Filtrar
+            </button>
+			<button type="button" class="option-button" onclick={handleShowExportModal}>
+			    Exportar lista
+			</button>
+        </div>
+        <div class="row view">
+            <button
+                type="button"
+                class={`option-button ${matrixMode === '20x5' ? 'selected-mode' : ''}`}
+                onclick={() => { matrixMode = '20x5'; }}
+            >
+                20x5
+            </button>
+            <button
+                type="button"
+                class={`option-button ${matrixMode === '10x10' ? 'selected-mode' : ''}`}
+                onclick={() => { matrixMode = '10x10'; }}
+            >
+                10x10
+            </button>
+        </div>
+        <div class="field grouping-field">
+           	<button
+          		type="button"
+          		class="grouping-toggle"
+          		aria-expanded={showGroupingOptions}
+          		aria-controls="grouping-options"
+          		onclick={() => { showGroupingOptions = !showGroupingOptions; }}
+           	>
+          		Agrupación {showGroupingOptions ? '⌄' : '>'}
+           	</button>
+               	{#if showGroupingOptions}
+                    <div id="grouping-options">
              			<div class="grouping-options">
-            				{#each availableGroupingOptions as option}
-           					<button
-          						type="button"
-          						class={`grouping-option ${groupingModes.includes(option.value) ? 'selected' : ''}`}
-          						onclick={() => toggleGroupingMode(option.value)}
-           					>
+                            {#each availableGroupingOptions as option}
+               					<button
+              						type="button"
+              						class={`grouping-option ${groupingModes.includes(option.value) ? 'selected' : ''}`}
+              						onclick={() => toggleGroupingMode(option.value)}
+               					>
           						<input type="checkbox" checked={groupingModes.includes(option.value)} readonly />
           						<span>{option.label}</span>
-           					</button>
+               					</button>
             				{/each}
              			</div>
              			<div class="grouping-order">
             				<label for="orden">Orden</label>
             				<div class="grouping-chip-list">
-           					{#each groupingModes as mode, index}
-          						<div class="chip">
-         							<span>{index + 1}. {getGroupingModeLabel(mode)}</span>
-         							<div class="grouping-chip-actions">
-        								<button type="button" onclick={() => moveGroupingMode(mode, -1)} disabled={index === 0}>↑</button>
-        								<button type="button" onclick={() => moveGroupingMode(mode, 1)} disabled={index === groupingModes.length - 1}>↓</button>
-         							</div>
-          						</div>
-           					{/each}
+               					{#each groupingModes as mode, index}
+              						<div class="chip">
+             							<span>{index + 1}. {getGroupingModeLabel(mode)}</span>
+             							<div class="grouping-chip-actions">
+            								<button type="button" onclick={() => moveGroupingMode(mode, -1)} disabled={index === 0}>↑</button>
+            								<button type="button" onclick={() => moveGroupingMode(mode, 1)} disabled={index === groupingModes.length - 1}>↓</button>
+             							</div>
+              						</div>
+               					{/each}
             				</div>
              			</div>
               		</div>
-                   	{/if}
-                </div>
+               	{/if}
             </div>
+        </div>
     </div>
 
     <div class="content">
         <ReportSummary
-				report={report}
-				prohibitedNumbers={prohibitedFiltered}
-				winners={winnersFiltered}
-/>
-<DevolutionBreakdown
-				report={report}
-				prohibitedNumbers={prohibitedFiltered}
-/>
+    		report={report}
+    		prohibitedNumbers={prohibitedFiltered}
+    		winners={winnersFiltered}
+        />
+        <DevolutionBreakdown
+        	report={report}
+        	prohibitedNumbers={prohibitedFiltered}
+        />
     </div>
     {#if user === 'banking'}
     <header>
