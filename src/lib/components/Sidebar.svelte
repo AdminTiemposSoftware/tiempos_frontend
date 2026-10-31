@@ -40,22 +40,21 @@
     }
 
 	const navItems = [
+	    { label: 'Inicio', path: '/puesto/inicio', roles: ['branch']},
 		{ label: 'Venta', path: '/puesto/venta', roles: ['branch'] },
-        { label: 'Inicio', path: '/banca/inicio', roles: ['banking']},
+		{ label: 'Inicio', path: '/banca/inicio', roles: ['banking']},
 		{ label: 'Listas', path: '/banca/listas', roles: ['banking'] },
-		// TODO : No crucial
 		// TODO : Esta funcionalidad es para cuando el admin quiera tener mas bancas aparte de la suya
 		// Probablemente sea mejor cambiar el nombre a "Bancas"
         // { label: 'Administradores', path: '/administradores'},
         { label: 'Bancas', path: '/banca/bancas', roles: ['banking'] },
-		// Esta funcionalidad se debio de unir con la de "Sorteos"
-        // { label: 'Sorteos Base', path: '/sorteos-base'},
 		// TODO : Esta funcionalidad es para cuando el admin quiera alquilar el software
         // { label: 'Usuarios', path: '/usuarios'},
         { label: 'Puestos', path: '/banca/puestos', roles: ['banking'] },
         { label: 'Sorteos', path: '/banca/sorteos', roles: ['banking'] },
         { label: 'Ganadores', path: '/banca/ganadores', roles: ['banking'] },
         { label: 'Ganadores', path: '/puesto/ganadores', roles: ['branch'] },
+        { label: 'Reportes', path: '/banca/reportes', roles: ['banking'] },
         { label: 'Reportes', path: '/puesto/reportes', roles: ['branch'] },
         { label: 'Cajas', path: '/puesto/cajas', roles: ['branch'] },
         { label: 'Carga Excel', path: '/puesto/carga-excel', roles: ['branch'] },

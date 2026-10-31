@@ -18,6 +18,7 @@ export const GET: RequestHandler = async ({ request, fetch, locals, cookies }) =
     const dateTo = url.searchParams.get('date_to');
     const branches = url.searchParams.get('branches');
     const drawSchedules = url.searchParams.get('draw_schedules');
+    const groupingModes = url.searchParams.get('grouping_modes') ?? 'date,draw_schedule';
 
     if (!dateFrom || !dateTo || !branches || !drawSchedules) {
         return new Response(JSON.stringify({ error: 'Payload must include date_from, date_to, branches, and draw_schedules.' }), {
@@ -31,32 +32,12 @@ export const GET: RequestHandler = async ({ request, fetch, locals, cookies }) =
         Authorization: `Bearer ${token}`,
         'X-Auth-App': 'banca'
     };
-    const reportQuery = `date_from=${dateFrom}&date_to=${dateTo}&branches=${encodeURIComponent(branches)}&draw_schedules=${encodeURIComponent(drawSchedules)}`;
-    const prohibitedQuery = `date_from=${dateFrom}&date_to=${dateTo}&branches=${encodeURIComponent(branches)}`;
-
-    const [reportResponse, winnersResponse, prohibitedResponse] = await Promise.all([
-        fetch(`${baseUrl}/report/filtered?${reportQuery}`, { method: 'GET', headers }),
-        fetch(`${baseUrl}/winner/filtered?${reportQuery}`, { method: 'GET', headers }),
-        fetch(`${baseUrl}/number/prohibited/filtered?${prohibitedQuery}`, { method: 'GET', headers })
-    ]);
-
-    const [reportPayload, winnersPayload, prohibitedPayload] = await Promise.all([
-        reportResponse.json().catch(() => null),
-        winnersResponse.json().catch(() => null),
-        prohibitedResponse.json().catch(() => null)
-    ]);
-
-    const responsePayload = {
-        items: Array.isArray(reportPayload?.items) ? reportPayload.items : [],
-        winnersFilteredItems: Array.isArray(winnersPayload?.items) ? winnersPayload.items : [],
-        prohibitedFilteredItems: Array.isArray(prohibitedPayload?.items) ? prohibitedPayload.items : []
-    };
-    const failedResponse = [reportResponse, winnersResponse, prohibitedResponse].find(
-        (response) => !response.ok
-    );
+    const reportQuery = `date_from=${dateFrom}&date_to=${dateTo}&branches=${encodeURIComponent(branches)}&draw_schedules=${encodeURIComponent(drawSchedules)}&grouping_modes=${encodeURIComponent(groupingModes)}`;
+    const reportResponse = await fetch(`${baseUrl}/report/filtered?${reportQuery}`, { method: 'GET', headers });
+    const responsePayload = await reportResponse.json().catch(() => null);
 
     return new Response(JSON.stringify(responsePayload), {
-        status: failedResponse?.status ?? 200,
+        status: reportResponse.status,
         headers: { 'Content-Type': 'application/json' }
     });
 };

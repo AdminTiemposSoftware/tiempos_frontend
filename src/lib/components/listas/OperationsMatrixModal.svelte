@@ -4,12 +4,6 @@
 
     type Matrix = Record<number, number>;
 
-    type OperationItem = {
-        operation?: unknown;
-        number?: unknown;
-        amount?: unknown;
-    };
-
     let {
         originalMatrix = {},
         operations = [],
@@ -293,7 +287,6 @@
     .list-title {
         font-size: 1.2rem;
         font-weight: bold;
-
     }
 
     .operations-comparison {

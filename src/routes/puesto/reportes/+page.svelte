@@ -1,12 +1,11 @@
 <script lang="ts">
-    import { auth } from '../../../lib/stores/auth';
-	import Report from '../../../lib/components/listas/Report.svelte';
+	import ReportPage from '$lib/components/listas/ReportPage.svelte';
 
 	let { data } = $props();
 </script>
 
 <svelte:head>
-    <title>Inicio</title>
+	<title>Reporte</title>
 </svelte:head>
 
-<Report user={$auth.user?.role} data={data} ignoredGroupingModes={['branch']} />
+<ReportPage data={data} />

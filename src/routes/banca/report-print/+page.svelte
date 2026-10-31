@@ -1,14 +1,13 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { page } from '$app/state';
-	import ReportModal from '$lib/components/listas/ReportModal.svelte';
+	import ReportPage from '$lib/components/listas/ReportPage.svelte';
 	import type { GroupingMode } from '$lib/components/venta/grouping';
 
 	let printed = false;
 	let data = $state<{
-		report?: unknown[];
-		winners?: unknown[];
-		prohibitedNumbers?: unknown[];
+		groups?: any[];
+		totals?: any;
 		groupingModes?: GroupingMode[];
 		printHeader?: {
 			branches: string[];
@@ -72,14 +71,12 @@
 </svelte:head>
 
 {#if data}
-	<ReportModal
-		report={Array.isArray(data.report) ? data.report : []}
-		winners={Array.isArray(data.winners) ? data.winners : []}
-		prohibitedNumbers={Array.isArray(data.prohibitedNumbers) ? data.prohibitedNumbers : []}
+	<ReportPage
+		groups={Array.isArray(data.groups) ? data.groups : []}
+		totals={data.totals}
 		initialGroupingModes={Array.isArray(data.groupingModes) ? data.groupingModes as GroupingMode[] : undefined}
 		printHeader={data.printHeader}
 		printable={true}
-		showModal={true}
 	/>
 {/if}
 
