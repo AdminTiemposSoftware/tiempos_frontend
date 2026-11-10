@@ -62,7 +62,10 @@
 	];
 
 	let visibleNavItems = $derived(
-		navItems.filter((item) => !item.roles || item.roles.includes(role))
+		navItems.filter((item) =>
+			!item.roles ||
+			item.roles.includes(role)
+		)
 	);
 </script>
 
