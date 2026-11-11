@@ -39,6 +39,7 @@
 			prohibited.amount === undefined ||
 			prohibited.starter === undefined
 		) {
+		    console.error('Error: todos los campos son requeridos');
 			return;
 		}
 
@@ -48,6 +49,7 @@
 			} else {
 				handleUpdateProhibitedNumber?.(prohibited);
 			}
+			prohibited = {id: -1, number: 0, amount: 0, starter: 0, can_sell_after_amount: false, by_amount: false, by_percentage: true};
 		} catch (error) {
 			console.error('Error al confirmar número restringido:', error);
 		}
