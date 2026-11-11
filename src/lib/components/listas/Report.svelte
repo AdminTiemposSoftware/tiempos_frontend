@@ -112,6 +112,7 @@
 
     async function handleConfirmDeleteProhibitedNumber() {
 		if (prohibitedNumberToDelete == null) {
+		    console.log('No hay número restringido para eliminar');
 			return;
 		}
 		try {
@@ -130,7 +131,8 @@
     		}
 
     		showUpdateProhibitedModal = false;
-    		prohibitedNumbers = prohibitedNumbers.filter((item) => item.number !== prohibitedNumberToDelete?.number);
+            selectedProhibitedNumber = {id: -1, number: 0, amount: 0, starter: 0, can_sell_after_amount: false, by_amount: false, by_percentage: true};
+    		prohibitedNumbers = prohibitedNumbers.filter((item) => item.id !== prohibitedNumberToDelete?.id);
     		prohibitedNumberToDelete = null;
             acts.add({
     			message: "Numero restringido eliminado.",
@@ -168,6 +170,7 @@
 		const by_amount = payload.by_amount;
 		const by_percentage = payload.by_percentage;
 		if (!Number.isFinite(amount)) {
+		    console.error('Error: el monto es requerido');
 			return;
 		}
 		try {
@@ -254,7 +257,7 @@
 		} catch (error) {
 		    console.error(error)
 			acts.add ({
-                message: 'Error al agregar el numero prohibido',
+                message: 'Error al modificar el numero prohibido',
 			    mode: 'error',
 				lifetime: 3
 			});
@@ -503,7 +506,6 @@
 
 <ProhibitedNumberModal
 	bind:showModal={showAddProhibitedModal}
-	bind:prohibited={selectedProhibitedNumber}
 	title="Agregar numero restringido"
 	confirmText="Guardar"
 	handleAddProhibitedNumber={handleAddProhibitedNumber}
