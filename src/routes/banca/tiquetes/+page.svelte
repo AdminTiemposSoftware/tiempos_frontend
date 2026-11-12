@@ -2,123 +2,28 @@
 	import { acts } from '@tadashi/svelte-notification';
 	import { auth } from '$lib/stores/auth';
 	import { getBancaFilterData } from '$lib/stores/bancaFilterCache';
-	import mockTicketPayload from '$lib/mocks/tickets.json';
 	import TicketAuditHeader from '$lib/components/tiquetes/TicketAuditHeader.svelte';
 	import TicketFilters from '$lib/components/tiquetes/TicketFilters.svelte';
 	import TicketResultsTable from '$lib/components/tiquetes/TicketResultsTable.svelte';
-	import type { Ticket } from '$lib/components/tiquetes/ticketTypes';
 
-	const USE_MOCK_DATA = import.meta.env.DEV;
-	const MOCK_BRANCHES = [
-		{ value: 1, label: 'Puesto Central' },
-		{ value: 2, label: 'Puesto Norte' },
-		{ value: 3, label: 'Puesto Escazú' }
-	];
-	const MOCK_SCHEDULES = [
-		{ value: 11, label: 'Tarde - 3:00 PM' },
-		{ value: 12, label: 'Noche - 8:00 PM' }
-	];
-	const MOCK_TICKETS: Ticket[] = [
-		{
-			id: 101,
-			relative_id: 24,
-			username: 'maria.rojas',
-			serial: 'TK-20261109-0024',
-			amount: 2500,
-			date: '2026-11-09',
-			time: '14:42:18',
-			printed_at: '2026-11-09 14:42:20',
-			detail: '04, 17, 32',
-			enabled: true,
-			deleted_by: null,
-			deleted_at: null,
-			branch_name: 'Puesto Central',
-			draw_name: 'Tarde',
-			draw_schedule_name: '3:00 PM'
-		},
-		{
-			id: 100,
-			relative_id: 23,
-			username: 'carlos.mora',
-			serial: 'TK-20261109-0023',
-			amount: 5000,
-			date: '2026-11-09',
-			time: '14:37:05',
-			printed_at: '2026-11-09 14:37:07',
-			detail: '08, 19, 44',
-			enabled: false,
-			deleted_by: 7,
-			deleted_by_name: 'ana.admin',
-			deleted_at: '2026-11-09 14:39:12',
-			branch_name: 'Puesto Norte',
-			draw_name: 'Tarde',
-			draw_schedule_name: '3:00 PM'
-		},
-		{
-			id: 99,
-			relative_id: 22,
-			username: 'maria.rojas',
-			serial: 'TK-20261109-0022',
-			amount: 1250,
-			date: '2026-11-09',
-			time: '13:58:43',
-			printed_at: '2026-11-09 13:58:45',
-			detail: '11, 25',
-			enabled: true,
-			deleted_by: null,
-			deleted_at: null,
-			branch_name: 'Puesto Central',
-			draw_name: 'Noche',
-			draw_schedule_name: '8:00 PM'
-		},
-		{
-			id: 98,
-			relative_id: 21,
-			username: 'jose.vargas',
-			serial: 'TK-20261108-0021',
-			amount: 7500,
-			date: '2026-11-08',
-			time: '19:22:11',
-			printed_at: '2026-11-08 19:22:13',
-			detail: '02, 14, 33, 48',
-			enabled: false,
-			deleted_by: 7,
-			deleted_by_name: 'ana.admin',
-			deleted_at: '2026-11-08 19:25:02',
-			branch_name: 'Puesto Escazú',
-			draw_name: 'Noche',
-			draw_schedule_name: '8:00 PM'
-		}
-	];
-
-	function buildMockTickets() {
-		const sourceTickets = mockTicketPayload.items as Ticket[];
-		const currentDate = today();
-
-		return Array.from({ length: 36 }, (_, index) => {
-			const source = sourceTickets[index % sourceTickets.length];
-			const isDeletedTicket = index % 5 === 1;
-			const hour = String(8 + (index % 12)).padStart(2, '0');
-			const minute = String((index * 7) % 60).padStart(2, '0');
-			const second = String((index * 13) % 60).padStart(2, '0');
-			const saleTime = `${hour}:${minute}:${second}`;
-
-			return {
-				...source,
-				id: 1000 + index,
-				relative_id: 100 + index,
-				serial: `TK-${currentDate.replaceAll('-', '')}-${String(index + 1).padStart(4, '0')}`,
-				amount: 1250 + (index % 7) * 1250,
-				date: index % 9 === 0 ? '2026-11-08' : currentDate,
-				time: saleTime,
-				printed_at: `${currentDate} ${saleTime}`,
-				enabled: !isDeletedTicket,
-				deleted_by: isDeletedTicket ? 7 : null,
-				deleted_by_name: isDeletedTicket ? 'ana.admin' : null,
-				deleted_at: isDeletedTicket ? `${currentDate} ${hour}:${minute}:${String((Number(second) + 3) % 60).padStart(2, '0')}` : null
-			};
-		});
-	}
+	type Ticket = {
+		id: number;
+		relative_id: number;
+		username: string | null;
+		serial: string;
+		amount: number | string;
+		date: string;
+		time: string | null;
+		printed_at?: string | null;
+		detail: string | null;
+		enabled: boolean;
+		deleted_by?: number | null;
+		deleted_at: string | null;
+		deleted_by_name?: string | null;
+		branch_name?: string | null;
+		draw_name?: string | null;
+		draw_schedule_name?: string | null;
+	};
 
 	let { data } = $props();
 	let branchNames = $state<{ value: number; label: string }[]>([]);
@@ -129,6 +34,7 @@
 	let selectedDrawSchedules = $state<number[]>([]);
 	let tickets = $state<Ticket[]>([]);
 	let ticketNumbers = $state<Record<string, number>>({});
+	let searchTerm = $state('');
 	let isLoading = $state(false);
 	let errorMessage = $state('');
 	let hasLoadedDefaults = $state(false);
@@ -142,11 +48,12 @@
 	}
 
 	function formatTime(value: string | null) {
-		return value ? value.slice(0, 8) : '-';
-	}
+		if (!value) {
+			return '-';
+		}
 
-	function formatDateTime(value: string | null) {
-		return value ? `${formatDate(value)} ${formatTime(value)}` : '-';
+		const time = value.includes('T') ? value.split('T')[1] : value.split(' ')[1];
+		return (time ?? value).slice(0, 8);
 	}
 
 	function isDeleted(ticket: Ticket) {
@@ -169,11 +76,6 @@
 			value: Number(schedule.draw_schedule_id),
 			label: `${schedule.draw_name} - ${schedule.draw_schedule_name}`
 		}));
-		if (USE_MOCK_DATA) {
-			branchNames = branchNames.length > 0 ? branchNames : MOCK_BRANCHES;
-			drawScheduleNames = drawScheduleNames.length > 0 ? drawScheduleNames : MOCK_SCHEDULES;
-		}
-
 		if (!hasLoadedDefaults && branchNames.length > 0 && drawScheduleNames.length > 0) {
 			hasLoadedDefaults = true;
 			const currentDate = today();
@@ -205,17 +107,6 @@
 
 		isLoading = true;
 		try {
-			if (USE_MOCK_DATA) {
-				const mockTickets = buildMockTickets();
-				tickets = mockTickets.filter((ticket) =>
-					ticket.date >= from &&
-					ticket.date <= to &&
-					selectedBranches.some((branchId) => branchNames.find((branch) => branch.value === branchId)?.label === ticket.branch_name) &&
-					selectedDrawSchedules.some((scheduleId) => drawScheduleNames.find((schedule) => schedule.value === scheduleId)?.label.endsWith(ticket.draw_schedule_name ?? ''))
-				);
-				ticketNumbers = Object.fromEntries(tickets.map((ticket) => [ticket.serial, ticket.detail?.split(',').length ?? 0]));
-				return;
-			}
 			const params = new URLSearchParams({
 				date_from: from,
 				date_to: to,
@@ -259,14 +150,23 @@
 	<section class="tickets-page">
 		<TicketAuditHeader />
 		<TicketFilters
-			from={from}
-			to={to}
-			selectedBranches={selectedBranches}
-			selectedDrawSchedules={selectedDrawSchedules}
+			bind:from
+			bind:to
+			bind:selectedBranches
+			bind:selectedDrawSchedules
 			branchOptions={branchNames}
 			scheduleOptions={drawScheduleNames}
 			onApply={fetchTickets}
 		/>
+		<div class="ticket-search">
+			<input
+				id="ticket-serial-search"
+				type="search"
+				placeholder="Ingrese el serial del tiquete"
+				aria-label="Buscar por serial"
+				bind:value={searchTerm}
+			/>
+		</div>
 
 		{#if errorMessage}
 			<div class="state-message error-state" role="alert">
@@ -287,9 +187,9 @@
 			<TicketResultsTable
 				tickets={tickets}
 				ticketNumbers={ticketNumbers}
+				{searchTerm}
 				{formatDate}
 				{formatTime}
-				{formatDateTime}
 				{isDeleted}
 			/>
 		{/if}
@@ -346,6 +246,17 @@
 
 	.filter-button span {
 		font-size: 1.2rem;
+	}
+
+	.ticket-search {
+		display: flex;
+		justify-content: flex-start;
+		margin-top: 1rem;
+	}
+
+	.ticket-search input {
+		width: min(100%, 22rem);
+		padding: 0.45rem 0.6rem;
 	}
 
 	.filter-strip,

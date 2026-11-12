@@ -1,37 +1,138 @@
 <script lang="ts">
-	import type { Ticket } from './ticketTypes';
+	type Ticket = {
+		id: number;
+		relative_id: number;
+		username: string | null;
+		serial: string;
+		amount: number | string;
+		date: string;
+		time: string | null;
+		printed_at?: string | null;
+		detail: string | null;
+		enabled: boolean;
+		deleted_by?: number | null;
+		deleted_at: string | null;
+		deleted_by_name?: string | null;
+		branch_name?: string | null;
+		draw_name?: string | null;
+		draw_schedule_name?: string | null;
+	};
+
+	type SortKey = 'ticket' | 'sale' | 'location' | 'seller' | 'status' | 'deletedBy';
 
 	let {
 		tickets,
 		ticketNumbers,
+		searchTerm = '',
 		formatDate,
 		formatTime,
-		formatDateTime,
 		isDeleted
 	}: {
 		tickets: Ticket[];
 		ticketNumbers: Record<string, number>;
+		searchTerm?: string;
 		formatDate: (value: string | null) => string;
 		formatTime: (value: string | null) => string;
-		formatDateTime: (value: string | null) => string;
 		isDeleted: (ticket: Ticket) => boolean;
 	} = $props();
+
+	let sortKey = $state<SortKey>('sale');
+	let sortDirection = $state<'asc' | 'desc'>('desc');
+	let resultsTable: HTMLElement;
+
+	function toggleSort(key: SortKey) {
+		if (sortKey === key) {
+			sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+		} else {
+			sortKey = key;
+			sortDirection = 'asc';
+		}
+
+		resultsTable?.scrollTo({ top: 0 });
+	}
+
+	function sortValue(ticket: Ticket, key: SortKey): string | number {
+		switch (key) {
+			case 'ticket':
+				return ticket.relative_id;
+			case 'sale':
+				return `${ticket.date} ${ticket.time ?? ''}`;
+			case 'location':
+				return `${ticket.branch_name ?? ''} ${ticket.draw_name ?? ''} ${ticket.draw_schedule_name ?? ''}`;
+			case 'seller':
+				return ticket.username ?? '';
+			case 'status':
+				return isDeleted(ticket) ? 1 : 0;
+			case 'deletedBy':
+				return ticket.deleted_by_name ?? '';
+		}
+	}
+
+	function compareTickets(left: Ticket, right: Ticket) {
+		const leftValue = sortValue(left, sortKey);
+		const rightValue = sortValue(right, sortKey);
+		let comparison: number;
+
+		if (typeof leftValue === 'number' && typeof rightValue === 'number') {
+			comparison = leftValue - rightValue;
+		} else {
+			comparison = String(leftValue).localeCompare(String(rightValue), undefined, {
+				numeric: true,
+				sensitivity: 'base'
+			});
+		}
+
+		return sortDirection === 'asc' ? comparison : -comparison;
+	}
+
+	let sortedTickets = $derived.by(() => {
+		const query = searchTerm.trim().toLowerCase();
+		const matchingTickets = query
+			? tickets.filter((ticket) => ticket.serial.toLowerCase().includes(query))
+			: tickets;
+
+		return [...matchingTickets].sort(compareTickets);
+	});
 </script>
 
-<section class="table-scroll table-scroll--rows results" aria-label="Tiquetes encontrados">
+<section class="results" bind:this={resultsTable} aria-label="Tiquetes encontrados">
 	<table>
 		<thead>
 			<tr>
-				<th>Tiquete</th>
-				<th>Venta</th>
-				<th>Puesto / sorteo</th>
-				<th>Vendedor</th>
-				<th>Estado</th>
-				<th>Eliminado por</th>
+				<th aria-sort={sortKey === 'ticket' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
+					<button type="button" onclick={() => toggleSort('ticket')}>
+						Tiquete <span class="sort-indicator">{sortKey === 'ticket' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}</span>
+					</button>
+				</th>
+				<th aria-sort={sortKey === 'sale' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
+					<button type="button" onclick={() => toggleSort('sale')}>
+						Venta <span class="sort-indicator">{sortKey === 'sale' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}</span>
+					</button>
+				</th>
+				<th aria-sort={sortKey === 'location' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
+					<button type="button" onclick={() => toggleSort('location')}>
+						Puesto / sorteo <span class="sort-indicator">{sortKey === 'location' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}</span>
+					</button>
+				</th>
+				<th aria-sort={sortKey === 'seller' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
+					<button type="button" onclick={() => toggleSort('seller')}>
+						Vendedor <span class="sort-indicator">{sortKey === 'seller' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}</span>
+					</button>
+				</th>
+				<th aria-sort={sortKey === 'status' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
+					<button type="button" onclick={() => toggleSort('status')}>
+						Estado <span class="sort-indicator">{sortKey === 'status' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}</span>
+					</button>
+				</th>
+				<th aria-sort={sortKey === 'deletedBy' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
+					<button type="button" onclick={() => toggleSort('deletedBy')}>
+						Eliminado por <span class="sort-indicator">{sortKey === 'deletedBy' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}</span>
+					</button>
+				</th>
 			</tr>
 		</thead>
 		<tbody>
-		{#each tickets as ticket (ticket.id)}
+		{#each sortedTickets as ticket (ticket.id)}
 			<tr class:deleted={isDeleted(ticket)}>
 				<td>
 					<strong class="ticket-id">#{String(ticket.relative_id).padStart(3, '0')}</strong>
@@ -39,7 +140,7 @@
 				</td>
 				<td>
 					<strong>{formatDate(ticket.date)} · {formatTime(ticket.time)}</strong>
-					<small>{ticketNumbers[ticket.serial] ?? 0} números · impreso {formatDateTime(ticket.printed_at ?? ticket.time)}</small>
+					<small>{ticketNumbers[ticket.serial] ?? 0} números</small>
 				</td>
 				<td>
 					<strong>{ticket.branch_name || '-'}</strong>
@@ -57,7 +158,7 @@
 				<td>
 					<strong>{isDeleted(ticket) ? ticket.deleted_by_name || `Usuario #${ticket.deleted_by ?? '-'}` : '-'}</strong>
 					{#if isDeleted(ticket)}
-						<small>{formatDateTime(ticket.deleted_at)}</small>
+						<small>{formatDate(ticket.deleted_at)} · {formatTime(ticket.deleted_at)}</small>
 					{/if}
 				</td>
 			</tr>
@@ -68,6 +169,7 @@
 
 <style>
 	.results {
+		display: block;
 		width: 100%;
 		margin-top: 1.5rem;
 		max-height: min(70vh, 620px);
@@ -90,6 +192,35 @@
 		font-weight: 600;
 		letter-spacing: 0.05em;
 		text-transform: uppercase;
+	}
+
+	th button {
+		display: flex;
+		width: max-content;
+		min-width: 100%;
+		align-items: center;
+		justify-content: flex-start;
+		gap: 0.3rem;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		letter-spacing: inherit;
+		text-align: left;
+		white-space: nowrap;
+		cursor: pointer;
+	}
+
+	th button:hover,
+	th button:focus-visible {
+		color: var(--color-theme-1);
+	}
+
+	.sort-indicator {
+		font-size: 1.35rem;
+		font-weight: 800;
+		line-height: 0.8;
 	}
 
 	td {
