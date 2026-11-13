@@ -1,11 +1,5 @@
 <script lang="ts">
-    import TooltipGroupNode from './TooltipGroupNode.svelte';
-    import {
-        buildGroupingTree,
-        groupReportByNumber,
-        type GroupingMode,
-        type ReportItem
-    } from './grouping';
+    import { formatAmount, type ReportItem } from './grouping';
 
     let {
         mode = $bindable<'20x5' | '5x20' | '10x10'>('10x10'),
@@ -14,8 +8,8 @@
         animateKey = $bindable<string | number | null>(null),
         isLoading = $bindable<boolean>(false),
         report = $bindable<ReportItem[]>([]),
-        groupingModes = $bindable<GroupingMode[]>([]),
-        groupingMode = $bindable<GroupingMode | null>(null),
+        numberTotals = {},
+        breakdown = {},
         useSellingMatrixFallback = true,
         winnerNumbers = [],
         reportProhibitedNumbers = []
@@ -26,29 +20,16 @@
 
     let groupedNumbers = $state<Record<number, ReportItem[]>>({});
     let hoveredIndex = $state<number | null>(null);
-    const activeGroupingModes = $derived(
-        ((groupingModes.length > 0 ? groupingModes : groupingMode ? [groupingMode] : ['branch']) as GroupingMode[])
-    );
+    type BreakdownRow = { draw: string; draw_schedule: string; branch: string; total: number };
+    const numberTotalsByNumber = $derived(numberTotals as Record<number, number>);
+    const breakdownByNumber = $derived(breakdown as Record<number, BreakdownRow[]>);
     const prohibitedNumberSet = $derived(
         new Set($prohibitedNumbers.map((item) => item.number))
     );
     const reportProhibitedNumberSet = $derived(new Set(reportProhibitedNumbers));
     const winnerNumberSet = $derived(new Set(winnerNumbers));
-    const amountsByNumber = $derived.by(() => {
-        const amounts = new Map<number, number>();
-
-        for (const item of report) {
-            amounts.set(item.number, (amounts.get(item.number) ?? 0) + item.amount);
-        }
-
-        return amounts;
-    });
-
-    let hoveredReportItems = $derived(hoveredIndex === null ? [] : (groupedNumbers[hoveredIndex] ?? []));
-
-    let hoveredGroupingTree = $derived(
-        hoveredReportItems.length === 0 ? [] : buildGroupingTree(hoveredReportItems, activeGroupingModes)
-    );
+    const amountsByNumber = $derived(numberTotalsByNumber);
+    let hoveredBreakdown = $derived(hoveredIndex === null ? [] : (breakdownByNumber[hoveredIndex] ?? []));
 
     $effect(() => {
         if (mode === '20x5') {
@@ -64,7 +45,9 @@
     });
 
     $effect(() => {
-        groupedNumbers = groupReportByNumber(report);
+        groupedNumbers = Object.fromEntries(
+            Object.keys(numberTotalsByNumber).map((number) => [Number(number), [{} as ReportItem]])
+        );
     });
 
     function showTooltip(index: number) {
@@ -76,7 +59,7 @@
     }
 
     function getAmount(index: number) {
-        const reportAmount = amountsByNumber.get(index);
+        const reportAmount = amountsByNumber[index];
         if (reportAmount !== undefined) {
             return reportAmount;
         }
@@ -110,11 +93,17 @@
                             onmouseenter={() => showTooltip(index)}
                             onmouseleave={clearTooltip}
                         >
-                            {#if hoveredIndex === index && hoveredGroupingTree.length > 0}
+                            {#if hoveredIndex === index && hoveredBreakdown.length > 0}
                                 <div class="report-tooltip" role="tooltip">
                                     <ul class="tooltip-groups">
-                                        {#each hoveredGroupingTree as node}
-                                            <TooltipGroupNode node={node} />
+                                        {#each hoveredBreakdown as item}
+                                            <li class="tooltip-node">
+                                                <div class="group-header">
+                                                    <span class="group-label">{item.draw}</span>
+                                                    <span class="group-subtotal">{formatAmount(item.total)}</span>
+                                                </div>
+                                                <div>{item.draw_schedule} - {item.branch}</div>
+                                            </li>
                                         {/each}
                                     </ul>
                                 </div>

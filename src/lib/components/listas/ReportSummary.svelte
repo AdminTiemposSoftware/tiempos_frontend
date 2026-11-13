@@ -1,164 +1,18 @@
 <script lang="ts">
 	import { formatAmount } from '../../printing/printing';
-	import type { ReportItem } from '../venta/grouping';
-
 	let {
-		report = [],
-		prohibitedNumbers = [],
-		winners = []
+		summary = {}
 	} = $props();
-
-	function dateKey(value: string) {
-		return String(value).split('T')[0];
-	}
-
-	function scopeKey(item: ReportItem) {
-		return `${dateKey(item.date)}|${item.branch_id}|${item.draw_schedule_id}`;
-	}
-
-	function getProhibited(item: ReportItem) {
-		return prohibitedNumbers.find((candidate) =>
-			Number(candidate.number) === Number(item.number) &&
-			(candidate.branch_id == null || Number(candidate.branch_id) === Number(item.branch_id)) &&
-			dateKey(candidate.date) === dateKey(item.date)
-		);
-	}
-
-	function getItemDevolution(item: ReportItem, totalByScope: Map<string, number>) {
-		const prohibited = getProhibited(item);
-		if (!prohibited) {
-			return 0;
-		}
-
-		const amount = Number(item.amount);
-		const limit = Number(prohibited.amount);
-		const starter = Number(prohibited.starter);
-		const scopeTotal = totalByScope.get(scopeKey(item)) ?? 0;
-
-		if (prohibited.by_amount && Number.isFinite(limit) && amount > limit) {
-			return amount - limit;
-		}
-
-		if (
-			prohibited.by_percentage &&
-			Number.isFinite(starter) &&
-			Number.isFinite(Number(prohibited.percentage)) &&
-			amount > starter &&
-			amount > scopeTotal * Number(prohibited.percentage) * 0.01
-		) {
-			return amount - scopeTotal * Number(prohibited.percentage) * 0.01;
-		}
-
-		return 0;
-	}
-
-	function getMatchingWinners(item: ReportItem) {
-		return winners.filter((winner) =>
-			winner.winner_number != null &&
-			Number(winner.winner_number) === Number(item.number) &&
-			dateKey(winner.date) === dateKey(item.date) &&
-			Number(winner.schedule_id) === Number(item.draw_schedule_id)
-		);
-	}
-
-	const total = $derived(report.reduce((sum, item) => sum + Number(item.amount), 0));
-
-	const devolution = $derived.by(() => {
-		const totalsByScope = new Map<string, number>();
-
-		for (const item of report) {
-			totalsByScope.set(
-				scopeKey(item),
-				(totalsByScope.get(scopeKey(item)) ?? 0) + Number(item.amount)
-			);
-		}
-
-		return report.reduce((sum, item) => {
-			return sum + getItemDevolution(item, totalsByScope);
-		}, 0);
-	});
-
-	const winnerTotal = $derived.by(() => {
-		const totalsByScope = new Map<string, number>();
-		for (const item of report) {
-			totalsByScope.set(
-				scopeKey(item),
-				(totalsByScope.get(scopeKey(item)) ?? 0) + Number(item.amount)
-			);
-		}
-
-		return report.reduce((sum, item) => {
-			const itemDevolution = getItemDevolution(item, totalsByScope);
-			const matchingWinners = getMatchingWinners(item);
-
-			return sum + matchingWinners.reduce((winnerSum, winner) => {
-				return winnerSum + (Number(item.amount) - itemDevolution) * Number(winner.position_multiplier);
-			}, 0);
-		}, 0);
-	});
-
-	const devolutionWinnerTotal = $derived.by(() => {
-		const totalsByScope = new Map<string, number>();
-		for (const item of report) {
-			totalsByScope.set(
-				scopeKey(item),
-				(totalsByScope.get(scopeKey(item)) ?? 0) + Number(item.amount)
-			);
-		}
-
-		return report.reduce((sum, item) => {
-			const itemDevolution = getItemDevolution(item, totalsByScope);
-			const branchBuyFirstPlace = Number(item.branch_buy_first_place);
-
-			if (!Number.isFinite(branchBuyFirstPlace)) {
-				return sum;
-			}
-
-			return getMatchingWinners(item).length > 0
-				? sum + itemDevolution * branchBuyFirstPlace
-				: sum;
-		}, 0);
-	});
-
-	const devolutionBuyTotal = $derived.by(() => {
-		const totalsByScope = new Map<string, number>();
-		for (const item of report) {
-			totalsByScope.set(
-				scopeKey(item),
-				(totalsByScope.get(scopeKey(item)) ?? 0) + Number(item.amount)
-			);
-		}
-
-		return report.reduce((sum, item) => {
-			const branchBuy = Number(item.branch_buy);
-			if (!Number.isFinite(branchBuy)) {
-				return sum;
-			}
-
-			return sum + getItemDevolution(item, totalsByScope) * branchBuy * 0.01;
-		}, 0);
-	});
-
-	const netDevolutionTotal = $derived(devolution - devolutionWinnerTotal);
-
-
-	const adjustedTotal = $derived(total - devolution);
-	const commission = $derived.by(() => {
-		const totalsByScope = new Map<string, number>();
-		for (const item of report) {
-			totalsByScope.set(
-				scopeKey(item),
-				(totalsByScope.get(scopeKey(item)) ?? 0) + Number(item.amount)
-			);
-		}
-
-		return report.reduce((sum, item) => {
-			const amount = Number(item.amount);
-			const itemDevolution = getItemDevolution(item, totalsByScope);
-			return sum + (amount - itemDevolution) * Number(item.branch_comission) * 0.01;
-		}, 0);
-	});
-	const netTotal = $derived(adjustedTotal - commission - winnerTotal);
+	const value = (key: string) => Number(summary[key] ?? 0);
+	const total = $derived(value('total'));
+	const devolution = $derived(value('devolution'));
+	const devolutionBuyTotal = $derived(value('devolution_buy'));
+	const devolutionWinnerTotal = $derived(value('devolution_winner_total'));
+	const netDevolutionTotal = $derived(value('net_devolution'));
+	const adjustedTotal = $derived(value('adjusted_total'));
+	const commission = $derived(value('commission'));
+	const winnerTotal = $derived(value('winner_total'));
+	const netTotal = $derived(value('net_total'));
 </script>
 
 <div class="report-summary">
