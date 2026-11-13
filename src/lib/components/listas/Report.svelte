@@ -9,14 +9,8 @@
 	import {acts} from '@tadashi/svelte-notification'
 	import SelectModal from '../SelectModal.svelte';
 	import { formatAmount } from '../../printing/printing';
-	import { GROUPING_OPTIONS, type GroupingMode, type ReportItem } from '../venta/grouping';
+	import type { ReportItem } from '../venta/grouping';
 	import { getBancaFilterData } from '../../stores/bancaFilterCache';
-
-	type ReportProps = {
-	    data: any;
-	    user?: string;
-	    ignoredGroupingModes?: GroupingMode[];
-	};
 
 	const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
 	let prohibitedNumberToDelete = $state<prohibitedNumber | null>(null);
@@ -27,33 +21,18 @@
 	let selectedProhibitedNumber = $state<prohibitedNumber>({id: -1, number: 0, amount: 0, starter: 0, can_sell_after_amount: false, by_amount: false, by_percentage: true});
 	let branchNames = $state<{ value: number; label: string }[]>([]);
 	let drawScheduleNames = $state<{ value: number; label: string }[]>([]);
-	let scheduleBranch = $state<{ value: number; label: string }[]>([]);
 	let selectedBranch = $state<number[]>([]);
 	let selectedDrawSchedule = $state<number[]>([]);
-	let { data, user, ignoredGroupingModes = [] }: ReportProps = $props();
-	const availableGroupingOptions = $derived(
-		GROUPING_OPTIONS.filter((option) => !ignoredGroupingModes.includes(option.value))
-	);
-	function getDefaultGroupingModes() {
-		return availableGroupingOptions.length > 0 ? [availableGroupingOptions[0].value] : [];
-	}
-	function sanitizeGroupingModes(modes: GroupingMode[]) {
-		const filtered = modes.filter((mode) => !ignoredGroupingModes.includes(mode));
-		return filtered.length > 0 ? filtered : getDefaultGroupingModes();
-	}
-	let groupingModes = $state<GroupingMode[]>(sanitizeGroupingModes(['draw_schedule']));
-	$effect(() => {
-		const sanitized = sanitizeGroupingModes(groupingModes);
-		if (sanitized.length !== groupingModes.length || sanitized.some((mode, index) => groupingModes[index] !== mode)) {
-			groupingModes = sanitized;
-		}
-	});
+	let { data, user }: ReportProps = $props();
 	let matrixMode = $state<'20x5' | '5x20' | '10x10'>('10x10');
 	let from =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let to =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let report = $state<ReportItem[]>([]);
 	let isLoading = $state<boolean>(false);
-	let showGroupingOptions = $state(false);
+	let numberTotals = $state<Record<number, number>>({});
+	let breakdown = $state<Record<number, { draw: string; draw_schedule: string; branch: string; total: number }[]>>({});
+	let devolutionBreakdown = $state<any[]>([]);
+	let summary = $state<Record<string, number>>({});
 	let showExportModal = $state<boolean>(false);
 	let reportQrData = $state<Record<number, number>>({});
 	let totalQr = $state<number>(0);
@@ -61,21 +40,7 @@
 	let sorteosQr = $state<string[]>([]);
     let winnersFiltered = $state<WinnerItem[]>([]);
     let prohibitedFiltered = $state<prohibitedItem[]>([]);
-    let totalAmountReport = $derived(report.reduce((acc, item) => acc + item.amount, 0));
-    const printHeader = $derived({
-        branches: selectedBranch.length === 0 || selectedBranch.includes(0)
-            ? branchNames.slice(1).map((item) => item.label)
-            : branchNames
-                .filter((item) => selectedBranch.includes(item.value))
-                .map((item) => item.label),
-        drawSchedules: selectedDrawSchedule.length === 0 || selectedDrawSchedule.includes(0)
-            ? drawScheduleNames.slice(1).map((item) => item.label)
-            : drawScheduleNames
-                .filter((item) => selectedDrawSchedule.includes(item.value))
-                .map((item) => item.label),
-        dateFrom: from,
-        dateTo: to
-    });
+    let totalAmountReport = $derived(Object.values(numberTotals).reduce((acc, amount) => acc + amount, 0));
 
     type WinnerItem = {
         position_number: number;
@@ -108,6 +73,11 @@
 		can_sell_after_amount: boolean;
 		by_amount: boolean;
 		by_percentage: boolean;
+	};
+
+	type ReportProps = {
+	    data: any;
+	    user?: string;
 	};
 
     async function handleConfirmDeleteProhibitedNumber() {
@@ -349,30 +319,15 @@
     		}
 
     		const data = await response.json();
-    		const dataItems = Array.isArray(data?.items)
-    			? (data.items as any[])
-    			: [];
-
-    		report = dataItems.map((item) => ({
-    			branch_id: Number(item.branch_id),
-    			branch_name: String(item.branch_name),
-                branch_comission: Number(item.branch_comission),
-                branch_buy: Number(item.branch_buy),
-                branch_buy_first_place: Number(item.branch_buy_first_place),
-    			draw_schedule_id: Number(item.draw_schedule_id),
-    			draw_schedule_name: String(item.draw_schedule_name),
-    			draw_id: Number(item.draw_id),
-    			draw_name: String(item.draw_name),
-    			number: Number(item.number),
-    			amount: Number(item.amount),
-    			is_reventado: Boolean(item.is_reventado),
-    			is_megareventado: Boolean(item.is_megareventado),
-    			date: String(item.date)
-    		})).filter(
-    			(item) => Number.isFinite(item.number) && Number.isFinite(item.amount))
-    		.sort((a, b) => a.number - b.number);
-
-            console.log(report);
+			numberTotals = Object.fromEntries(
+				(Array.isArray(data?.numbers) ? data.numbers : []).map((item: { number: number; total: number }) => [
+					Number(item.number), Number(item.total)
+				])
+			);
+			breakdown = data?.breakdown ?? {};
+			devolutionBreakdown = Array.isArray(data?.devolutionBreakdown) ? data.devolutionBreakdown : [];
+			summary = data?.summary ?? {};
+			report = [];
 
 			const winnerItems = Array.isArray(data?.winnersFilteredItems)
 				? data.winnersFilteredItems as WinnerItem[]
@@ -393,7 +348,6 @@
 			prohibitedFiltered = prohibitedItems;
 			console.log(winnerItems);
 
-			totalAmountReport = report.reduce((acc, item) => acc + item.amount, 0);
 			isLoading = false;
 		} catch (error) {
 			acts.add({
@@ -416,57 +370,13 @@
 		showUpdateProhibitedModal = true;
 	}
 
-	function toggleGroupingMode(mode: GroupingMode) {
-		if (ignoredGroupingModes.includes(mode)) {
-			return;
-		}
-		if (groupingModes.includes(mode)) {
-			if (groupingModes.length === 1) {
-				return;
-			}
-
-			groupingModes = groupingModes.filter((item) => item !== mode);
-			return;
-		}
-
-		groupingModes = [...groupingModes, mode];
-	}
-
-	function moveGroupingMode(mode: GroupingMode, direction: -1 | 1) {
-		if (ignoredGroupingModes.includes(mode)) {
-			return;
-		}
-		const currentIndex = groupingModes.indexOf(mode);
-
-		if (currentIndex === -1) {
-			return;
-		}
-
-		const targetIndex = currentIndex + direction;
-
-		if (targetIndex < 0 || targetIndex >= groupingModes.length) {
-			return;
-		}
-
-		const nextModes = [...groupingModes];
-		[nextModes[currentIndex], nextModes[targetIndex]] = [nextModes[targetIndex], nextModes[currentIndex]];
-		groupingModes = nextModes;
-	}
-
-	function getGroupingModeLabel(mode: GroupingMode) {
-		return GROUPING_OPTIONS.find((option: { value: GroupingMode; label: string }) => option.value === mode)?.label ?? mode;
-	}
-
 	async function handleShowExportModal() {
-		if (report.length === 0) {
+		if (Object.keys(numberTotals).length === 0) {
 			reportQrData = Object.fromEntries(
 				Array.from({ length: 100 }, (_, i) => [i, 0])
 			);
 		} else {
-			reportQrData = report.reduce((acc: Record<number, number>, item: ReportItem) => {
-				acc[item.number] = (acc[item.number] || 0) + item.amount;
-				return acc;
-			}, {});
+			reportQrData = numberTotals;
 		}
 		totalQr = Object.values(reportQrData).reduce((acc, amount) => acc + amount, 0);
 		puestosQr = selectedBranch.length === 0 || selectedBranch.includes(0)
@@ -562,7 +472,8 @@
         <Matrix
 			bind:report={report}
 			bind:isLoading={isLoading}
-			bind:groupingModes={groupingModes}
+			numberTotals={numberTotals}
+			breakdown={breakdown}
 			mode={matrixMode}
 			useSellingMatrixFallback={false}
 			winnerNumbers={winnersFiltered
@@ -599,59 +510,15 @@
                 10x10
             </button>
         </div>
-        <div class="field grouping-field">
-           	<button
-          		type="button"
-          		class="grouping-toggle"
-          		aria-expanded={showGroupingOptions}
-          		aria-controls="grouping-options"
-          		onclick={() => { showGroupingOptions = !showGroupingOptions; }}
-           	>
-          		Agrupación {showGroupingOptions ? '⌄' : '>'}
-           	</button>
-               	{#if showGroupingOptions}
-                    <div id="grouping-options">
-             			<div class="grouping-options">
-                            {#each availableGroupingOptions as option}
-               					<button
-              						type="button"
-              						class={`grouping-option ${groupingModes.includes(option.value) ? 'selected' : ''}`}
-              						onclick={() => toggleGroupingMode(option.value)}
-               					>
-          						<input type="checkbox" checked={groupingModes.includes(option.value)} readonly />
-          						<span>{option.label}</span>
-               					</button>
-            				{/each}
-             			</div>
-             			<div class="grouping-order">
-            				<label for="orden">Orden</label>
-            				<div class="grouping-chip-list">
-               					{#each groupingModes as mode, index}
-              						<div class="chip">
-             							<span>{index + 1}. {getGroupingModeLabel(mode)}</span>
-             							<div class="grouping-chip-actions">
-            								<button type="button" onclick={() => moveGroupingMode(mode, -1)} disabled={index === 0}>↑</button>
-            								<button type="button" onclick={() => moveGroupingMode(mode, 1)} disabled={index === groupingModes.length - 1}>↓</button>
-             							</div>
-              						</div>
-               					{/each}
-            				</div>
-             			</div>
-              		</div>
-               	{/if}
-            </div>
         </div>
     </div>
 
     <div class="content">
         <ReportSummary
-    		report={report}
-    		prohibitedNumbers={prohibitedFiltered}
-    		winners={winnersFiltered}
+    		summary={summary}
         />
         <DevolutionBreakdown
-        	report={report}
-        	prohibitedNumbers={prohibitedFiltered}
+        	rows={devolutionBreakdown}
         />
     </div>
     {#if user === 'banking'}
