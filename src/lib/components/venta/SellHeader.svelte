@@ -172,7 +172,17 @@
         <div class="header-content left">
             <div class="spans">
                 <span>Día:</span>
-                <input type="date" id="date" bind:value={selectedDate} min={today} />
+                <input
+                    type="date"
+                    id="date"
+                    bind:value={selectedDate}
+                    min={today}
+                    onchange={() => {
+                        if (selectedDate < today) {
+                            selectedDate = today;
+                        }
+                    }}
+                />
             </div>
             <div class="spans">
                 <span class="label">Total:</span>
