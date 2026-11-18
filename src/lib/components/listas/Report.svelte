@@ -23,7 +23,7 @@
 	let drawScheduleNames = $state<{ value: number; label: string }[]>([]);
 	let selectedBranch = $state<number[]>([]);
 	let selectedDrawSchedule = $state<number[]>([]);
-	let { data, user }: ReportProps = $props();
+	let { data, user, responsive = false }: ReportProps = $props();
 	let matrixMode = $state<'20x5' | '5x20' | '10x10'>('10x10');
 	let from =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let to =  $state(utcMinus6Date.toISOString().split('T')[0]);
@@ -78,6 +78,7 @@
 	type ReportProps = {
 	    data: any;
 	    user?: string;
+	    responsive?: boolean;
 	};
 
     async function handleConfirmDeleteProhibitedNumber() {
@@ -469,6 +470,8 @@
                 <p class="total-amount-label">₡{formatAmount(totalAmountReport)} </p>
             </div>
         </div>
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard access to the horizontal scroll region) -->
+        <div class="report-matrix-scroll" style:--report-amount-width={`${Math.max(4, String(Math.round(totalAmountReport)).length + 2, ...Object.values(numberTotals).map(value => String(Math.round(value)).length + 2))}ch`} role={responsive ? "region" : undefined} aria-label={responsive ? "Matriz de números" : undefined} tabindex={responsive ? 0 : undefined}>
         <Matrix
 			bind:report={report}
 			bind:isLoading={isLoading}
@@ -484,6 +487,7 @@
     			.map((item) => Number(item.number))
     			.filter((number) => Number.isFinite(number))}
 			/>
+        </div>
     </div>
     <div class="right">
         <div class="column">
@@ -567,6 +571,7 @@
 </section>
 
 <style>
+	.report-matrix-scroll { display: contents; }
     .inicio {
         flex: 1;
 		justify-content: space-between;
