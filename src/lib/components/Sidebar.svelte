@@ -280,6 +280,8 @@
 
 
 	.logout {
+		justify-content: center;
+		text-align: center;
 		position: absolute;
 		bottom: 0;
 		left: 0;

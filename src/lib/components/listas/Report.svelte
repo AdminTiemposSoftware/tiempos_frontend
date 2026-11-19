@@ -24,6 +24,8 @@
 	let selectedBranch = $state<number[]>([]);
 	let selectedDrawSchedule = $state<number[]>([]);
 	let { data, user, responsive = false }: ReportProps = $props();
+	// Inicio uses fresh route data instead of a module cache shared with other reports.
+	let bancaFilterData = $derived(responsive ? (data ?? {}) : getBancaFilterData(data ?? {}));
 	let matrixMode = $state<'20x5' | '5x20' | '10x10'>('10x10');
 	let from =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let to =  $state(utcMinus6Date.toISOString().split('T')[0]);
@@ -255,8 +257,8 @@
     });
 
 	$effect(() => {
-		const filterData = getBancaFilterData(data ?? {});
-		const branchNamesItems = filterData.branchNames as any[];
+		const filterData = bancaFilterData;
+		const branchNamesItems = Array.isArray(filterData.branchNames) ? filterData.branchNames : [];
 		branchNames = [
 			...branchNamesItems.map((item) => ({
 				value: Number(item.id),
@@ -266,8 +268,8 @@
 	});
 
 	$effect(() => {
-		const filterData = getBancaFilterData(data ?? {});
-		const scheduleNamesItems = filterData.scheduleNames as any[];
+		const filterData = bancaFilterData;
+		const scheduleNamesItems = Array.isArray(filterData.scheduleNames) ? filterData.scheduleNames : [];
 		drawScheduleNames = [
 			...scheduleNamesItems.map((item) => ({
 				value: Number(item.draw_schedule_id),
@@ -432,7 +434,7 @@
 	total={totalQr}
 	branchNames={branchNames}
 	drawScheduleNames={drawScheduleNames}
-	scheduleBranch={getBancaFilterData(data ?? {}).scheduleBranch}
+	scheduleBranch={bancaFilterData.scheduleBranch ?? []}
 />
 
 <section class="inicio">
