@@ -54,10 +54,8 @@
 		grid-template-columns: minmax(8rem, 0.65fr) minmax(8rem, 0.65fr) minmax(14rem, 1.5fr) minmax(14rem, 1.5fr) auto;
 		align-items: end;
 		gap: 1rem;
-		margin-top: 1.5rem;
 		padding: 1rem;
 		border: 1px solid var(--color-border);
-		background: var(--color-box-background);
 	}
 
 	.field {

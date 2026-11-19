@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { auth } from '../../stores/auth';
     import { onMount, tick } from "svelte";
     import { acts } from '@tadashi/svelte-notification';
     import ConfirmModal from "../ConfirmModal.svelte";

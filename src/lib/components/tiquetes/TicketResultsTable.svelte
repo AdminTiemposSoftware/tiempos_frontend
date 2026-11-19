@@ -1,4 +1,6 @@
 <script lang="ts">
+	import TicketPreviewModal from '../venta/TicketPreviewModal.svelte';
+
 	type Ticket = {
 		id: number;
 		relative_id: number;
@@ -18,19 +20,38 @@
 		draw_schedule_name?: string | null;
 	};
 
+	type TicketNumber = {
+		ticket_header_serial?: string | null;
+		number?: number | string | null;
+		amount?: number | string | null;
+		amount_name?: string | null;
+		is_reventado?: boolean;
+		is_megareventado?: boolean;
+	};
+
 	type SortKey = 'ticket' | 'sale' | 'location' | 'seller' | 'status' | 'deletedBy';
 
 	let {
 		tickets,
 		ticketNumbers,
 		searchTerm = '',
+		databaseTicket = null,
+		databaseTicketNumbers = [],
+		isDatabaseSearching = false,
+		databaseSearchError = '',
+		onSearchDatabase,
 		formatDate,
 		formatTime,
 		isDeleted
 	}: {
 		tickets: Ticket[];
-		ticketNumbers: Record<string, number>;
+		ticketNumbers: TicketNumber[];
 		searchTerm?: string;
+		databaseTicket?: Ticket | null;
+		databaseTicketNumbers?: TicketNumber[];
+		isDatabaseSearching?: boolean;
+		databaseSearchError?: string;
+		onSearchDatabase?: (serial: string) => void;
 		formatDate: (value: string | null) => string;
 		formatTime: (value: string | null) => string;
 		isDeleted: (ticket: Ticket) => boolean;
@@ -39,6 +60,41 @@
 	let sortKey = $state<SortKey>('sale');
 	let sortDirection = $state<'asc' | 'desc'>('desc');
 	let resultsTable: HTMLElement;
+	let selectedTicket = $state<Record<string, unknown> | null>(null);
+	let showTicketPreviewModal = $state(false);
+
+	function handleView(ticket: Ticket) {
+		const numbers = ticket === databaseTicket ? databaseTicketNumbers : ticketNumbers;
+		const numbersSold: Record<number, number> = {};
+		const amountNames: Record<number, string | null> = {};
+
+		for (const item of numbers) {
+			if (item.ticket_header_serial !== ticket.serial || item.number == null) {
+				continue;
+			}
+
+			const number = Number(item.number);
+			if (!Number.isFinite(number)) {
+				continue;
+			}
+
+			numbersSold[number] = (numbersSold[number] ?? 0) + (Number(item.amount) || 0);
+			amountNames[number] = item.amount_name ?? null;
+		}
+
+		selectedTicket = {
+			...ticket,
+			details: ticket.detail ?? '',
+			branch_name: ticket.branch_name ?? '',
+			draw_name: ticket.draw_name ?? '',
+			draw_schedule_name: ticket.draw_schedule_name ?? '',
+			time: ticket.time ?? '',
+			username: ticket.username ?? '',
+			numbersSold,
+			amountNames
+		};
+		showTicketPreviewModal = true;
+	}
 
 	function toggleSort(key: SortKey) {
 		if (sortKey === key) {
@@ -90,12 +146,18 @@
 		const matchingTickets = query
 			? tickets.filter((ticket) => ticket.serial.toLowerCase().includes(query))
 			: tickets;
+		const databaseMatch =
+			query && databaseTicket?.serial.toLowerCase() === query ? [databaseTicket] : [];
 
-		return [...matchingTickets].sort(compareTickets);
+		return [...(matchingTickets.length > 0 ? matchingTickets : databaseMatch)].sort(compareTickets);
 	});
+
+	let hasSearchResults = $derived(sortedTickets.length > 0);
+	let visibleTicketNumbers = $derived([...ticketNumbers, ...databaseTicketNumbers]);
 </script>
 
 <section class="results" bind:this={resultsTable} aria-label="Tiquetes encontrados">
+	{#if hasSearchResults}
 	<table>
 		<thead>
 			<tr>
@@ -133,14 +195,25 @@
 		</thead>
 		<tbody>
 		{#each sortedTickets as ticket (ticket.id)}
-			<tr class:deleted={isDeleted(ticket)}>
+			<tr
+				class:deleted={isDeleted(ticket)}
+				role="button"
+				tabindex="0"
+				onclick={() => handleView(ticket)}
+				onkeydown={(event) => {
+					if (event.key === 'Enter' || event.key === ' ') {
+						event.preventDefault();
+						handleView(ticket);
+					}
+				}}
+			>
 				<td>
 					<strong class="ticket-id">#{String(ticket.relative_id).padStart(3, '0')}</strong>
 					<small>{ticket.serial}</small>
 				</td>
 				<td>
 					<strong>{formatDate(ticket.date)} · {formatTime(ticket.time)}</strong>
-					<small>{ticketNumbers[ticket.serial] ?? 0} números</small>
+					<small>{visibleTicketNumbers.filter((item) => item.ticket_header_serial === ticket.serial).length} números</small>
 				</td>
 				<td>
 					<strong>{ticket.branch_name || '-'}</strong>
@@ -165,7 +238,31 @@
 		{/each}
 		</tbody>
 	</table>
+	{:else}
+		<div class="empty-results" role={databaseSearchError ? 'alert' : 'status'}>
+			{#if databaseSearchError}
+				<p>{databaseSearchError}</p>
+			{:else if searchTerm.trim()}
+				<p>No se encontraron tiquetes. ¿Desea buscar este serial en la base de datos?</p>
+				<button
+					type="button"
+					disabled={isDatabaseSearching}
+					onclick={() => onSearchDatabase?.(searchTerm.trim())}
+				>
+					{isDatabaseSearching ? 'Buscando...' : 'Buscar en la base de datos'}
+				</button>
+			{:else}
+				<p>No hay tiquetes para los filtros seleccionados.</p>
+			{/if}
+		</div>
+	{/if}
 </section>
+
+<TicketPreviewModal
+	bind:showTicketPreviewModal={showTicketPreviewModal}
+	winnerTicket={selectedTicket}
+	showPrintButton={false}
+/>
 
 <style>
 	.results {
@@ -233,7 +330,13 @@
 	}
 
 	tbody tr:hover {
-		background: var(--color-bg-2);
+	    outline: 2px solid #2563eb;
+        outline-offset: -2px;
+	}
+
+	tbody tr:focus-visible {
+		outline: 2px solid var(--color-theme-1);
+		outline-offset: -2px;
 	}
 
 	tr.deleted {
@@ -275,6 +378,39 @@
 
 	.status-deleted {
 		color: rgba(0, 0, 0, 0.6);
+	}
+
+	.empty-results {
+		display: flex;
+		min-height: 180px;
+		align-items: center;
+		justify-content: center;
+		flex-direction: column;
+		gap: 0.75rem;
+		padding: 2rem;
+		border: 1px solid #dbe3ec;
+		border-radius: 6px;
+		background: rgba(255, 255, 255, 0.78);
+		color: #66758a;
+		text-align: center;
+	}
+
+	.empty-results p {
+		margin: 0;
+	}
+
+	.empty-results button {
+		padding: 0.45rem 0.8rem;
+		border: 0;
+		border-radius: 4px;
+		background: var(--color-theme-1);
+		color: #fff;
+		cursor: pointer;
+	}
+
+	.empty-results button:disabled {
+		cursor: wait;
+		opacity: 0.7;
 	}
 
 	@media (max-width: 640px) {
