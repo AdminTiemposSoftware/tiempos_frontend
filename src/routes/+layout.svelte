@@ -5,8 +5,11 @@
 	import { setAuth } from '$lib/stores/auth';
 	import {Notifications} from '@tadashi/svelte-notification';
 	import './layout.css';
+	import './banca-responsive.css';
 
 	let { children } = $props();
+
+	let isResponsiveBancaRoute = $derived(['/banca/inicio', '/banca/ganadores'].includes(page.url.pathname.replace(/\/$/, '')));
 
 	let isLoginRoute = $derived(page.url.pathname.startsWith('/puesto/login') || page.url.pathname.startsWith('/banca/login'));
 
@@ -17,10 +20,10 @@
 	});
 </script>
 
-<div class={`app ${isLoginRoute ? 'auth-only' : ''}`}>
+<div class:banca-responsive={isResponsiveBancaRoute} class={`app ${isLoginRoute ? 'auth-only' : ''}`}>
     <Notifications />
 	{#if !isLoginRoute}
-		<Sidebar />
+		<Sidebar responsive={isResponsiveBancaRoute} />
 	{/if}
 
 	<main>{@render children()}</main>
