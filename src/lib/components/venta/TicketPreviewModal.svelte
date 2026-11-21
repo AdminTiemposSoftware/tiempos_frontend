@@ -21,6 +21,8 @@
     const previewAmountNames = $derived(winnerTicket?.amountNames ?? amountNames);
     const previewSerial = $derived(winnerTicket?.serial ?? createdTicket?.ticket_serial ?? '');
     const previewDetails = $derived(winnerTicket?.details ?? details);
+    const receipt = $derived.by<Receipt>(() => {
+        const soldEntries = Object.entries(sold) as Array<[string, number]>;
 
     const receipt = $derived.by<Receipt>(() => {
         const soldEntries = [
@@ -36,8 +38,8 @@
             .sort((left, right) => Number(left.number) - Number(right.number))
             .map(({ number, amount, amount_name }) => ({
                 number: String(number).padStart(2, '0'),
-                amount,
                 amount_name
+                amount: Number(item) || 0
             }));
 
         const total = numbers.reduce((sum, item) => sum + item.amount, 0);
@@ -76,6 +78,21 @@
         };
     });
 
+    function serializeData(data: Record<string, number>): string {
+        const serialHex = createdTicket?.ticket_serial
+            ? BigInt(createdTicket.ticket_serial).toString(16).toUpperCase()
+            : '';
+
+        return Object.entries(data)
+            .sort(([leftNumber], [rightNumber]) => Number(leftNumber) - Number(rightNumber))
+            .map(([number, item]) => {
+                const numberHex = Number(number).toString(16).toUpperCase().padStart(2, '0');
+                const priceHex = Number(item).toString(16).toUpperCase().padStart(6, '0');
+
+                return `${numberHex}${priceHex}`;
+            })
+            .join('') + serialHex;
+    }
 
     function printReceipt() {
         const receiptData = {

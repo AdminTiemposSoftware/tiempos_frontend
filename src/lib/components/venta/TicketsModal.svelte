@@ -241,6 +241,9 @@
         numbersSold = Object.entries(soldNumbersForSelectedTicket).reduce<Record<string, number>>(
             (accumulator, [number, price]) => {
                 accumulator[number] = price;
+        numbersSold = soldNumbersForSelectedTicket.reduce<Record<string, number>>(
+            (accumulator, sold) => {
+                accumulator[sold.number] = sold.price;
                 return accumulator;
             },
             {}

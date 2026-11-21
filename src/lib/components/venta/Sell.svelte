@@ -25,6 +25,8 @@
     let soldOrder = $state<SoldOrderEntry[]>([]);
     let nextEntryId = 0;
     let soldAmountNames = $state<Record<string, string | null>>({});
+    let {getTickets, getSoldNumbersForTicket, selectedBet, selectedDate} = $props();
+    let sold = $state<Sale[]>([]);
     let priceInput: HTMLInputElement;
     let randomCountInput: HTMLInputElement;
     let priceValue = $state('');
@@ -32,10 +34,10 @@
     let showTicketsModal = $state(false);
     let tickets = $state([]);
     let numberInput: HTMLInputElement;
+    let numberValue = $state('');
     let randomCount = $state(1);
     let isSubmitting = $state(false);
     let selectedRowIndex = $state(0);
-    let rowRefs: Array<HTMLTableRowElement | null> = [];
     let showTicketPreviewModal = $state(false);
     let ticketPreviewBet = $state<any>(null);
     let ticketPreviewDate = $state('');
@@ -57,6 +59,8 @@
     let unnamedSoldEntriesSnapshot = $state<UnnamedSoldEntry[]>([]);
     let namedSoldEntriesSnapshot = $state<SoldEntry[]>([]);
     let soldAmountNamesSnapshot: Record<string, string | null> = $state({});
+    let soldSnapshot: Sale[] = $state([]);
+    let createdTicket: { ticket_serial: string; ticket_amount: number; printed_at: string; ticket_number: string } | null = $state(null);
     let showConfirmModal = $state(false);
     let createdTicket: { ticket_serial: string; ticket_amount: number; printed_at: string; ticket_number: string } | null = $state(null);
     let formElement: HTMLFormElement;
@@ -75,12 +79,15 @@
             ? [{ type: 'named' as const, number: namedEntry.number, price: namedEntry.amount, amount_name: namedEntry.amount_name, id: namedEntry.id }]
             : [];
     }));
+    let soldAmount = $derived.by(() => {
+        return sold.reduce((sum, item) => sum + item.amount, 0);
+    });
     let showJalarModal = $state(false);
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
 	const today = utcMinus6Date.toISOString().split('T')[0];
+	let reventadoNumber = $state<boolean>(false);
 
     import { onMount } from 'svelte';
-    import { TrashBinSolid, CubeSolid, QuestionCircleSolid, PrinterSolid, EyeSolid, ReceiptSolid, CameraPhotoSolid } from "flowbite-svelte-icons";
     import { sellingMatrix } from '../../stores/UpdateSellMatrix';
     import { total } from '../../stores/UpdateSellMatrix';
     import TicketsModal from './TicketsModal.svelte';
@@ -91,6 +98,18 @@
     import ConfirmModalWithInput from '../ConfirmModalWithInput.svelte';
     import JalarTicketModal from './JalarTicketModal.svelte';
     import { formatAmount } from '../../printing/printing';
+    import Reventado from './Reventado.svelte';
+    import SaleForm from './SaleForm.svelte';
+    import SaleActions from './SaleActions.svelte';
+    import TicketTable from './TicketTable.svelte';
+    import TicketActions from './TicketActions.svelte';
+
+    type Sale = {
+        number: number;
+        amount: number;
+        is_reventado: boolean;
+        is_megareventado: boolean;
+    };
 
     onMount(() => {
         priceInput?.focus();
@@ -139,12 +158,26 @@
                 if (lastWasOperator && result.length > 0) {
                     result = result.slice(0, -1) + char;
                 }
+    function updateSalesData(sales: Sale[]) {
+        const newSold = [...sold];
+
+        for (const sale of sales) {
+            const existingIndex = newSold.findIndex(
+                (existing) =>
+                    existing.number === sale.number &&
+                    existing.is_reventado === sale.is_reventado &&
+                    existing.is_megareventado === sale.is_megareventado
+            );
+
+            if (existingIndex !== -1) {
+                newSold[existingIndex] = {
+                    ...newSold[existingIndex],
+                    amount: newSold[existingIndex].amount + sale.amount
+                };
+            } else {
+                newSold.push(sale);
             }
         }
-        if (target.value !== result) {
-            target.value = result;
-        }
-    }
 
     function updateSalesData(numbers: string[], price: number, amountName: string | null = null) {
         if (amountName) {
@@ -179,6 +212,8 @@
         });
         sold = newSelled;
         selectedAmountName = null;
+        sold = newSold;
+
         formElement.reset();
         priceInput?.focus();
         priceValue = '';
@@ -280,8 +315,9 @@
     }
 
     function hasProhibitedNumbers(soldSnapshot: Record<string, number>) {
+    function hasProhibitedNumbers(soldSnapshot: Sale[]) {
         const prohibitedInSold = $prohibitedNumbers.filter( (p) =>
-            soldSnapshot[p.number] !== undefined && p.can_sell_after_amount === false
+            soldSnapshot.some((s) => s.number === p.number) && p.can_sell_after_amount === false
         );
         if (prohibitedInSold.length === 0) return false;
 
@@ -372,6 +408,9 @@
         soldAmountNamesSnapshot = { ...soldAmountNames };
         namedSoldEntriesSnapshot = [...namedSoldEntries];
         if (hasProhibitedNumbers(currentAmountsByNumber())) return;
+        if (hasProhibitedNumbers(soldSnapshot)) return;
+
+        soldSnapshot = [...sold];
         isSubmitting = true;
         try {
             const response = await fetch('/puesto/venta', {
@@ -384,6 +423,7 @@
                     draw_schedule_id: drawScheduleId,
                     details: details,
                     numbers: buildNumbersPayload(unnamedSoldEntriesSnapshot, namedSoldEntriesSnapshot)
+                    numbers: soldSnapshot
                 })
             });
 
@@ -422,6 +462,13 @@
             soldAmountNames = {};
             namedSoldEntries = [];
             soldOrder = [];
+                    }
+                    return matrix;
+                });
+                total.update((n) => n + Object.values(soldSnapshot).reduce((sum, item) => sum + item, 0));
+            }
+            showTicketPreviewModal = true;
+            sold = [];
             detailsSnapshot = details;
             details = '';
         } catch (error) {
@@ -627,13 +674,14 @@
         updateSalesData(pairNumbers, price);
     }
 
+    function deleteNumber(number: number) {
+        const rest = sold.filter((item) => item.number !== number);
+        sold = rest;
+    }
+
     async function viewTickets() {
         tickets = await getTickets();
         showTicketsModal = true;
-    }
-
-    function onJalar() {
-        showJalarModal = true;
     }
 
     async function handlekeyinput(event: KeyboardEvent) {
@@ -652,7 +700,7 @@
             return;
         }
 
-        if (handleAmountNameShortcut(event)) {
+        if (showTicketPreviewModal || showTicketsModal || showQrModal || showJalarModal) {
             return;
         }
 
@@ -694,7 +742,7 @@
                 break;
             case "J":
             case "j":
-                onJalar();
+                showJalarModal = true;
                 break;
             case "p":
             case "P":
@@ -765,6 +813,16 @@
     details={detailsSnapshot}
     selectedBet={ticketPreviewBet}
     selectedDate={ticketPreviewDate}
+    selectedBet={selectedBet}
+    selectedDate={selectedDate}
+/>
+
+<QrModal
+    bind:showQRModal={showQrModal}
+    data={$sellingMatrix}
+    total={$total}
+    date={selectedDate}
+    onClose={() => showQrModal = false}
 />
 
 <ConfirmModalWithInput
@@ -854,7 +912,33 @@
                 aria-label="Cantidad de aleatorios"
             />
         </div>
+    <div class="row">
+        <span class="sold-amount">Tiquete: ₡{soldAmount}</span>
+        {#if selectedBet.draw_is_reventado}
+            <Reventado
+                bind:number={numberValue}
+                bind:price={priceValue}
+                bind:reventado={reventadoNumber}
+                />
+        {/if}
     </div>
+    <SaleForm
+        bind:priceValue
+        bind:numberValue
+        bind:reventadoNumber
+        bind:priceInput
+        bind:numberInput
+        bind:formElement
+        {updateSalesData}
+    />
+    <SaleActions
+        {sold}
+        bind:randomCount
+        bind:randomCountInput
+        bind:priceValue
+        bind:priceInput
+        {updateSalesData}
+    />
     <div class="sold">
         <div class="sold-table scroll-thin">
             <table>
@@ -904,6 +988,19 @@
             </button>
 
         </div>
+        <TicketTable
+            {sold}
+            bind:selectedRowIndex
+            {deleteNumber}
+        />
+        <TicketActions
+            {sold}
+            {isSubmitting}
+            {handlePrint}
+            bind:showQrModal
+            bind:showJalarModal
+            {viewTickets}
+        />
     </div>
 </section>
 <style>
@@ -938,14 +1035,6 @@
         bottom: -4px;
     }
 
-    .sell form {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
-        width: 100%;
-        gap: 1rem;
-    }
-
     span{
         font-size: 1.25rem;
     }
@@ -955,22 +1044,12 @@
         margin-right: auto;
     }
 
-    .question {
+    .row {
         display: flex;
-        flex-direction: column;
         gap: 0.5rem;
-    }
-
-    .question input {
+        align-items: center;
+        justify-content: space-between;
         width: 100%;
-    }
-
-    .question.monto {
-        flex: 1;
-    }
-
-    .question.numero {
-        flex: 4;
     }
 
     .sold {
@@ -1008,7 +1087,7 @@
         background-color: #f9fafb;
     }
 
-    .sold button {
+    :global(.sold button) {
         width: 100%;
     }
 
@@ -1017,6 +1096,7 @@
     }
 
     .buttons-group {
+    :global(.buttons-group) {
         display: flex;
         gap: 0.5rem;
         margin: 1rem 0;
@@ -1024,7 +1104,7 @@
         font-size: medium;
     }
 
-    .buttons-group button {
+    :global(.buttons-group button) {
         flex: 1;
         padding: 0.5rem 0.5rem;
     }

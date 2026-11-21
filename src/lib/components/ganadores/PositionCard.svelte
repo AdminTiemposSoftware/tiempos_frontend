@@ -1,45 +1,34 @@
 <script lang="ts">
 	import { PenSolid } from 'flowbite-svelte-icons';
-
+	import AssignWinner from './AssignWinner.svelte';
 
 	let {
-		winner,
-		onSelect,
-		handleEditMultiplier
+		position,
+		handleEditMultiplier,
+		handleAssignWinner
 	} = $props();
-
-	type Winner = {
-		draw_id: number;
-		draw_is_megareventado: boolean;
-		draw_is_reventado: boolean;
-		draw_schedule_name: string;
-        positions: Record<string, Position>;
-		schedule_id: number;
-		schedule_time: string;
-	};
-
-    type Position = {
-        id: number;
-        multiplier: number;
-    };
 </script>
 
 <div class={`panel-toggle`}>
-    <div class="winner-header">
-        <h3>{winner.draw_schedule_name}</h3>
-        <p class="subtitle">{winner.schedule_time}</p>
+    <div class="position-header">
+        <h3>{position.draw_schedule_name}</h3>
+        <p class="subtitle">{position.schedule_time}</p>
     </div>
+    <button class="neutral" onclick={handleEditMultiplier}>
+		<PenSolid class="shrink-0 h-4 w-4" />
+	</button>
 
-    {#if winner.positions &&  winner.positions['1'] && !winner.positions['1'].multiplier}
+    {#if position.positions &&  position.positions['1'] && !position.positions['1'].multiplier}
         <div class="tag tag-danger">
             Aun no se ha asignado a cuanto paga el primer lugar
         </div>
     {/if}
 
 
-    <button class="neutral" onclick={handleEditMultiplier}>
-		<PenSolid class="shrink-0 h-4 w-4" />
-	</button>
+    <AssignWinner
+        position={position}
+        assignWinner={handleAssignWinner}
+    />
 </div>
 
 
@@ -55,11 +44,11 @@
         background: #f0f0f0;
     }
 
-	.winner-header {
+	.position-header {
 		display: flex;
 		flex-direction: column;
 		align-items: start;
-		width: 100%;
+		width: 15%;
 	}
 
 	.tag {
