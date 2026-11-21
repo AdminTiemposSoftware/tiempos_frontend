@@ -9,10 +9,28 @@ export const GET: RequestHandler = async ({ fetch, locals, url, cookies }) => {
 	const dateTo = url.searchParams.get('date_to');
 	const branches = url.searchParams.get('branches');
 	const drawSchedules = url.searchParams.get('draw_schedules');
+	const serial = url.searchParams.get('serial');
 
 	if (!baseUrl || !bankingId) {
 		return new Response(JSON.stringify({ error: 'Missing API_URL or bankingId.' }), {
 			status: 400,
+			headers: { 'Content-Type': 'application/json' }
+		});
+	}
+
+	if (serial?.trim()) {
+		const response = await fetch(
+			`${baseUrl}/ticket/by-serial-banking/${encodeURIComponent(bankingId)}/${encodeURIComponent(serial.trim())}`,
+			{
+				headers: {
+					Authorization: `Bearer ${token}`,
+					'X-Auth-App': 'banca'
+				}
+			}
+		);
+		const payload = await response.json().catch(() => null);
+		return new Response(JSON.stringify(payload ?? { items: [] }), {
+			status: response.ok ? 200 : response.status,
 			headers: { 'Content-Type': 'application/json' }
 		});
 	}

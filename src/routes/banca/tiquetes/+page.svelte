@@ -2,7 +2,6 @@
 	import { acts } from '@tadashi/svelte-notification';
 	import { auth } from '$lib/stores/auth';
 	import { getBancaFilterData } from '$lib/stores/bancaFilterCache';
-	import TicketAuditHeader from '$lib/components/tiquetes/TicketAuditHeader.svelte';
 	import TicketFilters from '$lib/components/tiquetes/TicketFilters.svelte';
 	import TicketResultsTable from '$lib/components/tiquetes/TicketResultsTable.svelte';
 
@@ -25,6 +24,15 @@
 		draw_schedule_name?: string | null;
 	};
 
+	type TicketNumber = {
+		ticket_header_serial?: string | null;
+		number?: number | string | null;
+		amount?: number | string | null;
+		amount_name?: string | null;
+		is_reventado?: boolean;
+		is_megareventado?: boolean;
+	};
+
 	let { data } = $props();
 	let branchNames = $state<{ value: number; label: string }[]>([]);
 	let drawScheduleNames = $state<{ value: number; label: string }[]>([]);
@@ -33,10 +41,14 @@
 	let selectedBranches = $state<number[]>([]);
 	let selectedDrawSchedules = $state<number[]>([]);
 	let tickets = $state<Ticket[]>([]);
-	let ticketNumbers = $state<Record<string, number>>({});
+	let ticketNumbers = $state<TicketNumber[]>([]);
 	let searchTerm = $state('');
 	let isLoading = $state(false);
 	let errorMessage = $state('');
+	let databaseTicket = $state<Ticket | null>(null);
+	let databaseTicketNumbers = $state<TicketNumber[]>([]);
+	let isDatabaseSearching = $state(false);
+	let databaseSearchError = $state('');
 	let hasLoadedDefaults = $state(false);
 
 	function today() {
@@ -95,6 +107,9 @@
 
 	async function fetchTickets() {
 		errorMessage = '';
+		databaseTicket = null;
+		databaseTicketNumbers = [];
+		databaseSearchError = '';
 		if (!from || !to || selectedBranches.length === 0 || selectedDrawSchedules.length === 0) {
 			errorMessage = 'Seleccione un rango de fechas, puestos y sorteos.';
 			acts.add({
@@ -120,15 +135,10 @@
 			}
 
 			tickets = Array.isArray(payload?.items) ? payload.items : [];
-			const details = Array.isArray(payload?.numbers) ? payload.numbers : [];
-			ticketNumbers = details.reduce((counts: Record<string, number>, item: { ticket_header_serial?: string }) => {
-				const serial = String(item.ticket_header_serial ?? '');
-				counts[serial] = (counts[serial] ?? 0) + 1;
-				return counts;
-			}, {});
+			ticketNumbers = Array.isArray(payload?.numbers) ? payload.numbers : [];
 		} catch (error) {
 			tickets = [];
-			ticketNumbers = {};
+			ticketNumbers = [];
 			errorMessage = error instanceof Error ? error.message : 'No se pudieron cargar los tiquetes.';
 			acts.add({
 				message: errorMessage,
@@ -137,6 +147,36 @@
 			});
 		} finally {
 			isLoading = false;
+		}
+	}
+
+	async function searchDatabase(serial: string) {
+		databaseSearchError = '';
+		isDatabaseSearching = true;
+		try {
+			const response = await fetch(`/banca/tiquetes?serial=${encodeURIComponent(serial)}`);
+			const payload = await response.json().catch(() => null);
+			if (response.status === 404) {
+				throw new Error('Ticket not found');
+			}
+			if (!response.ok) {
+				throw new Error(payload?.error ?? 'No se pudo buscar el tiquete en la base de datos.');
+			}
+
+			const result = Array.isArray(payload?.items) ? payload.items[0] : null;
+			if (!result) {
+				throw new Error('Ticket not found');
+			}
+			databaseTicket = result;
+			databaseTicketNumbers = Array.isArray(payload?.numbers) ? payload.numbers : [];
+		} catch (error) {
+			databaseTicket = null;
+			databaseTicketNumbers = [];
+			databaseSearchError = error instanceof Error
+				? error.message
+				: 'No se pudo buscar el tiquete en la base de datos.';
+		} finally {
+			isDatabaseSearching = false;
 		}
 	}
 </script>
@@ -148,7 +188,6 @@
 
 {#if $auth.user?.role === 'banking'}
 	<section class="tickets-page">
-		<TicketAuditHeader />
 		<TicketFilters
 			bind:from
 			bind:to
@@ -178,16 +217,16 @@
 				<span class="spinner" aria-hidden="true"></span>
 				<p>Cargando tiquetes...</p>
 			</div>
-		{:else if tickets.length === 0}
-			<div class="state-message" role="status">
-				<strong>No hay tiquetes para los filtros seleccionados.</strong>
-				<p>Prueba con otro periodo, puesto u horario.</p>
-			</div>
 		{:else}
 			<TicketResultsTable
 				tickets={tickets}
 				ticketNumbers={ticketNumbers}
 				{searchTerm}
+				{databaseTicket}
+				{databaseTicketNumbers}
+				{isDatabaseSearching}
+				{databaseSearchError}
+				onSearchDatabase={searchDatabase}
 				{formatDate}
 				{formatTime}
 				{isDeleted}
@@ -205,47 +244,10 @@
 		justify-content: flex-start;
 		flex-direction: column;
 		width: 100%;
-		max-width: 1500px;
-		margin: 0 auto;
-		padding: 0.5rem 1rem 2rem;
-	}
-
-	.page-header,
-	.summary {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-	}
-
-	h1 {
-		margin: 0.15rem 0 0;
-		font-size: clamp(1.7rem, 3vw, 2.4rem);
-		font-weight: 700;
-		text-align: left;
-		color: #172b4d;
-	}
-
-	.eyebrow {
-		color: var(--color-theme-1);
-		font-size: 0.72rem;
-		font-weight: 700;
-		letter-spacing: 0.14em;
-		text-transform: uppercase;
-	}
-
-	.page-header p {
-		margin: 0.45rem 0 0;
-		color: var(--color-text-secondary, #666);
-	}
-
-	.filter-button {
-		min-width: 150px;
-		font-weight: 700;
-	}
-
-	.filter-button span {
-		font-size: 1.2rem;
+		margin: 0;
+		padding:1rem;
+		border: 1px solid var(--color-border);
+		background: var(--color-box-background);
 	}
 
 	.ticket-search {
@@ -257,148 +259,6 @@
 	.ticket-search input {
 		width: min(100%, 22rem);
 		padding: 0.45rem 0.6rem;
-	}
-
-	.filter-strip,
-	.summary-grid {
-		display: grid;
-		gap: 0.75rem;
-		margin: 1.5rem 0 0;
-	}
-
-	.filter-strip {
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		padding: 0.85rem 1rem;
-		border: 1px solid #d5e0ec;
-		border-left: 4px solid var(--color-theme-1);
-		background: rgba(255, 255, 255, 0.72);
-	}
-
-	.filter-strip div,
-	.summary-card {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-
-	.filter-strip span,
-	.summary-card span,
-	.summary-card small,
-	td small {
-		color: #68778d;
-		font-size: 0.75rem;
-	}
-
-	.filter-strip strong {
-		font-size: 0.9rem;
-		font-weight: 600;
-	}
-
-	.filter-strip small {
-		color: var(--color-theme-1);
-	}
-
-	.summary-grid {
-		grid-template-columns: repeat(4, minmax(0, 1fr));
-	}
-
-	.summary-card {
-		min-height: 94px;
-		box-sizing: border-box;
-		padding: 1rem;
-		border: 1px solid #dbe3ec;
-		border-radius: 6px;
-		background: rgba(255, 255, 255, 0.84);
-	}
-
-	.summary-card strong {
-		color: #172b4d;
-		font-size: 1.35rem;
-	}
-
-	.summary-card.warning {
-		border-top: 3px solid #d97706;
-	}
-
-	.table-container {
-		margin-top: 1.5rem;
-		overflow: auto;
-		max-height: calc(100vh - 360px);
-		border: 1px solid #cbd6e2;
-		border-radius: 6px;
-		box-shadow: 0 5px 18px rgba(30, 55, 90, 0.08);
-	}
-
-	table {
-		width: 100%;
-		min-width: 1120px;
-		border-collapse: collapse;
-		background: white;
-	}
-
-	th,
-	td {
-		padding: 0.8rem 0.9rem;
-		border-bottom: 1px solid #e4e9ef;
-		text-align: left;
-		white-space: nowrap;
-	}
-
-	td strong,
-	td small {
-		display: block;
-	}
-
-	td strong {
-		color: #23395d;
-		font-size: 0.88rem;
-	}
-
-	.ticket-id {
-		color: var(--color-theme-1);
-		font-size: 1rem;
-	}
-
-	.numeric {
-		text-align: right;
-	}
-
-	th {
-		position: sticky;
-		top: 0;
-		background: #eef3f8;
-		color: #53647b;
-		font-size: 0.72rem;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		z-index: 1;
-	}
-
-	tbody tr:hover {
-		background: #f7fbff;
-	}
-
-	tr.deleted {
-		background: #fff8f5;
-	}
-
-	tr.deleted td strong {
-		color: #8f3d2c;
-	}
-
-	.status {
-		display: inline-block;
-		padding: 0.3rem 0.55rem;
-		border-radius: 999px;
-		background: #e6f5eb;
-		color: #19713a;
-		font-size: 0.75rem;
-		font-weight: 700;
-	}
-
-	.status-deleted {
-		background: #ffebe5;
-		color: #a33b27;
 	}
 
 	.state-message {
@@ -447,27 +307,6 @@
 		.tickets-page {
 			padding-right: 0;
 			padding-left: 0;
-		}
-	}
-
-	@media (max-width: 760px) {
-		.page-header,
-		.filter-strip {
-			align-items: stretch;
-			grid-template-columns: 1fr;
-			flex-direction: column;
-		}
-
-		.page-header {
-			display: flex;
-		}
-
-		.filter-button {
-			width: 100%;
-		}
-
-		.summary-grid {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 	}
 </style>
