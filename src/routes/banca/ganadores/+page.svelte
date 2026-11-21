@@ -543,6 +543,8 @@
                 <input id="desde" type="date" bind:value={selectedDate} />
             </div>
         </div>
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard access to the horizontal scroll region) -->
+        <div class="assignment-scroll" role="region" aria-label="Asignar números ganadores" tabindex="0">
         <table>
             <thead>
                 <tr>
@@ -560,6 +562,7 @@
                     <div class="horizontal-cell">
                         <input
                             type="text"
+                            aria-label={`Multiplicador de ${winner.draw_schedule_name}`}
                             bind:value={editingMultiplier[winner.position_id]}
                             class="winner-input"
                             disabled={!editingMultiplierMode[winner.position_id]}
@@ -568,6 +571,7 @@
                             <button
                                 type="button"
                                 class="neutral"
+                                aria-label="Editar multiplicador"
                                 onclick={() => enableMultiplierEdit(winner.position_id)}
                             >
                                 <PenSolid class="shrink-0 h-4 w-4" />
@@ -575,12 +579,14 @@
                         {:else}
                             <button
                                 type="button"
+                                aria-label="Guardar multiplicador"
                                 onclick={() => requestUpdateMultiplier(winner)}
                             >
                                 ✓
                             </button>
                             <button
                                 type="button"
+                                aria-label="Cancelar edición del multiplicador"
                                 onclick={() => cancelMultiplierEdit(winner.position_id)}
                             >
                                 X
@@ -593,6 +599,7 @@
                         {#if winner.position_multiplier !== null && canAssignWinner(winner)}
                             <input
                                 type="number"
+                                aria-label={`Número ganador de ${winner.draw_schedule_name}`}
                                 bind:value={editingWinner[winner.position_id]}
                                 inputmode="numeric"
                                 min="0"
@@ -605,6 +612,7 @@
                             />
                             {#if !assignedWinner[winner.position_id]}
                                 <button
+                                    aria-label="Asignar ganador"
                                     onclick={() => confirmAssignWinner(winner)}
                                     disabled={editingWinner[winner.position_id] === undefined || editingWinner[winner.position_id] === null}
                                 >
@@ -614,6 +622,7 @@
                             {#if winner.winner_id}
                                 <button
                                     class="negative"
+                                    aria-label="Eliminar ganador"
                                     onclick={() => confirmDeleteWinner(winner)}
                                 >
                                     <TrashBinSolid class="shrink-0 h-4 w-4" />
@@ -634,6 +643,7 @@
                 {/each}
             </tbody>
         </table>
+        </div>
     </div>
     <div class="left">
         <h2>Tiquetes ganadores</h2>

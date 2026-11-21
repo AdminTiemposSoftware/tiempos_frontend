@@ -1,5 +1,19 @@
 <script lang="ts">
-    let isExpanded = $state(true);
+    let { responsive = false } = $props<{ responsive?: boolean }>();
+	let mobileDialog = $state<HTMLDialogElement>();
+	let mobileMenuButton = $state<HTMLButtonElement>();
+	import { page } from '$app/state';
+
+	$effect(() => {
+		if (responsive) currentPath = page.url.pathname;
+		mobileDialog?.close();
+	});
+
+	function closeOnDesktop() {
+		if (window.innerWidth >= 1280) mobileDialog?.close();
+	}
+
+	let isExpanded = $state(true);
     let currentPath = $state('/');
 	let role = $derived($auth.user?.role ?? '');
 
@@ -69,12 +83,8 @@
 	);
 </script>
 
-<aside class="sidebar" class:collapsed={!isExpanded}>
-	<button class="collapse-toggle" onclick={toggleSidebar} aria-label="Toggle sidebar">
-		<span class="icon" aria-hidden="true"></span>
-	</button>
-
-    <nav>
+{#snippet navigation()}
+<nav>
         <ul>
 			{#each visibleNavItems as item (item.path)}
                 <li aria-current={currentPath === item.path ? 'page' : undefined}>
@@ -107,9 +117,39 @@
 			</div>
         </ul>
     </nav>
+{/snippet}
+
+<svelte:window onresize={closeOnDesktop} />
+
+{#if responsive}
+    <button bind:this={mobileMenuButton} class="mobile-menu-toggle" type="button" onclick={() => mobileDialog?.showModal()} aria-haspopup="dialog">☰ Menú</button>
+    <dialog bind:this={mobileDialog} class="mobile-navigation" aria-label="Navegación principal" onclose={() => mobileMenuButton?.focus()}>
+        <button type="button" class="mobile-menu-close" onclick={() => mobileDialog?.close()}>Cerrar menú</button>
+        {@render navigation()}
+    </dialog>
+{/if}
+
+<aside class="sidebar" class:collapsed={!isExpanded}>
+	<button class="collapse-toggle" onclick={toggleSidebar} aria-label="Toggle sidebar">
+		<span class="icon" aria-hidden="true"></span>
+	</button>
+
+	{@render navigation()}
 </aside>
 
 <style>
+    .mobile-menu-toggle { display: none; }
+    .mobile-navigation { margin: 0; height: 100dvh; max-height: 100dvh; width: min(20rem, 90vw); max-width: 90vw; padding: 0; border: 0; color: var(--color-text); background: white; box-sizing: border-box; }
+    .mobile-navigation::backdrop { background: rgb(15 23 42 / 55%); }
+    .mobile-navigation[open] { display: flex; flex-direction: column; }
+    .mobile-menu-close { min-height: 44px; margin: 0.75rem; }
+    .mobile-navigation .sidebar-header-container, .mobile-navigation .logout { position: static; }
+    .mobile-navigation nav { overflow-y: auto; }
+    .mobile-navigation .sidebar-header { overflow-wrap: anywhere; }
+    @media (max-width: 1279px) {
+        .mobile-menu-toggle { display: flex; align-self: flex-start; min-height: 44px; margin: 0.75rem; }
+    }
+
 	.sidebar {
 		position: relative;
 		background: rgba(255, 255, 255, 0.95);
@@ -240,6 +280,8 @@
 
 
 	.logout {
+		justify-content: center;
+		text-align: center;
 		position: absolute;
 		bottom: 0;
 		left: 0;
