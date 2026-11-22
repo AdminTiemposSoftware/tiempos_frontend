@@ -1,12 +1,17 @@
 <script lang="ts">
-    import { auth } from '../../stores/auth';
     import { onMount, tick } from "svelte";
+    import { acts } from '@tadashi/svelte-notification';
     import ConfirmModal from "../ConfirmModal.svelte";
     import ReceiptPreview from "../../printing/ReceiptPreview.svelte";
+    import { serializeData } from '../../printing/printing';
+    import { sellingMatrix } from '../../stores/UpdateSellMatrix';
+    import { total } from "../../stores/UpdateSellMatrix";
 
     type Ticket = {
         id: number;
-        serial: number;
+        relative_id: number;
+        username: string;
+        serial: string;
         date: string;
         time: string;
         scheduleName: string;
@@ -23,29 +28,37 @@
     let {
         showTicketModal = $bindable(false),
         getSoldNumbersForTicket,
+        getSoldAmountNamesForTicket,
+        getSoldEntriesForTicket,
+        loadSoldEntries,
         tickets = $bindable(),
-        numbersSold=$bindable(),
-        onClose
+        numbersSold=$bindable()
     } = $props();
 
-    let localTickets: Ticket[] = $state([]);
     let lastTicketsRef = tickets;
     let showDeleteConfirm = $state(false);
     let ticketToDelete = $state<Ticket | null>(null);
     let selectedTicket = $state<Ticket | null>(null);
-    let soldNumbersForSelectedTicket = $state<{number: string, price: number}[]>([]);
-    let qrData = $state<string>('');
+    let soldNumbersForSelectedTicket = $state<Record<string, number>>({});
+    let selectedAmountNamesForTicket = $state<Record<string, string | null>>({});
+    let soldEntriesForSelectedTicket = $state<Array<{ number: string; amount: number; amount_name: string | null }>>([]);
     let selectedRowIndex = $state(0);
     let rowRefs: Array<HTMLTableRowElement | null> = [];
+    const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
+	const today = utcMinus6Date.toISOString().split('T')[0];
 
     $effect(() => {
         if (tickets !== lastTicketsRef) {
-            localTickets = tickets;
             lastTicketsRef = tickets;
         }
     });
 
-    let soldNumbersTotal = $derived(soldNumbersForSelectedTicket.reduce((sum, sold) => sum + (Number(sold.price) || 0), 0));
+    let soldNumbersTotal = $derived(Object.values(soldNumbersForSelectedTicket).reduce((sum, sold) => sum + (Number(sold) || 0), 0));
+    let qrData = $derived.by(() =>
+        selectedTicket
+            ? serializeData(soldNumbersForSelectedTicket, selectedTicket.serial)
+            : ''
+    );
 
     $effect(() => {
         if (tickets.length === 0) {
@@ -62,14 +75,18 @@
         void focusSelectedRow();
     });
 
-    function handleDelete(ticket: Ticket) {
+    async function handleDelete(ticket: Ticket) {
         ticketToDelete = ticket;
+        soldNumbersForSelectedTicket = getSoldNumbersForTicket(ticket.id);
+        selectedAmountNamesForTicket = getSoldAmountNamesForTicket(ticket.id);
+        soldEntriesForSelectedTicket = getSoldEntriesForTicket(ticket.id);
         showDeleteConfirm = true;
     }
 
     function handleView(ticket: Ticket) {
         soldNumbersForSelectedTicket = getSoldNumbersForTicket(ticket.id);
-        qrData = serializeData(soldNumbersForSelectedTicket);
+        selectedAmountNamesForTicket = getSoldAmountNamesForTicket(ticket.id);
+        soldEntriesForSelectedTicket = getSoldEntriesForTicket(ticket.id);
         selectedTicket = ticket;
     }
 
@@ -110,22 +127,120 @@
         }
     }
 
-    function confirmDelete() {
-        if (!ticketToDelete) {
+    async function confirmDelete() {
+        if (!ticketToDelete) return;
+
+        try {
+            const response = await fetch(`/puesto/venta/tickets/${ticketToDelete.serial}`, { method: 'DELETE', });
+            if (!response.ok) {
+                acts.add({
+                    message: "Error al eliminar el tiquete.",
+                    mode: 'error',
+                    lifetime: 3
+                })
+                return;
+            }
+
+            tickets = tickets.map(item =>
+                item.id === ticketToDelete?.id
+                    ? { ...item, status: false }
+                    : item
+            );
+            if (ticketToDelete.date === today) {
+                sellingMatrix.update((matrix) => {
+                    for (const [number, price] of Object.entries(soldNumbersForSelectedTicket)) {
+                        matrix[number] = (matrix[number] || 0) - price;
+                    }
+                    return matrix;
+                });
+                total.update((n) => n - Object.values(soldNumbersForSelectedTicket).reduce((sum, item) => sum + item, 0));
+            }
+            ticketToDelete = null;
+        } catch (error) {
+            acts.add({
+                message: "Error al eliminar el tiquete.",
+                mode: 'error',
+                lifetime: 3 });
+            console.error(error);
+        }
+    }
+
+    function buildReceiptForTicket(ticket: Ticket, numbers: Record<string, number>) {
+        return {
+            serial: `${ticket.serial.toString()}`,
+            upperLines: [
+                `${ticket.drawName} ${ticket.scheduleName}`,
+                ticket.branchName,
+                ticket.username,
+                `Fecha: ${ticket.date}`,
+                `Hora: ${ticket.time.slice(0, 8)}`
+            ].filter(Boolean),
+            numbers: soldEntriesForSelectedTicket.length > 0
+                ? soldEntriesForSelectedTicket
+                : Object.entries(numbers).map(([number, price]) => ({
+                    number,
+                    amount: price,
+                    amount_name: selectedAmountNamesForTicket[number] ?? null
+                })),
+            total: Object.values(numbers).reduce((sum, value) => sum + (Number(value) || 0), 0),
+            footerLines: [
+                "------- ATENCION -------",
+                ticket.multiplier ? `El primero paga al: ${ticket.multiplier}` : '',
+                "------------------------",
+                'Gracias por su compra',
+                '¡Buena suerte!'
+            ].filter(Boolean),
+            ticket_number: (ticket.relative_id).toString().padStart(3, '0')
+        };
+    }
+
+    function openPrintWindow(ticket: Ticket, numbers: Record<string, number>, mode: 'normal' | 'reprint') {
+        const receipt = buildReceiptForTicket(ticket, numbers);
+        const printData = {
+            receipt,
+            qrData: serializeData(numbers, ticket.serial),
+            details: ticket.details,
+            printMode: mode
+        };
+        const printKey = `ticket-print:${crypto.randomUUID()}`;
+        localStorage.setItem(printKey, JSON.stringify(printData));
+
+        const printWindow = window.open(
+            `/puesto/print?key=${encodeURIComponent(printKey)}`,
+            '_blank',
+            'width=500,height=700'
+        );
+
+        if (!printWindow) {
+            localStorage.removeItem(printKey);
             return;
         }
-        localTickets = localTickets.map((ticket) =>
-            ticket.id === ticketToDelete?.id
-                ? { ...ticket, status: false }
-                : ticket
-        );
-        ticketToDelete = null;
+
+        printWindow.addEventListener('afterprint', () => {
+            localStorage.removeItem(printKey);
+            printWindow.close();
+        });
+    }
+
+    function handleReprint() {
+        if (!selectedTicket) return;
+
+        const ticketSnapshot = { ...selectedTicket };
+        const numbersSnapshot = { ...soldNumbersForSelectedTicket };
+        openPrintWindow(ticketSnapshot, numbersSnapshot, 'reprint');
+        onClose();
     }
 
     function loadSoldNumbers() {
-        numbersSold = soldNumbersForSelectedTicket.reduce<Record<string, { price: number }>>(
-            (accumulator, sold) => {
-                accumulator[sold.number] = { price: sold.price };
+        if (soldEntriesForSelectedTicket.length > 0 && loadSoldEntries) {
+            loadSoldEntries(soldEntriesForSelectedTicket);
+            onClose();
+            return;
+        }
+
+        numbersSold = Object.entries(soldNumbersForSelectedTicket).reduce<Record<string, number>>(
+            (accumulator, [number, price]) => {
+                accumulator[number] = price;
                 return accumulator;
             },
             {}
@@ -133,23 +248,8 @@
         onClose();
     }
 
-    function serializeData(data: {number: string, price: number}[]): string {
-        const serialHex = selectedTicket?.serial
-            ? BigInt(selectedTicket.serial).toString(16).toUpperCase()
-            : '';
-
-        return Object.entries(data)
-            .sort(([leftNumber], [rightNumber]) => Number(leftNumber) - Number(rightNumber))
-            .map(([number, item]) => {
-                const numberHex = Number(item.number).toString(16).toUpperCase().padStart(2, '0');
-                const priceHex = Number(item.price).toString(16).toUpperCase().padStart(6, '0');
-
-                return `${numberHex}${priceHex}`;
-            })
-            .join('') + serialHex;
-    }
-
     function handleKeyInput(event: KeyboardEvent) {
+        if (!showTicketModal) return;
         switch (event.key) {
             case "Enter":
                 if (!showTicketModal) {
@@ -164,13 +264,22 @@
                     }
                 }
                 break;
+            case "e":
+            case "E":
+                handleReprint();
+                break;
         }
+    }
+
+    function onClose() {
+        showTicketModal = false;
+        selectedTicket = null;
     }
 </script>
 
 <ConfirmModal
     bind:showModal={showDeleteConfirm}
-    message={ticketToDelete ? `Eliminar ticket ${ticketToDelete.id}?` : "Eliminar ticket?"}
+    message={ticketToDelete ? `Eliminar tiquete ${ticketToDelete.serial}?` : "Eliminar ticket?"}
     confirmText="Eliminar"
     confirm={confirmDelete}
 />
@@ -218,7 +327,7 @@
                                     handleView(ticket);
                                 }}
                             >
-                                <td>{tickets.length - index}</td>
+                                <td>{ticket.relative_id}</td>
                                 <td>₡{ticket.total}</td>
                                 <td>{ticket.details}</td>
                                 <td>
@@ -243,36 +352,42 @@
         <div class="ticket-sold-numbers">
             {#if selectedTicket}
                 <div class="receipt-container scroll-thin">
-                    <!-- TODO: This component doesnt render the QR code correctly as it leaves the QR from the first ticket for all tickets -->
                     <ReceiptPreview
                         receipt={{
                             serial: `${selectedTicket.serial.toString()}`,
-                            title: "",
-                            subtitles: [
+                            upperLines: [
                                 `${selectedTicket.drawName} ${selectedTicket.scheduleName}`,
-                                selectedTicket.branchName, `Fecha: ${selectedTicket.date}`,
+                                selectedTicket.branchName,
+                                selectedTicket.username,
+                                `Fecha: ${selectedTicket.date}`,
                                 `Hora: ${selectedTicket.time.slice(0, 8)}`
-                            ],
-                            items: soldNumbersForSelectedTicket.map((sold) => ({
-                                number: sold.number,
-                                amount: sold.price
-                            })),
+                            ].filter(Boolean),
+                            numbers: soldEntriesForSelectedTicket.length > 0
+                                ? soldEntriesForSelectedTicket
+                                : Object.entries(soldNumbersForSelectedTicket).map(([number, price]) => ({
+                                    number,
+                                    amount: price,
+                                    amount_name: selectedAmountNamesForTicket[number] ?? null
+                                })),
                             total: soldNumbersTotal,
-                            footer: [
+                            footerLines: [
                                 "------- ATENCION -------",
                                 selectedTicket.multiplier ? `El primero paga al: ${selectedTicket.multiplier}` : '',
                                 "------------------------",
                                 'Gracias por su compra',
                                 '¡Buena suerte!'
-                            ],
-                            ticket_number: (tickets.length - selectedRowIndex).toString().padStart(3, '0')
+                            ].filter(Boolean),
+                            ticket_number: (selectedTicket.relative_id).toString().padStart(3, '0')
                         }}
                         groupedItems={true}
-                        bind:qrData={qrData}
+                        qrData={qrData}
                         details={selectedTicket.details}
                     />
                 </div>
                 <button onclick={loadSoldNumbers}>Cargar tiquete (Enter)</button>
+                <button onclick={handleReprint}>
+                    <div class="button-name">R<p>e</p>imprimir</div>
+                </button>
             {:else}
                 <p>Seleccione un tiquete para ver los números vendidos.</p>
             {/if}
@@ -290,13 +405,6 @@
     .no-tickets {
         text-align: center;
         font-size: 1.2rem;
-    }
-
-    .jalar {
-        position: absolute;
-        bottom: 0;
-        margin-top: auto;
-        width: 100%;
     }
 
     .tickets-table th {
@@ -332,7 +440,7 @@
     }
 
     .ticket-scroll{
-        max-height: 380px;
+        max-height: 70vh;
         overflow-y: auto;
     }
 

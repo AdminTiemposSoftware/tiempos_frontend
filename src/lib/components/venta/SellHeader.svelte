@@ -1,13 +1,15 @@
 <script lang="ts">
     import { total } from "../../stores/UpdateSellMatrix";
     import SellFooter from "./SellFooter.svelte";
+    import { formatAmount } from '../../printing/printing';
 
     let {
         selectedDate = $bindable(),
         message = $bindable(),
         availableBets = $bindable(),
         selectedBet = $bindable(),
-        prohibitedPercentage = $bindable()
+        prohibitedPercentage = $bindable(),
+        isPrintConfirmationOpen = false
     } = $props();
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
 
@@ -15,21 +17,21 @@
 	const today = utcMinus6Date.toISOString().split('T')[0];
 
     $effect(() => {
-        const intervalId = setInterval(() => {
-            now = new Date();
-        }, 1000);
-
+        const intervalId = setInterval(() => {now = new Date();}, 1000);
         return () => clearInterval(intervalId);
     });
 
-    const radioName = "sorteo";
-
     const sortedBets = $derived.by(() => {
-        if (selectedDate !== today) {
-            return availableBets;
+        const bets = availableBets ?? [];
+        if (!Array.isArray(bets) || bets.length === 0) {
+            return [];
         }
-        return getSortedBets(availableBets ?? []);
+        if (selectedDate !== today) {
+            return [...bets];
+        }
+        return getSortedBets(bets);
     });
+
     const selectedBetIndex = $derived.by(() => sortedBets.findIndex((bet) => bet.schedule_id === selectedBet?.schedule_id));
     const previousBetIndex = $derived.by(() => {
         if (sortedBets.length < 2 || selectedBetIndex < 0) {
@@ -61,15 +63,6 @@
         }
         return hours * 60 + minutes;
     }
-    function daysUntilClose(dateFrom: string, dateTo: string): number {
-	const [y1, m1, d1] = dateFrom.split('-').map(Number);
-	const [y2, m2, d2] = dateTo.split('-').map(Number);
-
-	const from = Date.UTC(y1, m1 - 1, d1);
-	const to = Date.UTC(y2, m2 - 1, d2);
-
-	return Math.round((to - from) / (1000 * 60 * 60 * 24));
-    }
 
     function minutesUntilClose(closeTime: string) {
         const closeMinutes = parseCloseTime(closeTime);
@@ -81,57 +74,60 @@
         return diff >= 0 ? diff : diff + 24 * 60;
     }
 
-    function secondsUntilClose(closeTime: string) {
-        const closeMinutes = parseCloseTime(closeTime);
-        if (closeMinutes === null) {
-            return Number.MAX_SAFE_INTEGER;
-        }
-        const nowMinutes = now.getHours() * 60 + now.getMinutes();
-        const nowSeconds = now.getSeconds();
-        const closeSeconds = closeMinutes * 60;
-        const nowTotalSeconds = nowMinutes * 60 + nowSeconds;
-        let diff = closeSeconds - nowTotalSeconds;
-        if (diff < 0) {
-            diff = diff + 24 * 60 * 60;
-        }
-        return diff;
+    function secondsUntilClose(closeTime: string, selectedDate: string) {
+    	const closeMinutes = parseCloseTime(closeTime);
+    	if (closeMinutes === null) {
+    		return Number.MAX_SAFE_INTEGER;
+    	}
+
+    	const [year, month, day] = selectedDate.split('-').map(Number);
+    	const closeDate = new Date(year, month - 1, day, Math.floor(closeMinutes / 60), closeMinutes % 60, 0);
+
+    	return Math.max(0, Math.floor((closeDate.getTime() - now.getTime()) / 1000));
     }
 
     function formatTimeRemaining(seconds: number) {
-        if (seconds === Number.MAX_SAFE_INTEGER) {
-            return "N/A";
-        }
-        const days = daysUntilClose(today, selectedDate);
-        const hours = Math.floor((seconds % (3600 * 24)) / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = Math.floor(seconds % 60);
-        if (days === 0 && hours === 0 && minutes === 0) {
-            return `${secs}s`;
-        } else if (days === 0 && hours === 0) {
-            return `${minutes}m ${secs}s`;
-        } else if (days === 0) {
-            return `${hours}h ${minutes}m ${secs}s`;
-        }
-        return `${days}d ${hours}h ${minutes}m ${secs}s`;
+    	if (seconds === Number.MAX_SAFE_INTEGER) {
+    		return 'N/A';
+    	}
+
+    	const days = Math.floor(seconds / 86400);
+    	const hours = Math.floor((seconds % 86400) / 3600);
+    	const minutes = Math.floor((seconds % 3600) / 60);
+    	const secs = seconds % 60;
+
+    	if (days > 0) {
+    		return `${days}d ${hours}h ${minutes}m ${secs}s`;
+    	}
+    	if (hours > 0) {
+    		return `${hours}h ${minutes}m ${secs}s`;
+    	}
+
+    	if (minutes > 0) {
+    		return `${minutes}m ${secs}s`;
+    	}
+
+    	return `${secs}s`;
     }
 
     function getSortedBets(bets: typeof availableBets) {
-        return [...bets]
-            .filter(bet => {
-                const closeMinutes = parseCloseTime(bet.schedule_time || bet.closeTime);
-                if (closeMinutes === null) {
-                    return false;
-                }
-                const nowMinutes = now.getHours() * 60 + now.getMinutes();
-                // Only show bets where the close time hasn't passed yet
-                return closeMinutes >= nowMinutes;
-            })
-            .sort(
-                (a, b) => minutesUntilClose(a.schedule_time || a.closeTime) - minutesUntilClose(b.schedule_time || b.closeTime)
-            );
+        return [...bets].filter(bet => {
+            const closeMinutes = parseCloseTime(bet.schedule_time || bet.closeTime);
+            if (closeMinutes === null) {
+                return false;
+            }
+            const nowMinutes = now.getHours() * 60 + now.getMinutes();
+            // Only show bets where the close time hasn't passed yet
+            return closeMinutes >= nowMinutes;
+        })
+        .sort((a, b) => minutesUntilClose(a.schedule_time || a.closeTime) - minutesUntilClose(b.schedule_time || b.closeTime));
     }
 
     function selectBet(index: number) {
+        if (isPrintConfirmationOpen) {
+            return;
+        }
+
         const nextBet = sortedBets[index];
         if (!nextBet) {
             return;
@@ -140,20 +136,15 @@
         selectedBet = nextBet;
 
         queueMicrotask(() => {
-            const nextInput = document.querySelector<HTMLInputElement>(`input[name="${radioName}"][value="${nextBet.schedule_id}"]`);
+            const nextInput = document.querySelector<HTMLInputElement>(`input[name="sorteo"][value="${nextBet.schedule_id}"]`);
             nextInput?.focus();
         });
     }
 
     function handleBetKeydown(event: KeyboardEvent) {
-        if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
-            return;
-        }
-
+        if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+        if (isPrintConfirmationOpen) return;
         const target = event.target;
-        if ((target instanceof HTMLInputElement) && target.type !== "radio") {
-            return;
-        }
 
         if (sortedBets.length < 2) {
             return;
@@ -173,22 +164,6 @@
         const nextIndex = (currentIndex + offset + sortedBets.length) % sortedBets.length;
         selectBet(nextIndex);
     }
-
-    // TODO Globalize this function to a utility file since it's used in multiple places
-    function formatAmount(value: number) {
-        if (!Number.isFinite(value)) {
-            return "0";
-        }
-
-        const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
-        const [integerPart, decimalPart] = Math.abs(rounded).toFixed(2).split(".");
-        const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-        const sign = rounded < 0 ? "-" : "";
-
-        return decimalPart === "00"
-            ? `${sign}${groupedInteger}`
-            : `${sign}${groupedInteger},${decimalPart}`;
-    }
 </script>
 
 <svelte:window onkeydown={handleBetKeydown} />
@@ -197,14 +172,24 @@
         <div class="header-content left">
             <div class="spans">
                 <span>Día:</span>
-                <input type="date" id="date" bind:value={selectedDate} min={today} />
+                <input
+                    type="date"
+                    id="date"
+                    bind:value={selectedDate}
+                    min={today}
+                    onchange={() => {
+                        if (selectedDate < today) {
+                            selectedDate = today;
+                        }
+                    }}
+                />
             </div>
             <div class="spans">
                 <span class="label">Total:</span>
                 <span>₡{formatAmount($total)}</span>
             </div>
-                <span class="label">Cierre: {selectedBet?.schedule_time}</span>
-                <span class="label">Tiempo restante: {formatTimeRemaining(secondsUntilClose(selectedBet?.schedule_time))}</span>
+            <span class="label">Cierre: {selectedBet?.schedule_time}</span>
+            <span class="label">Tiempo restante: {formatTimeRemaining(secondsUntilClose(selectedBet?.schedule_time, selectedDate))}</span>
         </div>
         <div class="header-content right">
             <div class="header-content sorteo">
@@ -214,20 +199,25 @@
                         <label class="sorteo-option">
                             <input
                                 type="radio"
-                                name={radioName}
+                                name={"sorteo"}
                                 value={bet.schedule_id}
                                 checked={selectedBet?.schedule_id === bet.schedule_id}
-                                onchange={() => selectedBet = bet}
+                                onchange={() => {
+                                    if (!isPrintConfirmationOpen) {
+                                        selectedBet = bet;
+                                    }
+                                }}
+                                disabled={isPrintConfirmationOpen}
                                 class="sorteo-input"
                             />
                             <span class="sorteo-pill">
-                                {#if index === previousBetIndex}
-                                    <span class="sorteo-direction sorteo-direction-left" aria-hidden="true">←</span>
-                                {/if}
+                                <span class="sorteo-direction" aria-hidden="true">
+                                    {#if index === previousBetIndex}{"<"}{/if}
+                                </span>
                                 <span class="sorteo-pill-text">{bet.draw_name} {bet.schedule_name}</span>
-                                {#if index === nextBetIndex}
-                                    <span class="sorteo-direction sorteo-direction-right" aria-hidden="true">→</span>
-                                {/if}
+                                <span class="sorteo-direction" aria-hidden="true">
+                                    {#if index === nextBetIndex}{">"}{/if}
+                                </span>
                             </span>
                         </label>
                     {/each}
@@ -252,6 +242,7 @@
         gap: 0.75rem;
         align-items: center;
         min-width: 0;
+        flex-wrap: wrap;
     }
     .sorteo-label {
         font-weight: 600;
@@ -273,10 +264,9 @@
         display: inline-flex;
         align-items: center;
         gap: 0.35rem;
-        padding: 0.35rem 0.75rem;
+        padding: 0.25rem;
         border: 1px solid var(--color-border);
         transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-        font-size: 1rem;
         user-select: none;
     }
     .sorteo-pill-text {
@@ -290,10 +280,11 @@
         border-color: var(--color-theme-2);
     }
     .sorteo-direction {
-        font-size: 0.85em;
-        line-height: 1;
-        opacity: 0.85;
+        width: 1vw;
+        display: flex;
+        align-items: center;
     }
+
     .header-top {
         display: flex;
         gap: 1rem;
@@ -307,24 +298,29 @@
         border: 1px solid var(--color-border);
         padding: 0.75rem;
     }
+
     span{
-        font-size: 1.25rem;
+        font-size:1.2rem;
     }
+
     .spans {
         display: flex;
         flex-direction: row;
         gap: 1rem;
     }
+
     .right {
         flex:3;
         padding: 0;
         border: none;
     }
+
     .sorteo {
         align-items: flex-start;
         text-align: left;
         flex-direction: row;
     }
+
     .left {
         flex: 1;
     }

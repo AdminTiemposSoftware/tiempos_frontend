@@ -30,8 +30,8 @@ export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) 
 
 	const response = await fetch(`${baseUrl}/number/prohibited`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json', 
-			Authorization: `Bearer ${token}`, 
+		headers: { 'Content-Type': 'application/json',
+			Authorization: `Bearer ${token}`,
 			'X-Auth-App': 'banca' },
 		body: JSON.stringify({
 			number,

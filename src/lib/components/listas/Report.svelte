@@ -1,0 +1,747 @@
+<script lang="ts">
+    import { auth } from '../../../lib/stores/auth';
+	import ProhibitedNumberModal from '../ProhibitedNumberModal.svelte';
+    import ConfirmModal from '../ConfirmModal.svelte';
+    import Matrix from '../venta/Matrix.svelte';
+	import ReportSummary from './ReportSummary.svelte';
+	import DevolutionBreakdown from './DevolutionBreakdown.svelte';
+	import ExportModal from './ExportModal.svelte';
+	import {acts} from '@tadashi/svelte-notification'
+	import SelectModal from '../SelectModal.svelte';
+	import { formatAmount } from '../../printing/printing';
+	import type { ReportItem } from '../venta/grouping';
+	import { getBancaFilterData } from '../../stores/bancaFilterCache';
+
+	const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
+	let prohibitedNumberToDelete = $state<prohibitedNumber | null>(null);
+	let prohibitedNumbers = $state<prohibitedNumber[]>([]);
+	let showDeleteProhibitedModal = $state(false);
+	let showAddProhibitedModal = $state(false);
+	let showUpdateProhibitedModal = $state(false);
+	let selectedProhibitedNumber = $state<prohibitedNumber>({id: -1, number: 0, amount: 0, starter: 0, can_sell_after_amount: false, by_amount: false, by_percentage: true});
+	let branchNames = $state<{ value: number; label: string }[]>([]);
+	let drawScheduleNames = $state<{ value: number; label: string }[]>([]);
+	let selectedBranch = $state<number[]>([]);
+	let selectedDrawSchedule = $state<number[]>([]);
+	let { data, user, responsive = false }: ReportProps = $props();
+	// Inicio uses fresh route data instead of a module cache shared with other reports.
+	let bancaFilterData = $derived(responsive ? (data ?? {}) : getBancaFilterData(data ?? {}));
+	let matrixMode = $state<'20x5' | '5x20' | '10x10'>('10x10');
+	let from =  $state(utcMinus6Date.toISOString().split('T')[0]);
+	let to =  $state(utcMinus6Date.toISOString().split('T')[0]);
+	let report = $state<ReportItem[]>([]);
+	let isLoading = $state<boolean>(false);
+	let numberTotals = $state<Record<number, number>>({});
+	let breakdown = $state<Record<number, { draw: string; draw_schedule: string; branch: string; total: number }[]>>({});
+	let devolutionBreakdown = $state<any[]>([]);
+	let summary = $state<Record<string, number>>({});
+	let showExportModal = $state<boolean>(false);
+	let reportQrData = $state<Record<number, number>>({});
+	let totalQr = $state<number>(0);
+	let puestosQr = $state<string[]>([]);
+	let sorteosQr = $state<string[]>([]);
+    let winnersFiltered = $state<WinnerItem[]>([]);
+    let prohibitedFiltered = $state<prohibitedItem[]>([]);
+    let totalAmountReport = $derived(Object.values(numberTotals).reduce((acc, amount) => acc + amount, 0));
+
+    type WinnerItem = {
+        position_number: number;
+        date: string;
+        position_id: number;
+        position_multiplier: number;
+        schedule_id: number;
+        winner_id: number;
+        winner_number: number;
+    };
+
+    type prohibitedItem = {
+        banking_id: number;
+        number: number;
+        starter: string;
+        percentage?: number | string;
+        can_sell_after_amount: boolean;
+        by_amount: boolean;
+        by_percentage: boolean;
+        amount: string;
+        date: string;
+        branch_id?: number;
+    };
+
+	type prohibitedNumber = {
+		id: number;
+		number: number;
+		amount: number;
+		starter: number;
+		can_sell_after_amount: boolean;
+		by_amount: boolean;
+		by_percentage: boolean;
+	};
+
+	type ReportProps = {
+	    data: any;
+	    user?: string;
+	    responsive?: boolean;
+	};
+
+    async function handleConfirmDeleteProhibitedNumber() {
+		if (prohibitedNumberToDelete == null) {
+		    console.log('No hay número restringido para eliminar');
+			return;
+		}
+		try {
+    		const response = await fetch(`/number/prohibited/${prohibitedNumberToDelete.id}`, {
+    			method: 'DELETE',
+    			headers: { 'Content-Type': 'application/json' }
+    		});
+
+    		if (!response.ok) {
+    			acts.add({
+    				message: "Error al eliminar el numero restringido.",
+    				mode: 'error',
+    				lifetime: 3
+    			});
+    			return;
+    		}
+
+    		showUpdateProhibitedModal = false;
+            selectedProhibitedNumber = {id: -1, number: 0, amount: 0, starter: 0, can_sell_after_amount: false, by_amount: false, by_percentage: true};
+    		prohibitedNumbers = prohibitedNumbers.filter((item) => item.id !== prohibitedNumberToDelete?.id);
+    		prohibitedNumberToDelete = null;
+            acts.add({
+    			message: "Numero restringido eliminado.",
+    			mode: 'success',
+    			lifetime: 3
+    		});
+    	} catch (error) {
+    		acts.add({
+    			message: "Error al eliminar el numero restringido.",
+    			mode: 'error',
+    			lifetime: 3
+    		});
+            console.error(error);
+    	}
+	}
+
+	function openAddProhibitedModal() {
+		showAddProhibitedModal = true;
+	}
+
+	async function handleAddProhibitedNumber(payload: { number: string; amount: string, starter: string, can_sell_after_amount: boolean, by_amount: boolean, by_percentage: boolean }) {
+		if (prohibitedNumbers.some((item) => item.number === Number(payload.number))) {
+		    acts.add({
+				message: 'El numero ya esta en la lista de numeros prohibidos.',
+				mode: 'error',
+				lifetime: 3
+			});
+			return;
+		}
+
+		const value = Number(payload.number);
+		const amount = Number(payload.amount);
+		const starter = Number(payload.starter);
+		const can_sell_after_amount = payload.can_sell_after_amount;
+		const by_amount = payload.by_amount;
+		const by_percentage = payload.by_percentage;
+		if (!Number.isFinite(amount)) {
+		    console.error('Error: el monto es requerido');
+			return;
+		}
+		try {
+			const response = await fetch('/number/prohibited', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					number: value,
+					amount, starter,
+					can_sell_after_amount: can_sell_after_amount,
+					by_amount: by_amount,
+					by_percentage: by_percentage })
+			});
+			if (!response.ok) {
+    			acts.add({
+    				message: 'Error al agregar el numero prohibido',
+    				mode: 'error',
+    				lifetime: 3
+    			});
+				return;
+			}
+
+    		const newProhibitedId = await response.json();
+
+    		prohibitedNumbers = prohibitedNumbers.some((item) => item.number === value)
+    			? prohibitedNumbers
+    			: [...prohibitedNumbers, {
+    				id: newProhibitedId.items[0].NewProhibitedId,
+    				number: value,
+    				amount,
+    				starter,
+    				can_sell_after_amount: can_sell_after_amount,
+    				by_amount: by_amount,
+    				by_percentage: by_percentage }].sort((a, b) => a.number - b.number);
+    		showAddProhibitedModal = false;
+            acts.add({
+                message: 'Numero prohibido agregado correctamente',
+                mode: 'success',
+                lifetime: 3
+            });
+		} catch (e) {
+			acts.add({
+				message: 'Error al agregar el numero prohibido',
+				mode: 'error',
+				lifetime: 3
+			});
+			console.error(e);
+		}
+	}
+
+	const handleUpdateProhibitedNumber = async (payload: { id: number; number: string; amount: string; starter: string; can_sell_after_amount: boolean; by_amount: boolean; by_percentage: boolean }) => {
+		try {
+			const response = await fetch(`/number/prohibited/${payload.id}`, {
+     			method: 'PUT',
+     			headers: { 'Content-Type': 'application/json' },
+     			body: JSON.stringify(payload)
+      		});
+      		if (!response.ok) {
+                acts.add ({
+                    message: 'Error al actualizar el numero prohibido',
+    			    mode: 'error',
+    				lifetime: 3
+    			});
+     			return;
+      		}
+      		prohibitedNumbers = prohibitedNumbers.map((item) =>
+     			item.id === payload.id
+     			? {
+      				...item,
+      				amount: Number(payload.amount),
+      				starter: Number(payload.starter),
+      				can_sell_after_amount: Boolean(payload.can_sell_after_amount),
+      				by_amount: Boolean(payload.by_amount),
+      				by_percentage: Boolean(payload.by_percentage)
+     			} : item
+      		);
+      		showUpdateProhibitedModal = false;
+            acts.add({
+                message: 'Numero prohibido actualizado correctamente',
+                mode: 'success',
+                lifetime: 3
+            });
+
+		} catch (error) {
+		    console.error(error)
+			acts.add ({
+                message: 'Error al modificar el numero prohibido',
+			    mode: 'error',
+				lifetime: 3
+			});
+		}
+	}
+
+
+    $effect(() => {
+		const prohibitedItems = Array.isArray(data?.prohibitedItems)
+			? (data.prohibitedItems as prohibitedNumber[])
+			: [];
+		prohibitedNumbers = prohibitedItems
+			.map((item) => ({
+				id: item.id,
+				number: Number(item.number),
+				amount: Number(item.amount),
+				starter: Number(item.starter),
+				can_sell_after_amount: Boolean(item.can_sell_after_amount),
+				by_amount: Boolean(item.by_amount),
+				by_percentage: Boolean(item.by_percentage)
+			}))
+			.filter((item) => Number.isFinite(item.number) && Number.isFinite(item.amount))
+			.sort((a, b) => a.number - b.number);
+    });
+
+	$effect(() => {
+		const filterData = bancaFilterData;
+		const branchNamesItems = Array.isArray(filterData.branchNames) ? filterData.branchNames : [];
+		branchNames = [
+			...branchNamesItems.map((item) => ({
+				value: Number(item.id),
+				label: String(item.name)
+			}))
+		];
+	});
+
+	$effect(() => {
+		const filterData = bancaFilterData;
+		const scheduleNamesItems = Array.isArray(filterData.scheduleNames) ? filterData.scheduleNames : [];
+		drawScheduleNames = [
+			...scheduleNamesItems.map((item) => ({
+				value: Number(item.draw_schedule_id),
+				label: `${String(item.draw_name)} - ${String(item.draw_schedule_name)}`
+			}))
+		];
+	});
+
+	$effect(() => {
+		const winnersFilteredItems = Array.isArray(data?.winnersFilteredItems)
+			? (data.winnersFilteredItems as WinnerItem[])
+			: [];
+		winnersFiltered = winnersFilteredItems;
+	});
+
+	$effect(() => {
+		const prohibitedFilteredItems = Array.isArray(data?.prohibitedFilteredItems)
+			? (data.prohibitedFilteredItems as prohibitedItem[])
+			: [];
+		prohibitedFiltered = prohibitedFilteredItems;
+	});
+
+	async function applyFilters() {
+		try {
+		    isLoading = true;
+			let response;
+			if (user === 'banking') {
+				response = await fetch(`/banca/report-base?date_from=${from}&date_to=${to}&branches=${encodeURIComponent(selectedBranch.join(','))}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
+					method: 'GET',
+					headers: {
+						'Content-Type': 'application/json'
+					}
+				});
+			} else {
+				response = await fetch(`/puesto/reportes-base?date_from=${from}&date_to=${to}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
+					method: 'GET',
+					headers: {
+						'Content-Type': 'application/json'
+					}
+				});
+			}
+    		if (!response.ok) {
+    			acts.add({
+    				message: "Error al aplicar filtros.",
+    				mode: 'error',
+    				lifetime: 3
+    			});
+     		    isLoading = false;
+    			return;
+    		}
+
+    		const data = await response.json();
+			numberTotals = Object.fromEntries(
+				(Array.isArray(data?.numbers) ? data.numbers : []).map((item: { number: number; total: number }) => [
+					Number(item.number), Number(item.total)
+				])
+			);
+			breakdown = data?.breakdown ?? {};
+			devolutionBreakdown = Array.isArray(data?.devolutionBreakdown) ? data.devolutionBreakdown : [];
+			summary = data?.summary ?? {};
+			report = [];
+
+			const winnerItems = Array.isArray(data?.winnersFilteredItems)
+				? data.winnersFilteredItems as WinnerItem[]
+				: [];
+			const prohibitedItems = Array.isArray(data?.prohibitedFilteredItems)
+				? data.prohibitedFilteredItems as prohibitedItem[]
+				: [];
+
+			if (winnerItems.find((item) => item.winner_number === null)) {
+				acts.add({
+					message: "No se han asignado algunos ganadores para los filtros seleccionados.",
+					mode: 'warning',
+					lifetime: 3
+				});
+			}
+
+			winnersFiltered = winnerItems;
+			prohibitedFiltered = prohibitedItems;
+			console.log(winnerItems);
+
+			isLoading = false;
+		} catch (error) {
+			acts.add({
+				message: "Error al aplicar filtros.",
+				mode: 'error',
+				lifetime: 3
+			});
+			isLoading = false;
+			console.error(error);
+		}
+	}
+
+	function showDeleteProhibitedNumber(value: prohibitedNumber) {
+		prohibitedNumberToDelete = value;
+		showDeleteProhibitedModal = true;
+	}
+
+	function openUpdateProhibitedModal(prohibitedNumber: prohibitedNumber) {
+		selectedProhibitedNumber = prohibitedNumber;
+		showUpdateProhibitedModal = true;
+	}
+
+	async function handleShowExportModal() {
+		if (Object.keys(numberTotals).length === 0) {
+			reportQrData = Object.fromEntries(
+				Array.from({ length: 100 }, (_, i) => [i, 0])
+			);
+		} else {
+			reportQrData = numberTotals;
+		}
+		totalQr = Object.values(reportQrData).reduce((acc, amount) => acc + amount, 0);
+		puestosQr = selectedBranch.length === 0 || selectedBranch.includes(0)
+			? branchNames.slice(1).map((item) => item.label)
+			: branchNames.filter((item) => selectedBranch.includes(item.value)).map((item) => item.label);
+		sorteosQr = selectedDrawSchedule.length === 0 || selectedDrawSchedule.includes(0)
+			? drawScheduleNames.slice(1).map((item) => item.label)
+			: drawScheduleNames.filter((item) => selectedDrawSchedule.includes(item.value)).map((item) => item.label);
+		showExportModal = true;
+	}
+
+</script>
+
+<svelte:head>
+    <title>Inicio</title>
+</svelte:head>
+
+<ConfirmModal
+	bind:showModal={showDeleteProhibitedModal}
+	message={
+		prohibitedNumberToDelete == null
+			? 'Eliminar numero restringido?'
+			: `Eliminar el numero ${prohibitedNumberToDelete.number}?`
+	}
+	confirmText="Eliminar"
+	confirm={handleConfirmDeleteProhibitedNumber}
+/>
+
+<ProhibitedNumberModal
+	bind:showModal={showUpdateProhibitedModal}
+	bind:prohibited={selectedProhibitedNumber}
+	title="Actualizar numero restringido"
+	confirmText="Guardar"
+	handleUpdateProhibitedNumber={handleUpdateProhibitedNumber}
+	handleDeleteProhibitedNumber={showDeleteProhibitedNumber}
+/>
+
+<ProhibitedNumberModal
+	bind:showModal={showAddProhibitedModal}
+	title="Agregar numero restringido"
+	confirmText="Guardar"
+	handleAddProhibitedNumber={handleAddProhibitedNumber}
+/>
+
+<ExportModal
+	bind:showModal={showExportModal}
+	data={reportQrData}
+	dateFrom={from}
+	puestos={puestosQr}
+	sorteos={sorteosQr}
+	dateTo={to}
+	total={totalQr}
+	branchNames={branchNames}
+	drawScheduleNames={drawScheduleNames}
+	scheduleBranch={bancaFilterData.scheduleBranch ?? []}
+/>
+
+<section class="inicio">
+    <div class="content">
+        <div class="left">
+            <div class="filters">
+            <div class="total">
+                <label for="from">Desde</label>
+                <input id="from" type="date" bind:value={from}/>
+            </div>
+            <div class="field">
+                <label for="to">Hasta</label>
+                <input id="to" type="date" bind:value={to}/>
+            </div>
+            {#if user !== 'branch'}
+                <div class="field">
+                    <label for="puesto">Puesto</label>
+    				<SelectModal
+        				options={branchNames}
+        				bind:selected={selectedBranch}
+        				placeholder="Seleccione un puesto"
+    				/>
+				</div>
+            {/if}
+            <div class="field">
+                <label for="sorteo">Sorteo</label>
+				<SelectModal
+    				options={drawScheduleNames}
+    				bind:selected={selectedDrawSchedule}
+    				placeholder="Seleccione un sorteo"
+				/>
+            </div>
+            <div class="total-amount">
+                <p class="total-label">Total en esta lista</p>
+                <p class="total-amount-label">₡{formatAmount(totalAmountReport)} </p>
+            </div>
+        </div>
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard access to the horizontal scroll region) -->
+        <div class="report-matrix-scroll" style:--report-amount-width={`${Math.max(4, String(Math.round(totalAmountReport)).length + 2, ...Object.values(numberTotals).map(value => String(Math.round(value)).length + 2))}ch`} role={responsive ? "region" : undefined} aria-label={responsive ? "Matriz de números" : undefined} tabindex={responsive ? 0 : undefined}>
+        <Matrix
+			bind:report={report}
+			bind:isLoading={isLoading}
+			numberTotals={numberTotals}
+			breakdown={breakdown}
+			mode={matrixMode}
+			useSellingMatrixFallback={false}
+			winnerNumbers={winnersFiltered
+    			.filter((item) => item.winner_number != null)
+    			.map((item) => Number(item.winner_number))
+    			.filter((number) => Number.isFinite(number))}
+			reportProhibitedNumbers={prohibitedFiltered
+    			.map((item) => Number(item.number))
+    			.filter((number) => Number.isFinite(number))}
+			/>
+        </div>
+    </div>
+    <div class="right">
+        <div class="column">
+            <button type="button" class="option-button" onclick={applyFilters}>
+				Filtrar
+            </button>
+			<button type="button" class="option-button" onclick={handleShowExportModal}>
+			    Exportar lista
+			</button>
+        </div>
+        <div class="row view">
+            <button
+                type="button"
+                class={`option-button ${matrixMode === '20x5' ? 'selected-mode' : ''}`}
+                onclick={() => { matrixMode = '20x5'; }}
+            >
+                20x5
+            </button>
+            <button
+                type="button"
+                class={`option-button ${matrixMode === '10x10' ? 'selected-mode' : ''}`}
+                onclick={() => { matrixMode = '10x10'; }}
+            >
+                10x10
+            </button>
+        </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <ReportSummary
+    		summary={summary}
+        />
+        <DevolutionBreakdown
+        	rows={devolutionBreakdown}
+        />
+    </div>
+    {#if user === 'banking'}
+    <header>
+        <div class="prohibited">
+            <span class="label">Restringidos:</span>
+            <div class="prohibited-list">
+				<button
+					class={`prohibited-badge`}
+					onclick={() => {}}
+					aria-label={`Actualizar numero restringido`}
+				>
+					<span class="prohibited-number">Numero</span>
+					<span class="prohibited-amount">Monto</span>
+					<span class="prohibited-starter">Arranque</span>
+
+				</button>
+                {#if prohibitedNumbers?.length}
+                    {#each prohibitedNumbers as prohibitedNumber}
+                        <button
+                            class={`prohibited-badge ${!prohibitedNumber.can_sell_after_amount ? 'can-sell-after-amount' : ''}`}
+                            onclick={() => {openUpdateProhibitedModal(prohibitedNumber);}}
+                            aria-label={`Actualizar numero restringido ${prohibitedNumber.number}`}
+                        >
+							<span class="prohibited-number">{prohibitedNumber.number}</span>
+							<span class="prohibited-amount">{prohibitedNumber.amount}</span>
+							<span class="prohibited-starter">{prohibitedNumber.starter}</span>
+
+						</button>
+                    {/each}
+                {:else}
+                    <span class="prohibited-empty">-</span>
+                {/if}
+                <button
+                    type="button"
+                    class="prohibited-badge prohibited-add"
+                    onclick={openAddProhibitedModal}
+                    aria-label="Agregar numero restringido"
+                >
+                    +
+                </button>
+            </div>
+        </div>
+    </header>
+    {/if}
+</section>
+
+<style>
+	.report-matrix-scroll { display: contents; }
+    .inicio {
+        flex: 1;
+		justify-content: space-between;
+        flex-direction: column;
+    }
+
+	.field {
+		min-width: 8rem;
+	}
+
+	.field input {
+		height: 57.59%;
+	}
+
+	.filters {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 1rem;
+		align-items: flex-end;
+	}
+
+    .left {
+		border: 1px solid var(--color-border);
+		display: flex;
+		padding: 1rem;
+		flex-direction: column;
+        flex: 5;
+		gap: 1rem;
+    }
+
+    .right {
+        flex: 1;
+		border: 1px solid var(--color-border);
+		padding: 1rem;
+		gap: 1rem;
+		display: flex;
+		flex-direction: column;
+    }
+
+	.option-button {
+		width: 100%;
+	}
+
+    .grouping-toggle {
+    	display: flex;
+    	align-items: center;
+    	gap: 0.35rem;
+    	width: fit-content;
+    	padding: 0;
+    	border: 0;
+    	background: transparent;
+    	color: var(--color-text);
+    	font-weight: 600;
+    	cursor: pointer;
+    }
+
+    .content {
+    	padding: 1rem;
+		background-color: var(--color-box-background);
+		border: 1px solid var(--color-border);
+        display: flex;
+        flex-direction: row;
+        gap: 1rem;
+    }
+
+	.ganadores {
+		padding: 1rem;
+		background-color: var(--color-box-background);
+		border: 1px solid var(--color-border);
+		margin-bottom: 1rem;
+		display: flex;
+		width: 100%;
+	}
+
+	.prohibited {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		align-items: start;
+	}
+
+	.prohibited-badge {
+		display: flex;
+		flex-direction: column;
+		font-size: 1.1rem;
+		border-radius: 0;
+		padding: 0rem;
+		min-width: 50px;
+		border: 2px solid var(--color-border);
+		color: var(--color-text);
+		width: fit-content;
+		height: 100%;
+		gap: 0;
+	}
+
+	.prohibited-badge *{
+		padding: 0.35rem;
+	}
+
+	.prohibited-badge:hover {
+		background-color: white;
+		color: var(--color-theme-1);
+	}
+	.prohibited-add {
+		border-style: dashed;
+		color: var(--color-theme-2);
+		border-color: var(--color-theme-2);
+		font-weight: 600;
+	}
+
+	.prohibited-list{
+		gap: 0;
+		display: flex;
+		flex-direction: row;
+	}
+
+	.prohibited-amount, .prohibited-starter {
+		font-size: 0.85rem;
+		border-top: 2px solid var(--color-border);
+		width: 100%;
+		font-weight: 500;
+	}
+
+	.chip {
+        border-radius: 0.25rem;
+        background-color: white;
+        color: var(--color-text);
+        border: 1px solid var(--color-border);
+		padding: .2rem .5rem;
+		font-size: 0.85rem;
+		width: 100%;
+		justify-content: space-between;
+		display: flex;
+		align-items: center;
+	}
+
+	.column {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.matrix-mode-buttons {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+
+	.selected-mode {
+		background-color: var(--color-theme-1);
+		color: #fff;
+	}
+
+	.grouping-option {
+		width: 100%;
+	}
+
+	.total-amount {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		margin-left: auto;
+		width: 10rem;
+		text-align: center;
+		font-size: 1.2rem;
+	}
+
+	.total-label {
+		font-weight: 600;
+	}
+</style>

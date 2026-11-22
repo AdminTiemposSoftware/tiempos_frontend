@@ -4,13 +4,21 @@
 	import UserModal from '../../../lib/components/puestos/UserModal.svelte';
 	import { PenSolid, TrashBinSolid } from 'flowbite-svelte-icons';
 	import { auth } from '$lib/stores/auth';
-	import {Notifications, acts} from '@tadashi/svelte-notification'
+	import { invalidateBancaFilterCache } from '$lib/stores/bancaFilterCache';
+	import { acts } from '@tadashi/svelte-notification'
 
 	let { data } = $props();
 	let showModal = $state(false);
 	let showUserModal = $state(false);
 	let showDeleteModal = $state(false);
 	let selectedPuesto = $state<Puesto | null>(null);
+	let selectedUser = $state<{ id?: number; username: string; name: string; phone: string; password?: string }>({
+		id: -1,
+		username: '',
+		name: '',
+		phone: '',
+		password: ''
+	});
 	let puestoToDelete = $state<Puesto | null>(null);
 	let expandedPuestos = $state<number[]>([]);
 	let puestos = $state<Puesto[]>([]);
@@ -21,10 +29,13 @@
 		name: string;
 		location: string;
 		prohibited_percentage?: number | string;
+		comission?: number | string | null;
+		buy: number | '' | null;
+		buy_first_place: number | '' | null;
 		user_count?: number;
 		draw_count?: number;
-		users?: Array<{ username: string; name: string; phone: string }>;
-		sorteos?: Array<{ draw_id: number; type: string; days: string; draw_name: string; draw_schedule_id: number; draw_schedule_time: string; draw_schedule_name: string; is_reventado: boolean; is_megareventado: boolean, comission: string }>;
+		users?: Array<{ id?: number; username: string; name: string; phone: string; password?: string }>;
+		sorteos?: Array<{ draw_id: number; type: string; days: string; draw_name: string; draw_schedule_id: number; draw_schedule_time: string; draw_schedule_name: string; is_reventado: boolean; is_megareventado: boolean, comission: string, prohibited_percentage?: number | string, buy?: number | '' | null, buy_first_place?: number | '' | null, enabled?: boolean }>;
 	};
 
 	$effect(() => {
@@ -35,7 +46,10 @@
 			user_count: Number(item.user_count ?? 0),
 			draw_count: Number(item.draw_count ?? 0),
 			users: item.users ?? [],
-			sorteos: item.sorteos ?? []
+			buy: item.buy ?? null,
+			buy_first_place: item.buy_first_place ?? null,
+			comission: item.comission ?? null,
+			sorteos: item.sorteos ?? [],
 		}));
 	});
 
@@ -45,7 +59,7 @@
 			: [...expandedPuestos, puestoId];
 
 		const puesto = puestos.find((p) => p.id === puestoId);
-		
+
 		if (puesto && !puesto.users?.length && !puesto.sorteos?.length) {
 			// Fetch users and sorteos for the puesto if not already loaded
 			try {
@@ -73,7 +87,7 @@
 					mode: 'error',
 					lifetime: 3
 				});
-			};	
+			};
 		}
 	}
 
@@ -83,6 +97,9 @@
 			name: '',
 			location: '',
 			prohibited_percentage: 0,
+			comission: 0,
+			buy: null,
+			buy_first_place: null,
 			users: [],
 			sorteos: []
 		};
@@ -123,6 +140,7 @@
 				lifetime: 3
 			});
 			puestos = puestos.filter((item) => item.id !== puestoToDelete?.id);
+			invalidateBancaFilterCache();
 			expandedPuestos = expandedPuestos.filter((id) => id !== puestoToDelete?.id);
 			puestoToDelete = null;
 		} catch (error) {
@@ -137,6 +155,14 @@
 
 	async function handleAddPuesto(payload: Puesto) {
 		try {
+			const buy = payload.buy === '' || payload.buy === null || payload.buy === undefined
+				? null
+				: Number(payload.buy);
+
+			const buy_first_place = payload.buy_first_place === '' || payload.buy_first_place === null || payload.buy_first_place === undefined
+				? null
+				: Number(payload.buy_first_place);
+
 			const response = await fetch('/banca/puestos', {
 				method: 'POST',
 				headers: {
@@ -146,7 +172,10 @@
 					banking_id: Number(payload.banking_id ?? data?.bankingId ?? 1),
 					name: payload.name ?? 'Nuevo puesto',
 					location: payload.location ?? '-',
-					prohibited_percentage: Number(payload.prohibited_percentage ?? 0)
+					prohibited_percentage: Number(payload.prohibited_percentage ?? 0),
+					comission: Number(payload.comission ?? 0),
+					buy,
+					buy_first_place
 				})
 			});
 
@@ -158,6 +187,7 @@
 				});
 				return;
 			}
+			invalidateBancaFilterCache();
 
 			const result = await response.json().catch(() => null);
 			const id = result?.items?.[0]?.id;
@@ -167,6 +197,9 @@
 				name: payload.name ?? 'Nuevo puesto',
 				location: payload.location ?? '-',
 				prohibited_percentage: Number(payload.prohibited_percentage ?? 0),
+				comission: Number(payload.comission ?? 0),
+				buy,
+				buy_first_place,
 				user_count: 0,
 				draw_count: 0,
 				users: payload.users ?? [],
@@ -191,11 +224,27 @@
 		}
 	}
 
-	async function handleUpdatePuesto(payload: { id: number, name?: string, location?: string, prohibited_percentage?: number } ) {
+	async function handleUpdatePuesto(payload: { id: number, name?: string, location?: string, prohibited_percentage?: number, buy?: number | '' | null, buy_first_place?: number | '' | null, comission?: number } ) {
 		try {
 			if (!payload.id) {
 				throw new Error('El payload debe contener un id válido para actualizar el puesto.');
 			}
+
+			const buy = payload.buy === '' || payload.buy === null || payload.buy === undefined
+				? null
+				: Number(payload.buy);
+
+			const buy_first_place = payload.buy_first_place === '' || payload.buy_first_place === null || payload.buy_first_place === undefined
+				? null
+				: Number(payload.buy_first_place);
+
+			const detailsResponse = await fetch(`/banca/puestos/${payload.id}/details`);
+			if (!detailsResponse.ok) {
+				throw new Error('No se pudieron cargar los sorteos asociados al puesto.');
+			}
+
+			const details = await detailsResponse.json().catch(() => null);
+			const sorteos = Array.isArray(details?.drawItems) ? details.drawItems : [];
 
 			const response = await fetch(`/banca/puestos/${payload.id}`, {
 				method: 'PUT',
@@ -205,7 +254,10 @@
 				body: JSON.stringify({
 					name: payload.name ?? '',
 					location: payload.location ?? '',
-					prohibited_percentage: Number(payload.prohibited_percentage ?? 0)
+					prohibited_percentage: Number(payload.prohibited_percentage ?? 0),
+					comission: Number(payload.comission ?? 0),
+					buy,
+					buy_first_place
 				})
 			});
 
@@ -217,6 +269,33 @@
 				});
 				return;
 			}
+			invalidateBancaFilterCache();
+
+			for (const sorteo of sorteos) {
+				if (!sorteo.draw_schedule_id) {
+					throw new Error('Uno de los sorteos asociados no tiene un id de horario válido.');
+				}
+
+				const scheduleResponse = await fetch('/banca/sorteos/draw-schedule-branch', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						branch_id: payload.id,
+						draw_schedule_id: sorteo.draw_schedule_id,
+						comission: Number(payload.comission ?? 0),
+						prohibited_percentage: Number(payload.prohibited_percentage ?? 0),
+						enabled: sorteo.enabled ?? true,
+						buy,
+						buy_first_place
+					})
+				});
+
+				if (!scheduleResponse.ok) {
+					throw new Error(`No se pudo actualizar el horario ${sorteo.draw_schedule_id}.`);
+				}
+			}
 
 			acts.add({
 				message: 'Puesto actualizado correctamente',
@@ -225,7 +304,18 @@
 			});
 			puestos = puestos.map((item) => item.id === payload.id ? {
 				...item,
-				...payload
+				...payload,
+				prohibited_percentage: Number(payload.prohibited_percentage ?? 0),
+				comission: Number(payload.comission ?? 0),
+				buy,
+				buy_first_place,
+				sorteos: sorteos.map((sorteo) => ({
+					...sorteo,
+					comission: String(payload.comission ?? 0),
+					prohibited_percentage: Number(payload.prohibited_percentage ?? 0),
+					buy,
+					buy_first_place
+				}))
 			} : item );
 			showModal = false;
 		} catch (error) {
@@ -240,6 +330,25 @@
 
 	function handleCreateUser(puesto: Puesto) {
 		selectedPuesto = puesto;
+		selectedUser = {
+			id: -1,
+			username: '',
+			name: '',
+			phone: '',
+			password: ''
+		};
+		showUserModal = true;
+	}
+
+	function handleEditUser(puesto: Puesto, user: { id?: number; username: string; name: string; phone: string; password?: string }) {
+		selectedPuesto = puesto;
+		selectedUser = {
+			id: user.id ?? -1,
+			username: user.username ?? '',
+			name: user.name ?? '',
+			phone: user.phone ?? '',
+			password: ''
+		};
 		showUserModal = true;
 	}
 
@@ -291,8 +400,51 @@
 		}
 	}
 
-	function updateUser() {
-		// TODO
+	async function handleUpdateUser(payload: { id?: number; username: string; name: string; phone: string; password?: string }) {
+		try {
+			if (!selectedPuesto?.id || !payload.id) {
+				throw new Error('No se puede actualizar un usuario sin un puesto o id válidos.');
+			}
+
+			const updatedUser = {
+				...payload,
+				password: payload.password?.trim() || undefined
+			};
+
+			puestos = puestos.map((item) => {
+				if (item.id !== selectedPuesto?.id) {
+					return item;
+				}
+
+				return {
+					...item,
+					users: (item.users ?? []).map((currentUser) =>
+						currentUser.id === payload.id || (currentUser.username === payload.username && currentUser.name === payload.name)
+							? {
+								...currentUser,
+								username: updatedUser.username,
+								name: updatedUser.name,
+								phone: updatedUser.phone
+							}
+							: currentUser
+					),
+				};
+			});
+
+			acts.add({
+				message: 'Usuario actualizado correctamente',
+				mode: 'success',
+				lifetime: 3
+			});
+			showUserModal = false;
+		} catch (error) {
+			console.error('Error al actualizar el usuario:', error);
+			acts.add({
+				message: 'Error al actualizar el usuario',
+				mode: 'error',
+				lifetime: 3
+			});
+		}
 	}
 
 	function handleAssignSorteo() {
@@ -318,16 +470,16 @@
 
 <UserModal
 	bind:showModal={showUserModal}
-	updateUser={updateUser}
+	bind:user={selectedUser}
+	updateUser={handleUpdateUser}
 	addUser={addUser}
 />
-	
+
 <svelte:head>
 	<title>Puestos</title>
 </svelte:head>
 
 {#if ['banking'].includes($auth.user?.role ?? '')}
-<Notifications />
 <section class="page-stack">
 	<header class="header-banking">
 		<div>
@@ -341,8 +493,8 @@
 	<div class="panel-list">
 		{#each puestos as puesto}
 			<div class="panel-card">
-				<div 
-					class="panel-toggle" 
+				<div
+					class="panel-toggle"
 					onclick={() => togglePuesto(puesto.id ?? 0)}
 					onkeydown={(e) => e.key === 'Enter' && togglePuesto(puesto.id ?? 0)}
 					role="button"
@@ -355,6 +507,15 @@
 							<span class="chip chip--muted">{puesto.user_count ?? puesto.users?.length ?? 0} usuarios</span>
 							<span class="chip chip--muted">{puesto.draw_count ?? puesto.sorteos?.length ?? 0} sorteos</span>
 							<span class="chip chip--muted">Prohibidos al {puesto.prohibited_percentage}%</span>
+							{#if puesto.comission !== null && puesto.comission !== undefined}
+								<span class="chip chip--muted">Comisión {Number(puesto.comission).toFixed(0)}%</span>
+							{/if}
+							{#if puesto.buy !== null && puesto.buy !== undefined}
+								<span class="chip chip--muted">Compra al {Number(puesto.buy).toFixed(0)}%</span>
+							{/if}
+							{#if puesto.buy_first_place !== null && puesto.buy_first_place !== undefined}
+								<span class="chip chip--muted">Compra el primero al {Number(puesto.buy_first_place).toFixed(0)}%</span>
+							{/if}
 						</div>
 					</div>
 					<div class="options-buttons">
@@ -382,6 +543,7 @@
 													<th>Usuario</th>
 													<th>Nombre</th>
 													<th>Telefono</th>
+													<th>Acciones</th>
 												</tr>
 											</thead>
 											<tbody>
@@ -389,7 +551,16 @@
 													<tr>
 														<td>{user.username}</td>
 														<td>{user.name}</td>
-														<td>{user.phone}</td>	
+														<td>{user.phone}</td>
+														<td>
+															<button
+																class="neutral small"
+																type="button"
+																onclick={(event) => { event.stopPropagation(); handleEditUser(puesto, user); }}
+															>
+																<PenSolid class="shrink-0 h-4 w-4" />
+															</button>
+														</td>
 													</tr>
 												{/each}
 											</tbody>
@@ -412,13 +583,37 @@
 												<tr>
 													<th>Sorteo</th>
 													<th>Comisión</th>
+													<th>Prohibidos</th>
+													<th>Compra</th>
+													<th>Compra el primero</th>
 												</tr>
 											</thead>
 											<tbody>
 												{#each puesto.sorteos as sorteo}
 													<tr>
 														<td>{sorteo.draw_name} {sorteo.draw_schedule_name}</td>
-														<td>{sorteo.comission}</td>
+														<td>{Number(sorteo.comission).toFixed(0)}%</td>
+														<td>
+															{#if sorteo.prohibited_percentage !== null && sorteo.prohibited_percentage !== undefined}
+																{Number(sorteo.prohibited_percentage).toFixed(0)}%
+															{:else}
+																N/A
+															{/if}
+														</td>
+														<td>
+															{#if sorteo.buy !== null && sorteo.buy !== undefined}
+																{Number(sorteo.buy).toFixed(0)}%
+															{:else}
+																N/A
+															{/if}
+														</td>
+														<td>
+															{#if sorteo.buy_first_place !== null && sorteo.buy_first_place !== undefined}
+																{Number(sorteo.buy_first_place).toFixed(0)}%
+															{:else}
+																N/A
+															{/if}
+														</td>
 													</tr>
 												{/each}
 											</tbody>
@@ -426,7 +621,7 @@
 									</div>
 								{/if}
 								<!-- <button onclick={handleAssignSorteo}>
-									Assignar sorteo	
+									Assignar sorteo
 								</button> -->
 							</div>
 						</div>
@@ -514,5 +709,3 @@
 		margin-top: auto;
 	}
 </style>
-
-

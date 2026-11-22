@@ -11,7 +11,7 @@
 		sorteoId = $bindable(0),
         addSchedule
 	} = $props();
-	
+
 	type schedule = {
 		id: number | null;
 		name: string;
@@ -20,7 +20,7 @@
 		is_megareventado: boolean;
 	};
 
-	import { acts, Notifications } from '@tadashi/svelte-notification'
+	import { acts } from '@tadashi/svelte-notification'
 
 	function onClose() {
 		showModal = false;
@@ -50,13 +50,13 @@
 				console.error('Failed to create schedule', responsePayload);
 				return;
 			}
-			console.log('Horario creado exitosamente', responsePayload);
+
 			const createdId = Array.isArray(responsePayload?.items)
 				? responsePayload.items[0]?.id
 				: null;
 			addSchedule({ sorteoId, name, time, id: createdId ?? undefined });
 			onClose();
-			
+
 			acts.add({
 				message: 'Horario creado exitosamente',
 				mode: 'success',
@@ -69,7 +69,6 @@
 </script>
 
 {#if showModal}
-<Notifications/>
 	<div
 		class="modal-backdrop"
 		role="button"

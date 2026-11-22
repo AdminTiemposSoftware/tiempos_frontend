@@ -1,138 +1,105 @@
-import qz from 'qz-tray';
-import { escpos } from './escpos';
-import type { ReceiptData, Receipt } from './types';
+const SIGNED_AMOUNT_BITS = 24;
+const SIGNED_AMOUNT_MODULUS = 2 ** SIGNED_AMOUNT_BITS;
+const SIGNED_AMOUNT_SIGN_BIT = 2 ** (SIGNED_AMOUNT_BITS - 1);
+const SIGNED_AMOUNT_MAX = SIGNED_AMOUNT_SIGN_BIT - 1;
+const SIGNED_AMOUNT_MIN = -SIGNED_AMOUNT_SIGN_BIT;
 
-let printerName = 'EPSON TM-T88V';
-
-let config: qz.configs.Config | null = null;
-
-export async function connect(name = printerName) {
-    printerName = name;
-
-    if (!qz.websocket.isActive()) {
-        await qz.websocket.connect();
+// TODO: Implement signed amount encoding
+function encodeSignedAmount(value: number): string {
+    if (
+        !Number.isInteger(value) ||
+        value < SIGNED_AMOUNT_MIN ||
+        value > SIGNED_AMOUNT_MAX
+    ) {
+        return '';
     }
 
-    config = qz.configs.create(printerName);
+    const encoded = value < 0 ? SIGNED_AMOUNT_MODULUS + value : value;
+    return encoded.toString(16).toUpperCase().padStart(SIGNED_AMOUNT_BITS / 4, '0');
 }
 
-export async function reconnect() {
-    if (qz.websocket.isActive()) {
-        return;
+function decodeSignedAmount(hex: string): number {
+    const unsignedValue = Number.parseInt(hex, 16);
+
+    return unsignedValue >= SIGNED_AMOUNT_SIGN_BIT
+        ? unsignedValue - SIGNED_AMOUNT_MODULUS
+        : unsignedValue;
+}
+
+export function serializeData(data: Record<string, number>, ticket_serial: string): string {
+    const serialHex = ticket_serial
+        ? BigInt(ticket_serial).toString(16).toUpperCase()
+        : '';
+    const count = Object.keys(data).length;
+
+    if (count >= 20) return '';
+    return Object.entries(data)
+        .sort(([leftNumber], [rightNumber]) => Number(leftNumber) - Number(rightNumber))
+        .map(([number, item]) => {
+            const numberHex = Number(number).toString(16).toUpperCase().padStart(2, '0');
+            const priceHex = Number(item).toString(16).toUpperCase().padStart(6, '0');
+
+            return `${numberHex}${priceHex}`;
+        })
+        .join('') + serialHex;
+}
+
+export function formatAmount(value: number) {
+    if (!Number.isFinite(value)) {
+        return "0";
     }
 
-    await connect(printerName);
+    const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+    const integerPart = Math.round(Math.abs(rounded)).toString();
+    const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    const sign = rounded < 0 ? "-" : "";
+
+    return `${sign}${groupedInteger}`;
 }
 
-export async function disconnect() {
-    if (qz.websocket.isActive()) {
-        await qz.websocket.disconnect();
-    }
+export function serializeListQrData(data: Record<number, number>): string {
+    return Object.entries(data)
+        .filter(([, value]) => Number.isFinite(value))
+        .sort(([left], [right]) => Number(left) - Number(right))
+        .map(([number, price]) => {
+            const numberHex = Number(number).toString(16).toUpperCase().padStart(2, '0');
+            const priceHex = Number(price).toString(16).toUpperCase().padStart(6, '0');
+            return `${numberHex}${priceHex}`;
+        })
+        .join('');
 }
 
-async function send(data: any[]) {
-    await reconnect();
+export function decodeListQrData(qrData: string): Record<number, number> {
+    const normalized = qrData.trim().toUpperCase();
 
-    if (!config) {
-        throw new Error('Printer not connected.');
-    }
-
-    await qz.print(config, data);
-}
-
-export async function printReceipt(receipt: ReceiptData) {
-
-    const output: any[] = [];
-
-    output.push(escpos.initialize);
-
-    if (receipt.title) {
-
-        output.push(escpos.alignCenter);
-        output.push(escpos.boldOn);
-        output.push(escpos.doubleSizeOn);
-
-        output.push(escpos.text(receipt.title));
-
-        output.push(escpos.normalSize);
-        output.push(escpos.boldOff);
+    if (!normalized || /[^0-9A-F]/.test(normalized)) {
+        return {};
     }
 
-    output.push(escpos.alignLeft);
+    const decoded: Record<number, number> = {};
 
-    for (const line of receipt.lines) {
+    for (let index = 0; index + 8 <= normalized.length; index += 8) {
+        const chunk = normalized.slice(index, index + 8);
+        const number = Number.parseInt(chunk.slice(0, 2), 16);
+        const price = Number.parseInt(chunk.slice(2), 16);
 
-        const left = line.left.padEnd(24);
+        if (Number.isNaN(number) || Number.isNaN(price) || number < 0 || number > 99) {
+            continue;
+        }
 
-        output.push(
-            escpos.text(left + (line.right ?? ''))
-        );
+        decoded[number] = price;
     }
 
-    if (receipt.footer) {
-
-        output.push(escpos.feed());
-
-        output.push(escpos.alignCenter);
-        output.push(escpos.text(receipt.footer));
-    }
-
-    output.push(escpos.feed(3));
-    output.push(escpos.cut);
-
-    await send(output);
+    return decoded;
 }
 
-export async function printQRCode(text: string) {
+export function decodeExportedListQrData(qrData: string): Record<number, number> {
+    const normalized = qrData.trim().toUpperCase();
 
-    await send([
-        escpos.alignCenter,
-        escpos.qr(text),
-        escpos.feed(2),
-        escpos.cut
-    ]);
+    return Object.fromEntries(
+        Array.from({ length: 100 }, (_, number) => {
+            const amount = decodeSignedAmount(normalized.slice(number * 6, number * 6 + 6));
+            return [number, amount];
+        })
+    );
 }
-
-export async function printBarcode(text: string) {
-
-    await send([
-        escpos.alignCenter,
-        ...escpos.barcode(text),
-        escpos.feed(2),
-        escpos.cut
-    ]);
-}
-
-export async function openCashDrawer() {
-
-    await send([
-        escpos.drawer
-    ]);
-}
-
-export async function cutPaper() {
-
-    await send([
-        escpos.cut
-    ]);
-}
-
-function buildReceipt(ticket: Ticket): Receipt {
-    return {
-        title: "Lotería Nacional",
-
-        subtitles: ["Sucursal Central"],
-
-        items: ticket.details.map(d => ({
-            number: d.number,
-            amount: d.amount
-        })),
-
-        total: ticket.total,
-
-        qr: ticket.id,
-
-        footer: ["¡Buena suerte!"]
-    };
-}
-

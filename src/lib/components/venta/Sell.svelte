@@ -1,43 +1,96 @@
 <script lang="ts">
-    let {getTickets, getSoldNumbersForTicket, selectedBet, selectedDate} = $props();
+    let {
+        getTickets,
+        getSoldNumbersForTicket,
+        getSoldAmountNamesForTicket,
+        getSoldEntriesForTicket,
+        selectedBet,
+        selectedDate,
+        isPrintConfirmationOpen = $bindable(false),
+        amountNameItems = [],
+    } = $props();
 
-    let sold= $state<Record<string, { price: number }>>({});
+    type SoldEntry = { number: string; amount: number; amount_name: string | null; id: number };
+    type UnnamedSoldEntry = {
+        number: string;
+        amount: number;
+        id: number;
+        is_reventado: number;
+        is_megareventado: number;
+    };
+    type SoldOrderEntry = { type: 'number'; id: number } | { type: 'named'; id: number };
+    let sold= $state<Record<string, number>>({});
+    let unnamedSoldEntries = $state<UnnamedSoldEntry[]>([]);
+    let namedSoldEntries = $state<SoldEntry[]>([]);
+    let soldOrder = $state<SoldOrderEntry[]>([]);
+    let nextEntryId = 0;
+    let soldAmountNames = $state<Record<string, string | null>>({});
     let priceInput: HTMLInputElement;
     let randomCountInput: HTMLInputElement;
     let priceValue = $state('');
-    let showQrModal = $state(false);
+    let selectedAmountName = $state<string | null>(null);
     let showTicketsModal = $state(false);
     let tickets = $state([]);
     let numberInput: HTMLInputElement;
     let randomCount = $state(1);
     let isSubmitting = $state(false);
-    let submitError = $state('');
     let selectedRowIndex = $state(0);
     let rowRefs: Array<HTMLTableRowElement | null> = [];
     let showTicketPreviewModal = $state(false);
+    let ticketPreviewBet = $state<any>(null);
+    let ticketPreviewDate = $state('');
     let details = $state('');
+
+    function snapshotBetForPreview(bet: any) {
+        if (!bet) return null;
+
+        return {
+            ...bet,
+            positions: Array.isArray(bet.positions)
+                ? bet.positions.map((position: any) => ({ ...position }))
+                : []
+        };
+    }
+
     let detailsSnapshot = $state('');
-    let soldSnapshot: Record<string, { price: number }> = $state({});
-    let createdTicket: { ticket_serial: string; ticket_amount: number; printed_at: string; ticket_number: string } | null = $state(null);
+    let soldSnapshot: Record<string, number> = $state({});
+    let unnamedSoldEntriesSnapshot = $state<UnnamedSoldEntry[]>([]);
+    let namedSoldEntriesSnapshot = $state<SoldEntry[]>([]);
+    let soldAmountNamesSnapshot: Record<string, string | null> = $state({});
     let showConfirmModal = $state(false);
+    let createdTicket: { ticket_serial: string; ticket_amount: number; printed_at: string; ticket_number: string } | null = $state(null);
     let formElement: HTMLFormElement;
-    let soldAmount = $derived.by(() => {
-        return Object.values(sold).reduce((sum, item) => sum + item.price, 0);
-    });
+    let soldAmount = $derived.by(() => Object.values(sold).reduce((sum, item) => sum + item, 0)
+        + namedSoldEntries.reduce((sum, item) => sum + item.amount, 0));
+    let displayedSoldEntries = $derived.by(() => [...soldOrder].reverse().flatMap((entry) => {
+        if (entry.type === 'number') {
+            const unnamedEntry = unnamedSoldEntries.find((item) => item.id === entry.id);
+            return unnamedEntry
+                ? [{ type: 'number' as const, number: unnamedEntry.number, price: unnamedEntry.amount, amount_name: null, id: unnamedEntry.id }]
+                : [];
+        }
+
+        const namedEntry = namedSoldEntries.find((item) => item.id === entry.id);
+        return namedEntry
+            ? [{ type: 'named' as const, number: namedEntry.number, price: namedEntry.amount, amount_name: namedEntry.amount_name, id: namedEntry.id }]
+            : [];
+    }));
     let showJalarModal = $state(false);
+    const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
+	const today = utcMinus6Date.toISOString().split('T')[0];
 
     import { onMount } from 'svelte';
     import { TrashBinSolid, CubeSolid, QuestionCircleSolid, PrinterSolid, EyeSolid, ReceiptSolid, CameraPhotoSolid } from "flowbite-svelte-icons";
     import { sellingMatrix } from '../../stores/UpdateSellMatrix';
     import { total } from '../../stores/UpdateSellMatrix';
-    import QrModal from './QrModal.svelte';
     import TicketsModal from './TicketsModal.svelte';
     import { prohibitedNumbers } from "../../stores/UpdateSellMatrix";
-    import { Notifications, acts } from '@tadashi/svelte-notification';
+    import { acts } from '@tadashi/svelte-notification';
     import { auth } from '../../stores/auth';
     import TicketPreviewModal from './TicketPreviewModal.svelte';
     import ConfirmModalWithInput from '../ConfirmModalWithInput.svelte';
     import JalarTicketModal from './JalarTicketModal.svelte';
+    import { formatAmount } from '../../printing/printing';
 
     onMount(() => {
         priceInput?.focus();
@@ -54,6 +107,7 @@
     function handlePriceInput(event: Event) {
         const target = event.target as HTMLInputElement;
         priceValue = formatThousands(target.value);
+        selectedAmountName = null;
     }
 
     function handleNumberInput(event: Event) {
@@ -92,31 +146,140 @@
         }
     }
 
-    function updateSalesData(numbers: string[], price: number) {
+    function updateSalesData(numbers: string[], price: number, amountName: string | null = null) {
+        if (amountName) {
+            namedSoldEntries = [...namedSoldEntries, ...numbers.map((number) => ({
+                number,
+                amount: price,
+                amount_name: amountName,
+                id: nextEntryId++
+            }))];
+            soldOrder = [
+                ...soldOrder,
+                ...namedSoldEntries.slice(-numbers.length).map((entry) => ({ type: 'named' as const, id: entry.id }))
+            ];
+            formElement.reset();
+            priceInput?.focus();
+            priceValue = '';
+            selectedAmountName = null;
+            return;
+        }
         const newSelled = { ...sold };
         numbers.forEach((num) => {
-            if (newSelled[num]) {
-                newSelled[num].price += price;
-            } else {
-                newSelled[num] = { price };
-            }
+            const unnamedEntry = {
+                number: num,
+                amount: price,
+                id: nextEntryId++,
+                is_reventado: 0,
+                is_megareventado: 0
+            };
+            unnamedSoldEntries = [...unnamedSoldEntries, unnamedEntry];
+            soldOrder = [...soldOrder, { type: 'number', id: unnamedEntry.id }];
+            newSelled[num] = (newSelled[num] ?? 0) + price;
         });
         sold = newSelled;
+        selectedAmountName = null;
         formElement.reset();
         priceInput?.focus();
         priceValue = '';
     }
 
-    function buildNumbersPayload(values: Record<string, { price: number }>) {
-        return Object.entries(values).map(([number, price]) => ({
-            number: parseInt(number, 10),
-            amount: price.price,
-            is_reventado: 0,
-            is_megareventado: 0
+    function buildNumbersPayload(entries: UnnamedSoldEntry[], namedEntries: SoldEntry[]) {
+        const unnamedByGroup = new Map<string, {
+            number: number;
+            amount: number;
+            is_reventado: number;
+            is_megareventado: number;
+        }>();
+        for (const entry of entries) {
+            const number = parseInt(entry.number, 10);
+            const key = `${number}:${entry.is_reventado}:${entry.is_megareventado}`;
+            const current = unnamedByGroup.get(key);
+            if (current) {
+                current.amount += entry.amount;
+            } else {
+                unnamedByGroup.set(key, {
+                    number,
+                    amount: entry.amount,
+                    is_reventado: entry.is_reventado,
+                    is_megareventado: entry.is_megareventado
+                });
+            }
+        }
+        const unnamed = Array.from(unnamedByGroup.values()).map((entry) => ({
+            ...entry,
+            amount_name: null
         }));
+        return [
+            ...unnamed,
+            ...namedEntries.map((entry) => ({
+                number: parseInt(entry.number, 10),
+                amount: entry.amount,
+                is_reventado: 0,
+                is_megareventado: 0,
+                amount_name: entry.amount_name
+            }))
+        ];
     }
 
-    function hasProhibitedNumbers(soldSnapshot: Record<string, { price: number }>) {
+    function expandNumberExpression(numberInput: string): string[] {
+        const parts = numberInput.split('+').map((part) => part.trim()).filter(Boolean);
+        const expandedNumbers: string[] = [];
+        const addIfValid = (value: number) => {
+            if (Number.isInteger(value) && value >= 0 && value <= 99) {
+                expandedNumbers.push(String(value));
+            }
+        };
+
+        parts.forEach((part) => {
+            if (part.includes('*')) {
+                const cleaned = part.replace('*', '').trim();
+                const base = parseInt(cleaned, 10);
+                if (Number.isNaN(base)) {
+                    return;
+                }
+
+                if (part.startsWith('*') && !part.endsWith('*')) {
+                    if (base < 10) {
+                        for (let i = 0; i < 10; i++) {
+                            addIfValid(i * 10 + base);
+                        }
+                    } else {
+                        addIfValid(base);
+                    }
+                    return;
+                }
+
+                const baseNum = base * 10;
+                for (let i = 0; i < 10; i++) {
+                    addIfValid(baseNum + i);
+                }
+                return;
+            }
+
+            if (part.includes('-')) {
+                const [startRaw, endRaw] = part.split('-').map((value) => value.trim());
+                const start = parseInt(startRaw, 10);
+                const end = parseInt(endRaw, 10);
+                if (Number.isNaN(start) || Number.isNaN(end)) {
+                    return;
+                }
+
+                const from = Math.min(start, end);
+                const to = Math.max(start, end);
+                for (let value = from; value <= to; value++) {
+                    addIfValid(value);
+                }
+                return;
+            }
+
+            addIfValid(parseInt(part, 10));
+        });
+
+        return expandedNumbers;
+    }
+
+    function hasProhibitedNumbers(soldSnapshot: Record<string, number>) {
         const prohibitedInSold = $prohibitedNumbers.filter( (p) =>
             soldSnapshot[p.number] !== undefined && p.can_sell_after_amount === false
         );
@@ -173,6 +336,14 @@
         return false;
     }
 
+    function currentAmountsByNumber() {
+        const amounts = { ...sold };
+        for (const entry of namedSoldEntries) {
+            amounts[entry.number] = (amounts[entry.number] ?? 0) + entry.amount;
+        }
+        return amounts;
+    }
+
     function canSellSelectedNumbers(drawScheduleId : number ) {
         if (!drawScheduleId){
             acts.add({
@@ -182,7 +353,7 @@
             });
             return false;
         }
-        if (Object.keys(sold).length === 0){
+        if (Object.keys(sold).length === 0 && namedSoldEntries.length === 0){
             acts.add({
                 message: 'No hay números seleccionados.',
                 mode: 'error',
@@ -194,55 +365,147 @@
     }
 
     async function processTicket() {
-        submitError = '';
-
         const drawScheduleId = selectedBet?.schedule_id ?? selectedBet?.draw_schedule_id;
         if (!canSellSelectedNumbers(drawScheduleId)) return;
-
-        if (hasProhibitedNumbers(soldSnapshot)) return;
-
         soldSnapshot = { ...sold };
+        unnamedSoldEntriesSnapshot = [...unnamedSoldEntries];
+        soldAmountNamesSnapshot = { ...soldAmountNames };
+        namedSoldEntriesSnapshot = [...namedSoldEntries];
+        if (hasProhibitedNumbers(currentAmountsByNumber())) return;
         isSubmitting = true;
+        try {
+            const response = await fetch('/puesto/venta', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    date: selectedDate,
+                    draw_schedule_id: drawScheduleId,
+                    details: details,
+                    numbers: buildNumbersPayload(unnamedSoldEntriesSnapshot, namedSoldEntriesSnapshot)
+                })
+            });
 
-        const response = await fetch('/puesto/venta', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                date: selectedDate,
-                draw_schedule_id: drawScheduleId,
-                details: details,
-                numbers: buildNumbersPayload(soldSnapshot)
-            })
-        });
+            isSubmitting = false;
 
-        isSubmitting = false;
+            if (!response.ok) {
+                acts.add({
+                    message: 'Hubo un error al crear el tiquete.',
+                    mode: 'error',
+                    lifetime: 3
+                });
+                return;
+            }
 
-        if (!response.ok) {
-            submitError = 'No se pudo crear el tiquete.';
+            const responseBody = await response.json().catch(() => null);
+            createdTicket = Array.isArray(responseBody?.items) ? responseBody.items[0] : null;
+            ticketPreviewBet = snapshotBetForPreview(selectedBet);
+            ticketPreviewDate = selectedDate;
+            if (selectedDate === today) {
+                sellingMatrix.update((matrix) => {
+                    for (const [number, price] of Object.entries(soldSnapshot)) {
+                        matrix[number] = (matrix[number] || 0) + price;
+                    }
+                    for (const entry of namedSoldEntriesSnapshot) {
+                        matrix[entry.number] = (matrix[entry.number] || 0) + entry.amount;
+                    }
+                    return matrix;
+                });
+                total.update((n) => n
+                    + Object.values(soldSnapshot).reduce((sum, item) => sum + item, 0)
+                    + namedSoldEntriesSnapshot.reduce((sum, item) => sum + item.amount, 0));
+            }
+            showTicketPreviewModal = true;
+            sold = {};
+            unnamedSoldEntries = [];
+            soldAmountNames = {};
+            namedSoldEntries = [];
+            soldOrder = [];
+            detailsSnapshot = details;
+            details = '';
+        } catch (error) {
+            isSubmitting = false;
+            console.error(error);
+            acts.add({
+                message: 'Hubo un error al crear el tiquete.',
+                mode: 'error',
+                lifetime: 3
+            });
+        }
+    }
+
+    function deleteNumber(id: number) {
+        const entry = unnamedSoldEntries.find((item) => item.id === id);
+        if (!entry) return;
+        unnamedSoldEntries = unnamedSoldEntries.filter((item) => item.id !== id);
+        sold = { ...sold };
+        sold[entry.number] -= entry.amount;
+        if (sold[entry.number] <= 0) delete sold[entry.number];
+        soldOrder = soldOrder.filter((item) => item.type !== 'number' || item.id !== id);
+    }
+
+    function deleteEntry(index: number) {
+        const entry = displayedSoldEntries[index];
+        if (!entry) return;
+
+        if (entry.type === 'number') {
+            deleteNumber(entry.id);
             return;
         }
 
-        const responseBody = await response.json().catch(() => null);
-        createdTicket = Array.isArray(responseBody?.items) ? responseBody.items[0] : null;
-
-        sellingMatrix.update((matrix) => {
-            for (const [number, price] of Object.entries(soldSnapshot)) {
-                matrix[number] = (matrix[number] || 0) + price.price;
-            }
-            return matrix;
-        });
-        total.update((n) => n + Object.values(soldSnapshot).reduce((sum, item) => sum + item.price, 0));
-        showTicketPreviewModal = true;
-        sold = {};
-        detailsSnapshot = details;
-        details = '';
+        namedSoldEntries = namedSoldEntries.filter((namedEntry) => namedEntry.id !== entry.id);
+        soldOrder = soldOrder.filter((orderedEntry) =>
+            orderedEntry.type !== 'named' || orderedEntry.id !== entry.id
+        );
     }
 
-    function deleteNumber(number: string) {
-        const { [number]: _, ...rest } = sold;
-        sold = rest;
+    function loadTicketEntries(entries: Array<{
+        number: string;
+        amount: number;
+        amount_name: string | null;
+        is_reventado?: number | boolean;
+        is_megareventado?: number | boolean;
+    }>) {
+        const unnamedAmounts: Record<string, number> = {};
+        const nextUnnamedEntries: UnnamedSoldEntry[] = [];
+        const nextNamedEntries: SoldEntry[] = [];
+        const nextOrder: SoldOrderEntry[] = [];
+
+        for (const entry of entries) {
+            const number = String(entry.number).padStart(2, '0');
+            if (entry.amount_name) {
+                const namedEntry = {
+                    number,
+                    amount: entry.amount,
+                    amount_name: entry.amount_name,
+                    id: nextEntryId++
+                };
+                nextNamedEntries.push(namedEntry);
+                nextOrder.push({ type: 'named', id: namedEntry.id });
+                continue;
+            }
+
+            const unnamedEntry = {
+                number,
+                amount: entry.amount,
+                id: nextEntryId++,
+                is_reventado: Number(Boolean(entry.is_reventado)),
+                is_megareventado: Number(Boolean(entry.is_megareventado))
+            };
+            nextUnnamedEntries.push(unnamedEntry);
+            nextOrder.push({ type: 'number', id: unnamedEntry.id });
+            unnamedAmounts[number] = (unnamedAmounts[number] ?? 0) + entry.amount;
+        }
+
+        sold = unnamedAmounts;
+        unnamedSoldEntries = nextUnnamedEntries;
+        soldAmountNames = {};
+        namedSoldEntries = nextNamedEntries;
+        soldOrder = nextOrder;
+        selectedAmountName = null;
+        priceValue = '';
+        numberInput?.focus();
     }
 
     function onSubmit(event: Event) {
@@ -260,67 +523,51 @@
             return;
         }
 
-        // Split by plus sign
-        const parts: string[] = numberInput.split('+').map((n) => n.trim()).filter((n) => n);
-
-        const expandedNumbers: string[] = [];
-        const addIfValid = (value: number) => {
-            if (Number.isNaN(value) || value < 0 || value > 99) {
-                return;
-            }
-            expandedNumbers.push(String(value));
-        };
-
-        parts.forEach((part) => {
-            if (part.includes('*')) {
-                const cleaned = part.replace('*', '').trim();
-                const base = parseInt(cleaned, 10);
-                if (Number.isNaN(base)) {
-                    return;
-                }
-                if (part.startsWith('*') && !part.endsWith('*')) {
-                    if (base < 10) {
-                        for (let i = 0; i < 10; i++) {
-                            addIfValid(i * 10 + base);
-                        }
-                    } else {
-                        addIfValid(base);
-                    }
-                    return;
-                }
-                const baseNum = base * 10;
-                for (let i = 0; i < 10; i++) {
-                    addIfValid(baseNum + i);
-                }
-                return;
-            }
-
-            if (part.includes('-')) {
-                const [startRaw, endRaw] = part.split('-').map((n) => n.trim());
-                const start = parseInt(startRaw, 10);
-                const end = parseInt(endRaw, 10);
-                if (Number.isNaN(start) || Number.isNaN(end)) {
-                    return;
-                }
-                const from = Math.min(start, end);
-                const to = Math.max(start, end);
-                for (let i = from; i <= to; i++) {
-                    addIfValid(i);
-                }
-                return;
-            }
-
-            addIfValid(parseInt(part, 10));
-        });
-
-        updateSalesData(expandedNumbers, parseInt(price, 10));
+        updateSalesData(
+            expandNumberExpression(numberInput),
+            parseInt(price, 10),
+            selectedAmountName
+        );
     }
 
     function cleanSell() {
-        if (Object.keys(sold).length === 0) {
+        if (Object.keys(sold).length === 0 && namedSoldEntries.length === 0) {
             return;
         }
         sold = {};
+        unnamedSoldEntries = [];
+        soldAmountNames = {};
+        namedSoldEntries = [];
+        soldOrder = [];
+    }
+
+    function handleAmountNameShortcut(event: KeyboardEvent) {
+        if (
+            event.repeat ||
+            showConfirmModal ||
+            showTicketPreviewModal ||
+            showTicketsModal ||
+            showJalarModal ||
+            event.target instanceof HTMLTextAreaElement ||
+            (event.target instanceof HTMLElement && event.target.isContentEditable)
+        ) {
+            return false;
+        }
+
+        const shortcut = amountNameItems.find((item: { key?: string }) =>
+            String(item.key ?? '').toLowerCase() === event.key.toLowerCase()
+        );
+        const amount = shortcut ? Number(shortcut.amount) : NaN;
+
+        if (!shortcut || !Number.isFinite(amount) || amount < 0) {
+            return false;
+        }
+
+        event.preventDefault();
+        selectedAmountName = shortcut.name;
+        priceValue = formatThousands(String(shortcut.amount));
+        numberInput?.focus();
+        return true;
     }
 
     function generateRandomNumbers() {
@@ -380,21 +627,9 @@
         updateSalesData(pairNumbers, price);
     }
 
-    // TODO: Implement functionality for these buttons
-    function viewQR() {
-        // if (Object.keys(sold).length === 0) {
-        //     return;
-        // }
-        showQrModal = true;
-    }
-
     async function viewTickets() {
         tickets = await getTickets();
         showTicketsModal = true;
-    }
-
-    function closeTicketsModal() {
-        showTicketsModal = false;
     }
 
     function onJalar() {
@@ -417,6 +652,10 @@
             return;
         }
 
+        if (handleAmountNameShortcut(event)) {
+            return;
+        }
+
         switch (event.key) {
             case "Enter":
                 event.preventDefault();
@@ -433,7 +672,7 @@
                     }
                 } else if (target instanceof HTMLInputElement && target.id === 'price') {
                     numberInput?.focus();
-                } else if (showTicketPreviewModal || showTicketsModal || showQrModal || showJalarModal) {
+                } else if (showTicketPreviewModal || showTicketsModal || showJalarModal) {
                     return;
                 }
                 else {
@@ -443,7 +682,6 @@
                 break;
             case "a":
             case "A":
-                // Agregar button
                 processForm();
                 break;
             case "r":
@@ -452,42 +690,33 @@
                 break;
             case "t":
             case "T":
-                // Ver Tiquetes button
                 viewTickets();
                 break;
             case "J":
             case "j":
                 onJalar();
                 break;
-            case "v":
-            case "V":
-                //TODO : Ver QR button
-                break;
             case "p":
             case "P":
-                //TODO : Pares button
                 generatePairs();
                 break;
             case "l":
             case "L":
-                // Limpiar button
                 cleanSell();
                 break;
             case "i":
             case "I":
                 generateRandomNumbers();
-                // Limpiar inputs
-                //
                 break;
             case "ArrowDown":
-                if (showTicketPreviewModal || showTicketsModal || showQrModal || showJalarModal) {
+                if (showTicketPreviewModal || showTicketsModal || showJalarModal) {
                     return;
                 }
                 event.preventDefault();
                 selectedRowIndex = Math.min(selectedRowIndex + 1, Object.keys(sold).length - 1);
                 break;
             case "ArrowUp":
-                if (showTicketPreviewModal || showTicketsModal || showQrModal || showJalarModal) {
+                if (showTicketPreviewModal || showTicketsModal || showJalarModal) {
                     return;
                 }
                 event.preventDefault();
@@ -496,49 +725,22 @@
             case "x":
             case "X":
                 if (selectedRowIndex >= 0) {
-                    const numberToDelete = Object.keys(sold)[selectedRowIndex];
-                    if (numberToDelete) {
-                        deleteNumber(numberToDelete);
-                        selectedRowIndex = Math.min(selectedRowIndex, Object.keys(sold).length - 1);
-                    }
+                    deleteEntry(selectedRowIndex);
+                    selectedRowIndex = Math.max(0, selectedRowIndex - 1);
                 }
                 break;
             case "q":
             case "Q":
-                hasProhibitedNumbers(sold);
+                hasProhibitedNumbers(currentAmountsByNumber());
                 break;
         }
     }
 
-    function closeQrModal() {
-        showQrModal = false;
-    }
+    async function handlePrint(event?: SubmitEvent) {
+        event?.preventDefault();
 
-    function isValidTicketSerial(serial: string) {
-        if (!/^\d{16}$/.test(serial)) {
-            return false;
-        }
-
-        const year = Number(serial.slice(0, 2));
-        const month = Number(serial.slice(2, 4));
-        const day = Number(serial.slice(4, 6));
-        const hour = Number(serial.slice(6, 8));
-        const minute = Number(serial.slice(8, 10));
-        const second = Number(serial.slice(10, 12));
-
-        return (
-            Number.isInteger(year) &&
-            month >= 1 && month <= 12 &&
-            day >= 1 && day <= 31 &&
-            hour >= 0 && hour <= 23 &&
-            minute >= 0 && minute <= 59 &&
-            second >= 0 && second <= 59
-        );
-    }
-
-    async function handlePrint() {
         const drawScheduleId = selectedBet?.schedule_id ?? selectedBet?.draw_schedule_id;
-        if(!showTicketPreviewModal && canSellSelectedNumbers(drawScheduleId) && !hasProhibitedNumbers(sold)) {
+        if(!showTicketPreviewModal && canSellSelectedNumbers(drawScheduleId) && !hasProhibitedNumbers(currentAmountsByNumber())) {
             showConfirmModal = true;
         }
     }
@@ -548,23 +750,21 @@
         await processTicket();
     }
 
+    $effect(() => {
+        isPrintConfirmationOpen = showConfirmModal;
+    });
+
 </script>
 
 <TicketPreviewModal
     bind:showTicketPreviewModal={showTicketPreviewModal}
     createdTicket={createdTicket}
     bind:sold={soldSnapshot}
+    amountNames={soldAmountNamesSnapshot}
+    entries={namedSoldEntriesSnapshot}
     details={detailsSnapshot}
-    selectedBet={selectedBet}
-    selectedDate={selectedDate}
-/>
-
-<QrModal
-    bind:showQRModal={showQrModal}
-    data={$sellingMatrix}
-    total={$total}
-    date={selectedDate}
-    onClose={closeQrModal}
+    selectedBet={ticketPreviewBet}
+    selectedDate={ticketPreviewDate}
 />
 
 <ConfirmModalWithInput
@@ -578,19 +778,24 @@
     bind:showTicketModal={showTicketsModal}
     bind:tickets={tickets}
     bind:numbersSold={sold}
-    onClose={closeTicketsModal}
     getSoldNumbersForTicket={getSoldNumbersForTicket}
+    getSoldAmountNamesForTicket={getSoldAmountNamesForTicket}
+    getSoldEntriesForTicket={getSoldEntriesForTicket}
+    loadSoldEntries={loadTicketEntries}
 />
 
 <JalarTicketModal
     bind:showModal={showJalarModal}
     bind:numbersSold={sold}
+    loadSoldEntries={loadTicketEntries}
 />
 
 <svelte:window onkeydown={handlekeyinput} />
 <section class="sell">
-    <span class="sold-amount">Tiquete: ₡{soldAmount}</span>
-
+    {#if selectedAmountName}
+        <span class="selected-amount-name">Rifa: {selectedAmountName}</span>
+    {/if}
+    <span class="sold-amount">Tiquete: ₡{formatAmount(soldAmount)}</span>
     <form onsubmit={onSubmit} bind:this={formElement}>
         <div class="question monto">
             <label for="price">Monto:</label>
@@ -623,7 +828,7 @@
     <div class="buttons-group">
         <button
             onclick={cleanSell}
-            disabled={Object.keys(sold).length === 0}
+            disabled={Object.keys(sold).length === 0 && namedSoldEntries.length === 0}
         >
             <TrashBinSolid class="shrink-0 h-4 w-4" />
             <div class="button-name"><p>L</p>impiar</div>
@@ -660,7 +865,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {#each Object.entries(sold) as [number, price], index}
+                    {#each displayedSoldEntries as entry, index}
                         <tr
                             bind:this={rowRefs[index]}
                             class:selected-row = {index === selectedRowIndex}
@@ -669,10 +874,10 @@
                             }}
 
                         >
-                            <td>{number}</td>
-                            <td>₡{price.price}</td>
+                            <td>{entry.number}</td>
+                            <td>{entry.amount_name || `₡${entry.price}`}</td>
                             <td>
-                                <button class="negative" onclick={() => deleteNumber(number)}>X</button>
+                                <button class="negative" onclick={() => deleteEntry(index)}>X</button>
                             </td>
                         </tr>
                     {/each}
@@ -682,22 +887,13 @@
     <form onsubmit={handlePrint}>
         <button
             type="submit"
-            disabled={Object.keys(sold).length === 0 || isSubmitting}
+            disabled={(Object.keys(sold).length === 0 && namedSoldEntries.length === 0) || isSubmitting}
         >
             <PrinterSolid class="shrink-0 h-4 w-4" />
             <div class="button-name">Imp<p>r</p>imir</div>
         </button>
     </form>
-    {#if submitError}
-        <div class="form-error">{submitError}</div>
-    {/if}
     <div class="buttons-group">
-            <button
-                onclick={viewQR} disabled={Object.keys(sold).length === 0}
-            >
-                <EyeSolid class="shrink-0 h-4 w-4" />
-                <div class="button-name"><p>V</p>er QR</div>
-            </button>
             <button onclick={onJalar}>
                 <CameraPhotoSolid class="shrink-0 h-4 w-4" />
                 <div class="button-name"><p>J</p>alar tiquete</div>
@@ -710,8 +906,6 @@
         </div>
     </div>
 </section>
-
-<Notifications />
 <style>
     .sell {
         flex-direction: column;
@@ -725,6 +919,17 @@
         box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
         flex: 1;
     }
+
+    .selected-amount-name {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        max-width: 45%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
     .sell::before {
         top: -4px;
     }
@@ -782,8 +987,8 @@
         border-collapse: collapse;
     }
 
-    .sold th,
-    .sold td {
+    :global(.set-section th),
+    :global(.set-section td) {
         padding: 0.25rem 0.5rem;
         text-align: left;
         border: 1px solid #ccc;
@@ -807,7 +1012,7 @@
         width: 100%;
     }
 
-    .negative {
+    :global(.set-section  .negative) {
         padding: 0.25rem 0rem;
     }
 
@@ -843,12 +1048,6 @@
         width: 2rem;
         padding: 0rem;
         text-align: center;
-    }
-
-    .form-error {
-        margin: 0.5rem 0 0;
-        color: #b91c1c;
-        font-size: 0.9rem;
     }
 
     .selected-row {

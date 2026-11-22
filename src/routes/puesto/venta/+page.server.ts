@@ -5,18 +5,22 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
 	const baseUrl = env.API_URL;
 	const branchId = locals.user?.branchId;
-	const token = cookies.get('session_puesto') ?? '';
+    const token = cookies.get('session_puesto') ?? '';
+    const fallbackDate = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString().split('T')[0];
 
 	const selectedScheduleIdParam = url.searchParams.get('scheduleId');
+	let date = url.searchParams.get('date');
 
 	if (!baseUrl || !branchId) {
-		return { items: [], numbers: [], selectedScheduleId: null };
+		return { items: [], numbers: [], selectedScheduleId: null, amountNameItems: [] };
 	}
 
 	try {
-
-        const [drawResponse, prohibitedResponse] = await Promise.all([
-			fetch(`${baseUrl}/draw/by-branch/${branchId}`, {
+        if (!date) {
+            date = fallbackDate;
+        }
+        const [drawResponse, prohibitedResponse, amountNameResponse] = await Promise.all([
+			fetch(`${baseUrl}/draw-schedule/available/by-branch/${branchId}/${date}`, {
 				method: 'GET',
 				headers: {
 					Authorization: `Bearer ${token}`,
@@ -29,7 +33,14 @@ export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
 					Authorization: `Bearer ${token}`,
 					'X-Auth-App': 'puesto'
 				}
-			})
+            }),
+			fetch(`${baseUrl}/amount/${branchId}`, {
+				method: 'GET',
+				headers: {
+					Authorization: 'Bearer ' + token,
+					'X-Auth-App': 'puesto'
+				}
+            }),
 		]);
 
 
@@ -41,6 +52,11 @@ export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
 		const prohibitedPayload = await prohibitedResponse.json().catch(() => null);
 		const prohibitedItems = Array.isArray(prohibitedPayload?.items)
 			? prohibitedPayload.items
+			: [];
+
+		const amountNamePayload = await amountNameResponse.json().catch(() => null);
+		const amountNameItems = Array.isArray(amountNamePayload?.items)
+			? amountNamePayload.items
 			: [];
 
 		const fallbackScheduleId = drawItems[0]?.schedule_id ?? null;
@@ -67,9 +83,8 @@ export const load: PageServerLoad = async ({ fetch, locals, url, cookies }) => {
 			}
 		}
 
-		return { drawItems, prohibitedItems, numbers, selectedScheduleId };
+		return { drawItems, prohibitedItems, numbers, selectedScheduleId, amountNameItems };
 	} catch {
-		return { drawItems: [], prohibitedItems: [], numbers: [], selectedScheduleId: null };
+		return { drawItems: [], prohibitedItems: [], numbers: [], selectedScheduleId: null, amountNameItems: [] };
 	}
 };
-

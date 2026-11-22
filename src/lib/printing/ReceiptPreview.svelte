@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, tick } from 'svelte';
     import type { Receipt } from './types';
 
     let { groupedItems, receipt, details, qrData = $bindable(), onReady = undefined } = $props<{
@@ -12,18 +12,31 @@
     let QrCode = $state<any>(null);
 
     onMount(async () => {
-        const module = await import('@castlenine/svelte-qrcode');
-        QrCode = module.default;
+        if (qrData) {
+            try {
+                const module = await import('@castlenine/svelte-qrcode');
+                QrCode = module.default;
+            } catch (error) {
+                console.error('No se pudo cargar el código QR del tiquete.', error);
+            }
+        }
 
+        await tick();
         onReady?.();
     });
 
     const lines = $derived.by(() => {
-        const sourceItems = groupedItems?.length ? groupedItems : receipt.items;
-        const groups = new Map<string, { numbers: string[]; amount: string | number }>();
+        const sourceItems = receipt.numbers ?? [];
+        const groups = new Map<string, {
+            numbers: string[];
+            amount: string | number;
+            amount_name?: string | null;
+        }>();
 
-        for (const item of sourceItems) {
-            const key = String(item.amount);
+        for (const [index, item] of sourceItems.entries()) {
+            const key = item.amount_name
+                ? `named:${index}`
+                : `unnamed:${item.amount}`;
             const current = groups.get(key);
 
             if (current) {
@@ -34,62 +47,87 @@
             groups.set(key, {
                 numbers: [String(item.number)],
                 amount: item.amount,
+                amount_name: item.amount_name,
             });
         }
 
         return Array.from(groups.values());
     });
 
-    onMount
+    function chunk<T>(items: T[], size: number): T[][] {
+        const result: T[][] = [];
+
+        for (let i = 0; i < items.length; i += size) {
+            result.push(items.slice(i, i + size));
+        }
+
+        return result;
+    }
 </script>
 <div class="receipt">
 {#if receipt.ticket_number}
 <div class="line">
     <p>{receipt.serial}</p>
-    <span class="separator" aria-hidden="true"></span>
+    <span class="separator top" aria-hidden="true"></span>
     <p>{receipt.ticket_number}</p>
 </div>
-{:else}
+{:else if receipt.serial}
     <p>{receipt.serial}</p>
 {/if}
-    <p>{receipt.title}</p>
-    {#if receipt.subtitles}
-        {#each receipt.subtitles as subtitle}
-            <p>{subtitle}</p>
+    {#if receipt.upperLines}
+        {#each receipt.upperLines as line}
+            <p>{line}</p>
         {/each}
     {/if}
     <span class="space"> </span>
 
     <div class="line">
-        <span>Monto</span>
-        <span>Numero</span>
+        <span class="amount">Monto</span>
+        <span class="separator" aria-hidden="true"></span>
+        <span class="numbers">Numero</span>
     </div>
+
     <hr>
+
     {#each lines as item}
         <div class="line">
-            <span class="amount">₡{item.amount}</span>
+            <span class="amount v">
+                {item.amount_name || `₡${item.amount}`}
+            </span>
+
             <span class="separator" aria-hidden="true"></span>
-            <span class="numbers">{item.numbers.join(' x ')}</span>
+
+            <span class="numbers">
+                {#each chunk(item.numbers, 4) as numbers, i}
+                    {#if i > 0}<br>{/if}
+                    {numbers.join(' x ')}
+                {/each}
+            </span>
         </div>
     {/each}
-    <hr>
-    <div class="line total">
 
-        <span>₡{receipt.total}</span>
-        <span>Total</span>
+    <hr>
+
+    <div class="line total">
+        <span class="amount">₡{receipt.total}</span>
+        <span class="separator" aria-hidden="true"></span>
+        <span class="numbers">Total</span>
     </div>
+
     {#if details}
         <p>Detalles</p>
         <p>{details}</p>
     {/if}
 
-    {#if QrCode}
+    {#if QrCode && qrData}
     <div class="qr-code">
-        <QrCode data={qrData} size={120} errorCorrection="L" />
+        {#key qrData}
+            <QrCode data={qrData} size={100} errorCorrection="L" />
+        {/key}
     </div>
     {/if}
-    {#if receipt.footer}
-        {#each receipt.footer as footerItem}
+    {#if receipt.footerLines}
+        {#each receipt.footerLines as footerItem}
             <p>{footerItem}</p>
         {/each}
     {/if}
@@ -98,12 +136,16 @@
 
 <style>
 .receipt {
-    width: 75mm;
+    width: 80mm;
     background: white;
     color: black;
     font-family: monospace;
     padding: 15px 8px;
     text-align: center;
+    box-sizing: border-box;
+    height: auto;
+    max-height: none;
+    overflow: visible;
 }
 
 .qr-code {
@@ -115,15 +157,18 @@
 
 .line {
     display: flex;
-    align-items: center;
+    align-items: top;
     justify-content: space-between;
-    gap: 6px;
+    gap: 5px;
 }
 
-/* .amount,
-.numbers {
-    white-space: nowrap;
-} */
+.line.header {
+    justify-content: start;
+}
+.header span:first-child {
+    width: 4.5rem;
+    margin-right: 0.5rem;
+}
 
 .space {
     display: block;
@@ -131,18 +176,35 @@
 }
 
 .numbers {
-    text-align: right;
-    width: fit-content;
+    text-align: left;
+    width: auto;
+    min-width: 0;
+    flex: 6;
+    white-space: normal;
+    overflow-wrap: break-word;
 }
 
 .amount {
-    text-align: left;
+    flex: 2;
+    text-align: right;
 }
 
 .separator {
-    flex: 1;
-    min-width: 25mm;
-    border-bottom: 1px dashed currentColor;
-    transform: translateY(2px);
+    align-self: flex-start;
+    height: 0;
+    flex: 1.;
+    min-width: 5mm;
+    margin-top: 0.6em;
+    border-top: 2px dashed currentColor;
 }
+
+.separator.top {
+    width: 100%;
+}
+
+.amount.v {
+    width: 20mm ;
+    overflow-wrap: break-word;
+}
+
 </style>

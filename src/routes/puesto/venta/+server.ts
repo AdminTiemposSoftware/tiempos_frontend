@@ -7,6 +7,7 @@ type TicketDetail = {
 	amount: number;
 	is_reventado: number;
 	is_megareventado: number;
+	amount_name: string | null;
 };
 
 type TicketRequest = {
@@ -19,7 +20,8 @@ type TicketRequest = {
 export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) => {
     const token = cookies.get('session_puesto') ?? '';
 	const baseUrl = env.API_URL;
-	const branchId = locals.user?.branchId;
+    const branchId = locals.user?.branchId;
+    const userId = locals.user?.id;
 
 	if (!baseUrl || !branchId) {
 		return json({ error: 'Missing API_URL or branchId' }, { status: 500 });
@@ -56,7 +58,8 @@ export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) 
             date,
 			draw_schedule_id,
 			branch_id: branchId,
-			details,
+            details,
+			user_id: userId,
 			numbers
 		})
 	});

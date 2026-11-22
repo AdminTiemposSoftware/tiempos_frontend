@@ -16,7 +16,7 @@ export const GET: RequestHandler = async ({ fetch, locals, url, cookies }) => {
     }
 
     const response = await fetch(
-        `${baseUrl}/ticket/from-today/${branchId}`,
+        `${baseUrl}/ticket/by-schedule/${scheduleId}/${branchId}/${date}`,
         {
             headers: token ? { Authorization: `Bearer ${token}`, 'X-Auth-App': 'puesto' } : undefined
         }
