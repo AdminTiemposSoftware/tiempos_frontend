@@ -2,7 +2,6 @@
 	import { acts } from '@tadashi/svelte-notification';
 	import { auth } from '$lib/stores/auth';
 	import { getBancaFilterData } from '$lib/stores/bancaFilterCache';
-	import TicketFilters from '$lib/components/tiquetes/TicketFilters.svelte';
 	import TicketResultsTable from '$lib/components/tiquetes/TicketResultsTable.svelte';
 
 	type Ticket = {
