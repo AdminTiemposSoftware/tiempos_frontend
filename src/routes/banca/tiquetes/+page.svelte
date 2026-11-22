@@ -2,7 +2,6 @@
 	import { acts } from '@tadashi/svelte-notification';
 	import { auth } from '$lib/stores/auth';
 	import { getBancaFilterData } from '$lib/stores/bancaFilterCache';
-	import TicketFilters from '$lib/components/tiquetes/TicketFilters.svelte';
 	import TicketResultsTable from '$lib/components/tiquetes/TicketResultsTable.svelte';
 
 	type Ticket = {
@@ -188,15 +187,6 @@
 
 {#if $auth.user?.role === 'banking'}
 	<section class="tickets-page">
-		<TicketFilters
-			bind:from
-			bind:to
-			bind:selectedBranches
-			bind:selectedDrawSchedules
-			branchOptions={branchNames}
-			scheduleOptions={drawScheduleNames}
-			onApply={fetchTickets}
-		/>
 		<div class="ticket-search">
 			<input
 				id="ticket-serial-search"
@@ -239,7 +229,7 @@
 
 <style>
 	.tickets-page {
-		display: flex;
+		display: none;
 		align-items: stretch;
 		justify-content: flex-start;
 		flex-direction: column;
