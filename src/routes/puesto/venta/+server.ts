@@ -7,6 +7,7 @@ type TicketDetail = {
 	amount: number;
 	is_reventado: number;
 	is_megareventado: number;
+	amount_name: string | null;
 };
 
 type TicketRequest = {

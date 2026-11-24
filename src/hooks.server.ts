@@ -98,7 +98,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const isPublic = publicPrefixes.some((prefix) =>
 		pathname.startsWith(prefix)
 	);
-
 	if (token) {
 		event.locals.user = await fetchUser(token, event.fetch);
 	} else {

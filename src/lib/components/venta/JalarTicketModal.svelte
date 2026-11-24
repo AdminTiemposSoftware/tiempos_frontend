@@ -4,13 +4,14 @@
 		input = $bindable(''),
 		confirmText = 'Confirmar (Enter)',
 		cancelText = 'Cancelar',
-		numbersSold = $bindable<Record<string, { price: number }>>({})
+		numbersSold = $bindable<Record<string, number>>({}),
+		loadSoldEntries
 	} = $props();
     let inputElement = $state<HTMLInputElement | null>(null);
 	let ticket = $state <Ticket | null>(null);
 
 	import { onMount } from 'svelte';
-	import {Notifications, acts} from '@tadashi/svelte-notification'
+	import { acts } from '@tadashi/svelte-notification'
 
 	type Ticket = {
 		serial: string;
@@ -24,6 +25,7 @@
 		items: {
 			number: number;
 			amount: number;
+			amount_name?: string | null;
 		}[];
 	};
 
@@ -88,7 +90,8 @@
 
 				acc[item.serial].items.push({
 					number: item.number,
-					amount: Number(item.amount)
+					amount: Number(item.amount),
+					amount_name: item.amount_name ?? null
 				});
 
 				return acc;
@@ -104,7 +107,7 @@
 	}
 
 
-    function decodeQrData(qrData: string): { [key: string]: { price: number } } | null {
+    function decodeQrData(qrData: string): Record<string, number> | null {
         const normalized = qrData.trim().toUpperCase();
 
         if (!normalized || /[^0-9A-F]/.test(normalized)) {
@@ -113,7 +116,7 @@
 
         for (let prefixLength = normalized.length - 8; prefixLength >= 0; prefixLength -= 8) {
 
-            const decodedSold: Record<string, { price: number }> = {};
+            const decodedSold: Record<string, number> = {};
 
 
             for (let index = 0; index < prefixLength; index += 8) {
@@ -125,7 +128,7 @@
                     continue;
                 }
 
-				decodedSold[String(number).padStart(2, '0')] = { price };
+				decodedSold[String(number).padStart(2, '0')] = price;
             }
 
             return decodedSold;
@@ -170,13 +173,21 @@
 				return;
 			}
 
-			numbersSold = ticket?.items.reduce<Record<string, { price: number }>>(
-				(accumulator, sold) => {
-					accumulator[sold.number] = { price: sold.amount };
-					return accumulator;
-				},
-				{}
-			);
+			if (loadSoldEntries) {
+				loadSoldEntries(ticket.items.map((sold) => ({
+					number: String(sold.number),
+					amount: sold.amount,
+					amount_name: sold.amount_name ?? null
+				})));
+			} else {
+				numbersSold = ticket.items.reduce<Record<string, number>>(
+					(accumulator, sold) => {
+						accumulator[sold.number] = sold.amount;
+						return accumulator;
+					},
+					{}
+				);
+			}
 			onClose();
 		}
 	}

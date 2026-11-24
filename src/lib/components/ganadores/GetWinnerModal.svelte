@@ -10,11 +10,13 @@
 
     let inputElement: HTMLInputElement;
 
-	import {Notifications, acts} from '@tadashi/svelte-notification'
+	import { acts } from '@tadashi/svelte-notification'
 	import type { Receipt } from '../../printing/types';
 	import ReceiptPreview from '../../printing/ReceiptPreview.svelte';
+	import { serializeData } from '../../printing/printing';
 	import { auth } from '../../stores/auth';
 	import { onMount } from 'svelte';
+	import { formatAmount } from '../../printing/printing';
 
 	onMount(() => {
 		if (showModal) {
@@ -39,36 +41,35 @@
 	const receipt = $derived.by<Receipt>(() => {
 		if (!ticketWinner) return null;
 
-        const items = ticketWinner?.items
+        const numbers = (ticketWinner?.items ?? [])
             .map((item) => ({
                 number: String(item.number).padStart(2, '0'),
-                amount: Number(item.amount) || 0
+                amount: Number(item.amount) || 0,
+                amount_name: item.amount_name ?? null
             }));
 
-        const total = items.reduce((sum, item) => sum + item.amount, 0);
+        const total = numbers.reduce((sum, item) => sum + item.amount, 0);
         const branchName = $auth.user?.branchName ? String($auth.user.branchName) : 'Sucursal';
 
         const multiplierInfo = ticketWinner?.multiplier ? `El primero paga al: ${ticketWinner.multiplier}` : '';
 
-        const title = ticketWinner?.draw_name
-            ? `${ticketWinner.draw_name}${ticketWinner.draw_schedule_name ? ` ${ticketWinner.draw_schedule_name}` : ''}`
-            : 'Tiquete de venta';
-
-        const subtitleParts = [
+        const upperLines = [
+            ticketWinner?.draw_name
+                ? `${ticketWinner.draw_name}${ticketWinner.draw_schedule_name ? ` ${ticketWinner.draw_schedule_name}` : ''}`
+                : 'Tiquete de venta',
             branchName,
             ticketWinner?.username ? ticketWinner.username : '',
             ticketWinner?.date ? `Fecha: ${ticketWinner.date}` : '',
             ticketWinner?.printed_at ? `Hora: ${ticketWinner.printed_at.slice(0, 8)}` : ''
-        ].filter(Boolean);
+        ].filter(Boolean) as string[];
 
         return {
-            title,
-            subtitles: subtitleParts,
-            items,
-            total,
-            footer: ["------- ATENCION -------", multiplierInfo, "------------------------", 'Gracias por su compra', '¡Buena suerte!'],
             serial: `${ticketWinner?.serial || ''}`,
-            ticket_number: ticketWinner?.relative_id?.toString().padStart(3, '0') || ''
+            ticket_number: ticketWinner?.relative_id?.toString().padStart(3, '0') || '',
+            upperLines,
+            numbers,
+            total,
+            footerLines: ["------- ATENCION -------", multiplierInfo, "------------------------", 'Gracias por su compra', '¡Buena suerte!'].filter(Boolean) as string[]
         };
     });
 
@@ -106,27 +107,12 @@
         return null;
     }
 
-    function serializeData(data): string {
-        const serialHex = ticketWinner?.serial
-            ? BigInt(ticketWinner.serial).toString(16).toUpperCase()
-            : '';
-
-        return data
-            .map((item) => {
-                const numberHex = Number(item.number).toString(16).toUpperCase().padStart(2, '0');
-                const priceHex = Number(item.amount).toString(16).toUpperCase().padStart(6, '0');
-
-                return `${numberHex}${priceHex}`;
-            })
-            .join('') + serialHex;
-    }
-
 	function onConfirm() {
 		if (input.trim() === '') {
 			return;
 		}
 
-		if (input.length > 16) {
+		if (input.length > 8) {
 			let decodedData;
 			decodedData = countPossibleNumbers(input);
 			if (decodedData && decodedData > 0)
@@ -135,21 +121,6 @@
 
 		confirm();
 	}
-
-    function formatAmount(value: number) {
-        if (!Number.isFinite(value)) {
-            return "0";
-        }
-
-        const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
-        const [integerPart, decimalPart] = Math.abs(rounded).toFixed(2).split(".");
-        const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-        const sign = rounded < 0 ? "-" : "";
-
-        return decimalPart === "00"
-            ? `${sign}${groupedInteger}`
-            : `${sign}${groupedInteger},${decimalPart}`;
-    }
 
 	function handleKeyInput(event: KeyboardEvent) {
 		switch (event.key) {
@@ -210,7 +181,6 @@
 
 <svelte:window onkeydown={handleKeyInput} />
 {#if showModal}
-<Notifications />
 <div
 	class="modal-backdrop"
 	role="button"
@@ -250,12 +220,12 @@
 
 							<div class="winner-information">
 								<div class="information-item">
-									<span>Número ganador</span>
+									<p>Número ganador</p>
 									<strong>{ticketWinner?.winner_number}</strong>
 								</div>
 
 								<div class="information-item">
-									<span>Monto</span>
+									<p>Monto</p>
 									<strong>
 										{formatAmount(
 											ticketWinner?.items.find(
@@ -266,12 +236,12 @@
 								</div>
 
 								<div class="information-item">
-									<span>Multiplicador</span>
+									<p>Multiplicador</p>
 									<strong>x{ticketWinner?.multiplier}</strong>
 								</div>
 
 								<div class="information-item total">
-									<span>Total a pagar</span>
+									<p>Total a pagar</p>
 									<strong>
 										{formatAmount(
 											(ticketWinner?.items.find(
@@ -298,7 +268,15 @@
 						<ReceiptPreview
 							groupedItems={true}
 							details={ticketWinner?.details ?? ''}
-							qrData={serializeData(ticketWinner?.items || {})}
+							qrData={serializeData(
+								Object.fromEntries(
+									(ticketWinner?.items ?? []).map((item) => [
+										String(item.number),
+										Number(item.amount) || 0
+									])
+								),
+								ticketWinner?.serial || ''
+							)}
 							receipt={receipt}
 						/>
 					{/if}
@@ -396,19 +374,5 @@
 		align-items: center;
 		padding: 0.75rem 1rem;
 		border: 1px solid var(--color-border);
-	}
-
-	.information-item span {
-		font-size: 0.9rem;
-		opacity: 0.75;
-	}
-
-	.information-item strong {
-		font-size: 1.3rem;
-	}
-
-	.information-item.total {
-		font-size: 2rem;
-		font-weight: 700;
 	}
 </style>

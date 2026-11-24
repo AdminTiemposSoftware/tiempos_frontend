@@ -1,0 +1,92 @@
+/* Opt-in only: Banca Inicio and Ganadores. Two breakpoints, three views. */
+/* Repeat .app to outrank the existing Svelte-scoped layout selectors. */
+.app.banca-responsive.app > main { min-width: 0; flex: 1; }
+.app.banca-responsive.app > .sidebar { flex-shrink: 0; }
+.app.banca-responsive .inicio { width: 100%; min-width: 0; gap: 1rem; justify-content: flex-start; }
+.app.banca-responsive .inicio .content { width: 100%; min-width: 0; box-sizing: border-box; }
+.app.banca-responsive .inicio .left, .app.banca-responsive .inicio .right { min-width: 0; }
+.app.banca-responsive .inicio .report-matrix-scroll { display: block; min-width: 0; max-width: 100%; overflow: auto; }
+.app.banca-responsive .report-matrix-scroll .matrix-container { width: 100%; min-width: 0; justify-content: flex-start; }
+.app.banca-responsive .report-matrix-scroll .matrix-wrapper { flex-shrink: 0; }
+.app.banca-responsive .report-matrix-scroll .matrix-cell input.price:not(:first-child) { width: var(--report-amount-width, 4ch) !important; flex-shrink: 0; }
+.app.banca-responsive .inicio .report-summary { min-width: 0; overflow-x: auto; }
+.app.banca-responsive .inicio .report-summary table { min-width: 38rem; }
+.app.banca-responsive .inicio .devolution-breakdown { min-width: 0; box-sizing: border-box; }
+.app.banca-responsive .inicio .prohibited-list { flex-wrap: wrap; }
+.app.banca-responsive .inicio .prohibited-badge { height: auto; overflow-wrap: anywhere; }
+.app.banca-responsive .filters > * { min-width: 0; max-width: 100%; }
+.app.banca-responsive .filters .multi-select { width: 100%; max-width: 23rem; min-width: 0; box-sizing: border-box; }
+.app.banca-responsive .filters .field { flex: 1 1 12rem; }
+.app.banca-responsive .filters .trigger { min-width: 0; min-height: 44px; color: var(--color-text); }
+.app.banca-responsive .filters .chips { min-width: 0; }
+.app.banca-responsive .filters .chip { overflow: hidden; text-overflow: ellipsis; }
+.app.banca-responsive .filters .dropdown { width: 100%; max-height: min(24rem, 50dvh); box-sizing: border-box; }
+.app.banca-responsive .filters .option { text-align: left; overflow-wrap: anywhere; }
+.app.banca-responsive .filters .option input { flex-shrink: 0; }
+.app.banca-responsive .ganadores { min-width: 0; align-items: flex-start; }
+.app.banca-responsive .ganadores > .left, .app.banca-responsive .ganadores > .right { min-width: 0; box-sizing: border-box; max-height: none; }
+.app.banca-responsive .assignment-scroll, .app.banca-responsive .ticket-scroll { max-width: 100%; overflow: auto; }
+.app.banca-responsive .assignment-scroll table { min-width: 32rem; }
+.app.banca-responsive .tickets-list { min-width: 0; }
+.app.banca-responsive .tickets-table { min-width: 48rem; }
+.app.banca-responsive .ganadores .horizontal-cell { align-items: center; }
+.app.banca-responsive .ganadores .horizontal-cell button { min-width: 44px; min-height: 44px; padding: 0.5rem; }
+.app.banca-responsive .ganadores .winner-input { min-height: 44px; box-sizing: border-box; flex-shrink: 0; }
+.app.banca-responsive .ganadores .statistic { min-width: 0; overflow-wrap: anywhere; }
+.app.banca-responsive .modal { box-sizing: border-box; max-width: calc(100vw - 2rem); max-height: calc(100dvh - 2rem); overflow: auto; }
+.app.banca-responsive .modal-backdrop { z-index: 200; padding: 1rem; box-sizing: border-box; }
+.app.banca-responsive .modal input, .app.banca-responsive .modal select { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.app.banca-responsive .modal .row, .app.banca-responsive .modal .chip-row { flex-wrap: wrap; }
+
+/* Desktop: fill each existing track without changing matrix or totals sizing. */
+@media (min-width: 1280px) {
+    .app.banca-responsive .report-matrix-scroll .matrix-cell input.price:not(:first-child) { flex-grow: 1; }
+    .app.banca-responsive .report-matrix-scroll .matrix-cell input:first-child:not(.price) { width: 40px; flex-basis: 40px; flex-shrink: 0; }
+    .app.banca-responsive .report-matrix-scroll .matrix-cell input.price:only-of-type { width: calc(100% - 40px) !important; margin-left: 40px; }
+}
+
+/* Tablet: 768-1279px; navigation drawer shared with mobile. */
+@media (max-width: 1279px) {
+    .app.banca-responsive.app { flex-direction: column; }
+    .app.banca-responsive.app > .sidebar { display: none; }
+    .app.banca-responsive.app > main { width: 100%; }
+    .app.banca-responsive .ganadores { flex-direction: column; }
+    .app.banca-responsive .ganadores > .left, .app.banca-responsive .ganadores > .right { width: 100%; flex: auto; }
+    .app.banca-responsive .inicio .content { flex-direction: column; }
+    .app.banca-responsive .inicio .content > .right { order: -1; flex-direction: row; flex-wrap: wrap; }
+    .app.banca-responsive .inicio .right .column { flex: 1; flex-direction: row; }
+    .app.banca-responsive .inicio .right .view { flex: 1; }
+    .app.banca-responsive .inicio .left { flex: auto; }
+    .app.banca-responsive .inicio .filters, .app.banca-responsive .ganadores .filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
+    .app.banca-responsive .filters input:not([type="checkbox"]):not([type="radio"]) { width: 100%; min-height: 44px; box-sizing: border-box; }
+    .app.banca-responsive .filters input[type="checkbox"] { width: 1rem; min-width: 1rem; height: 1rem; min-height: 1rem; padding: 0; margin: 0; }
+    .app.banca-responsive .filters .multi-select { max-width: 100%; }
+    .app.banca-responsive .filters .chips { width: 100%; flex-wrap: wrap; white-space: normal; }
+    .app.banca-responsive .filters .chip { max-width: 100%; min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+    .app.banca-responsive .filters .option { min-height: 44px; white-space: normal; }
+    .app.banca-responsive .inicio .field input { height: auto; }
+    .app.banca-responsive .inicio .total-amount { width: auto; margin-left: 0; text-align: left; grid-column: 1 / -1; }
+    .app.banca-responsive .inicio .report-summary, .app.banca-responsive .inicio .devolution-breakdown { width: 100%; }
+    .app.banca-responsive .ganadores .total-amount { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .app.banca-responsive .option-button, .app.banca-responsive .filters > button { min-height: 44px; }
+}
+
+/* Mobile: below 768px. */
+@media (max-width: 767px) {
+    .app.banca-responsive.app > main { padding: 0 0.75rem 0.75rem; }
+    .app.banca-responsive .inicio .content, .app.banca-responsive .inicio .left, .app.banca-responsive .inicio .right,
+    .app.banca-responsive .ganadores > .left, .app.banca-responsive .ganadores > .right { padding: 0.75rem; }
+    .app.banca-responsive .inicio .filters, .app.banca-responsive .ganadores .filters { grid-template-columns: minmax(0, 1fr); }
+    .app.banca-responsive .inicio .right .column { flex-direction: column; flex-basis: 100%; }
+    .app.banca-responsive .inicio .right .view { flex-basis: 100%; }
+    .app.banca-responsive .ganadores .total-amount { grid-template-columns: minmax(0, 1fr); }
+    .app.banca-responsive .ganadores { font-size: 0.875rem; line-height: 1.4; }
+    .app.banca-responsive .ganadores h2 { font-size: 1.125rem; line-height: 1.3; overflow-wrap: anywhere; }
+    .app.banca-responsive .ganadores .field label,
+    .app.banca-responsive .ganadores table,
+    .app.banca-responsive .ganadores .no-tickets,
+    .app.banca-responsive .ganadores .filters .option { font-size: 0.875rem; }
+    .app.banca-responsive .ganadores .statistic > p:last-child { font-size: 1rem; }
+    .app.banca-responsive .modal input, .app.banca-responsive .filters input { font-size: 16px; }
+    .app.banca-responsive .modal-actions { flex-wrap: wrap; }
+}

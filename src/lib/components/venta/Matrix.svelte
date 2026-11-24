@@ -1,11 +1,5 @@
 <script lang="ts">
-    import TooltipGroupNode from './TooltipGroupNode.svelte';
-    import {
-        buildGroupingTree,
-        groupReportByNumber,
-        type GroupingMode,
-        type ReportItem
-    } from './grouping';
+    import { formatAmount, type ReportItem } from './grouping';
 
     let {
         mode = $bindable<'20x5' | '5x20' | '10x10'>('10x10'),
@@ -14,8 +8,11 @@
         animateKey = $bindable<string | number | null>(null),
         isLoading = $bindable<boolean>(false),
         report = $bindable<ReportItem[]>([]),
-        groupingModes = $bindable<GroupingMode[]>([]),
-        groupingMode = $bindable<GroupingMode | null>(null)
+        numberTotals = {},
+        breakdown = {},
+        useSellingMatrixFallback = true,
+        winnerNumbers = [],
+        reportProhibitedNumbers = []
     } = $props();
 
     import { sellingMatrix } from '../../stores/UpdateSellMatrix';
@@ -23,15 +20,16 @@
 
     let groupedNumbers = $state<Record<number, ReportItem[]>>({});
     let hoveredIndex = $state<number | null>(null);
-    const activeGroupingModes = $derived(
-        ((groupingModes.length > 0 ? groupingModes : groupingMode ? [groupingMode] : ['branch']) as GroupingMode[])
+    type BreakdownRow = { draw: string; draw_schedule: string; branch: string; total: number };
+    const numberTotalsByNumber = $derived(numberTotals as Record<number, number>);
+    const breakdownByNumber = $derived(breakdown as Record<number, BreakdownRow[]>);
+    const prohibitedNumberSet = $derived(
+        new Set($prohibitedNumbers.map((item) => item.number))
     );
-
-    let hoveredReportItems = $derived(hoveredIndex === null ? [] : (groupedNumbers[hoveredIndex] ?? []));
-
-    let hoveredGroupingTree = $derived(
-        hoveredReportItems.length === 0 ? [] : buildGroupingTree(hoveredReportItems, activeGroupingModes)
-    );
+    const reportProhibitedNumberSet = $derived(new Set(reportProhibitedNumbers));
+    const winnerNumberSet = $derived(new Set(winnerNumbers));
+    const amountsByNumber = $derived(numberTotalsByNumber);
+    let hoveredBreakdown = $derived(hoveredIndex === null ? [] : (breakdownByNumber[hoveredIndex] ?? []));
 
     $effect(() => {
         if (mode === '20x5') {
@@ -47,7 +45,9 @@
     });
 
     $effect(() => {
-        groupedNumbers = groupReportByNumber(report);
+        groupedNumbers = Object.fromEntries(
+            Object.keys(numberTotalsByNumber).map((number) => [Number(number), [{} as ReportItem]])
+        );
     });
 
     function showTooltip(index: number) {
@@ -59,7 +59,12 @@
     }
 
     function getAmount(index: number) {
-        return groupedNumbers[index]?.reduce((sum, item) => sum + item.amount, 0) || $sellingMatrix[index] || 0;
+        const reportAmount = amountsByNumber[index];
+        if (reportAmount !== undefined) {
+            return reportAmount;
+        }
+
+        return useSellingMatrixFallback ? ($sellingMatrix[index] || 0) : 0;
     }
 
 </script>
@@ -79,18 +84,26 @@
 
                         <div
                             class={`matrix-cell
-                                ${$prohibitedNumbers.some((n) => n.number === index) ? "prohibited-number" : ""}
+                                ${prohibitedNumberSet.has(index) ? "prohibited-number" : ""}
+                                ${reportProhibitedNumberSet.has(index) ? "report-prohibited-number" : ""}
+                                ${winnerNumberSet.has(index) ? "winner-number" : ""}
                                 ${groupedNumbers[index]?.length > 0 ? "has-report" : ""
                             }`}
                             role="group"
                             onmouseenter={() => showTooltip(index)}
                             onmouseleave={clearTooltip}
                         >
-                            {#if hoveredIndex === index && hoveredGroupingTree.length > 0}
+                            {#if hoveredIndex === index && hoveredBreakdown.length > 0}
                                 <div class="report-tooltip" role="tooltip">
                                     <ul class="tooltip-groups">
-                                        {#each hoveredGroupingTree as node}
-                                            <TooltipGroupNode node={node} />
+                                        {#each hoveredBreakdown as item}
+                                            <li class="tooltip-node">
+                                                <div class="group-header">
+                                                    <span class="group-label">{item.draw}</span>
+                                                    <span class="group-subtotal">{formatAmount(item.total)}</span>
+                                                </div>
+                                                <div>{item.draw_schedule} - {item.branch}</div>
+                                            </li>
                                         {/each}
                                     </ul>
                                 </div>
@@ -106,7 +119,7 @@
                                 class="price price-animated"
                                 class:price-loading={isLoading}
                                 style={`--delay: ${index * 4}ms;`}
-                                value={getAmount(index)}
+                                value={Math.round(getAmount(index))}
                                 disabled={true}
                             />
                             <div
@@ -138,48 +151,6 @@
 </section>
 
 <style>
-    .matrix-container {
-        flex:1.5 ;
-    }
-
-    .matrix {
-        display: grid;
-        grid-template-columns: repeat(var(--cols), auto);
-        width: fit-content;
-        align-items: center;
-    }
-
-    .matrix-wrapper {
-        position: relative;
-        width: fit-content;
-    }
-
-    .matrix-spinner {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(255, 255, 255, 0.6);
-        z-index: 1;
-    }
-
-    .spinner {
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        border: 3px solid #cbd5e1;
-        border-top-color: #2563eb;
-        animation: spin 0.7s linear infinite;
-    }
-
-    .matrix-cell {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        position: relative;
-    }
-
     .report-tooltip {
         position: absolute;
         bottom: calc(100% + 0.5rem);
@@ -228,19 +199,42 @@
 		gap: 0.45rem;
 	}
 
-    .matrix-cell input[type="number"]:first-child {
-        color: var(--color-text);
+    .prohibited-number input[type="number"],
+    .report-prohibited-number input[type="number"] {
+        background-color: #f8d7da !important;
+        border-color: #f5c6cb !important;
+        color: #721c24 !important;
     }
 
-    .prohibited-number input[type="number"] {
+    .prohibited-number input[type="number"]:first-child,
+    .report-prohibited-number input[type="number"]:first-child {
+        background-color: #f8c3c7 !important;
+        border-color: #f5c6cb !important;
+    }
+
+    .winner-number input[type="number"] {
+        background-color: #d1e7dd !important;
+        border-color: #badbcc !important;
+        color: #0f5132  !important;
+    }
+
+    .winner-number input[type="number"]:first-child {
+        background-color: #b9dfc9 !important;
+        border-color: #badbcc !important;
+    }
+
+    .report-prohibited-number.winner-number input[type="number"]:first-child {
+        background-color: #b9dfc9 !important;
+        border-color: #badbcc !important;
+        color: #0f5132 !important;
+    }
+
+    .report-prohibited-number.winner-number input[type="number"]:not(:first-child) {
         background-color: #f8d7da;
         border-color: #f5c6cb;
         color: #721c24;
     }
-    .prohibited-number input[type="number"]:first-child {
-        background-color: #f8c3c7;
-        border-color: #f5c6cb;
-    }
+
     .has-report:hover {
         transform: scale(1.05);
         transition: transform 0.2s ease-in-out;
@@ -250,12 +244,6 @@
         width: 32px;
         padding: 0.1rem !important;
         font-size: 0.95rem;
-    }
-
-    .price {
-        width: 100% !important;
-        background-color: #ffffff;
-        color: var(--color-text);
     }
 
     .price-animated {
@@ -293,21 +281,5 @@
         to {
             transform: rotate(360deg);
         }
-    }
-
-    .matrix-cell input[type="number"]{
-        width: 40px;
-        height: 35px;
-        padding: 0.5rem;
-        text-align: center;
-        border: 1px solid #ccc;
-        font-size: 1.1rem;
-    }
-
-
-    .matrix-cell input[type="number"]:focus {
-        outline: none;
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
     }
 </style>

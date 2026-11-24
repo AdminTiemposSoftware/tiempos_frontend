@@ -1,10 +1,10 @@
-<script lang="ts">    
-	import {Notifications, acts} from '@tadashi/svelte-notification'
+<script lang="ts">
+	import { acts } from '@tadashi/svelte-notification'
     import type { Receipt } from '$lib/printing/types';
     import { auth } from '$lib/stores/auth';
     import { goto } from '$app/navigation';
     import GetWinnerModal from '$lib/components/ganadores/GetWinnerModal.svelte';
-    
+
     let { data } = $props();
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
     let selectedDate = $state(utcMinus6Date.toISOString().split('T')[0]);
@@ -12,7 +12,7 @@
     let winners = $state<Winner[]>([]);
     let ticketWinner = $state<Receipt | null>(null);
     let serial = $state('');
-    
+
     type Winner = {
         date: string;
         draw_id: number;
@@ -35,7 +35,7 @@
             keepFocus: true
         });
     });
-        
+
     $effect(() => {
         const items = Array.isArray(data?.items) ? data.items : [];
         winners = items.map((item: any) => ({
@@ -112,6 +112,7 @@
                 acc[item.serial].items.push({
                     number: item.number,
                     amount: Number(item.amount),
+                    amount_name: item.amount_name ?? null,
                     is_reventado: item.is_reventado,
                     is_megareventado: item.is_megareventado
                 });
@@ -127,7 +128,7 @@
             });
         }
     }
-    
+
     async function handleKeyInput(event: KeyboardEvent) {
         switch (event.key) {
             case "C":
@@ -184,7 +185,7 @@
                     <tr>
                         <td>
                             {winner.date ? winner.date.split('T')[0].split('-').reverse().join('/') : ''}
-                        </td>                        
+                        </td>
                         <td>{winner.draw_schedule_name} {winner.position_number === 2 ? "reventado" : ""}{winner.position_number === 3 ? "megareventado" : ""} ({winner.schedule_time})</td>
                         <td>{winner.position_multiplier} </td>
                         <td>
@@ -211,7 +212,6 @@
     >
         <div class="button-name"><p>C</p>obrar tiquete</div>
     </button>
-<Notifications/>
 </section>
 
 {/if}
@@ -224,7 +224,7 @@
         gap: 1rem;
         width: 100%;
         box-sizing: border-box;
-        position: relative; 
+        position: relative;
     }
 
     .header-title {

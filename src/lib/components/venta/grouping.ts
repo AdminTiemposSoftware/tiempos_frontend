@@ -3,7 +3,9 @@ export type GroupingMode = 'branch' | 'draw_schedule' | 'draw' | 'date';
 export type ReportItem = {
 	branch_id: number;
     branch_name: string;
-	branch_comission: number;
+    branch_comission: number;
+	branch_buy: number;
+    branch_buy_first_place?: number | null;
 	draw_schedule_id: number;
 	draw_schedule_name: string;
 	draw_id: number;
@@ -24,9 +26,9 @@ export type GroupNode = {
 };
 
 export const GROUPING_OPTIONS: { value: GroupingMode; label: string }[] = [
-	{ value: 'branch', label: 'Puesto' },
-	{ value: 'draw_schedule', label: 'Horario' },
+    { value: 'draw_schedule', label: 'Horario' },
 	{ value: 'draw', label: 'Sorteo' },
+	{ value: 'branch', label: 'Puesto' },
 	{ value: 'date', label: 'Fecha' }
 ];
 

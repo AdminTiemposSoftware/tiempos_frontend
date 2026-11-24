@@ -1,5 +1,19 @@
 <script lang="ts">
-    let isExpanded = $state(true);
+    let { responsive = false } = $props<{ responsive?: boolean }>();
+	let mobileDialog = $state<HTMLDialogElement>();
+	let mobileMenuButton = $state<HTMLButtonElement>();
+	import { page } from '$app/state';
+
+	$effect(() => {
+		if (responsive) currentPath = page.url.pathname;
+		mobileDialog?.close();
+	});
+
+	function closeOnDesktop() {
+		if (window.innerWidth >= 1280) mobileDialog?.close();
+	}
+
+	let isExpanded = $state(true);
     let currentPath = $state('/');
 	let role = $derived($auth.user?.role ?? '');
 
@@ -40,38 +54,37 @@
     }
 
 	const navItems = [
+	    { label: 'Inicio', path: '/puesto/inicio', roles: ['branch']},
 		{ label: 'Venta', path: '/puesto/venta', roles: ['branch'] },
-        { label: 'Inicio', path: '/banca/inicio', roles: ['banking']},
+		{ label: 'Inicio', path: '/banca/inicio', roles: ['banking']},
 		{ label: 'Listas', path: '/banca/listas', roles: ['banking'] },
-		// TODO : No crucial
+		{ label: 'Tiquetes vendidos', path: '/banca/tiquetes', roles: ['banking'] },
 		// TODO : Esta funcionalidad es para cuando el admin quiera tener mas bancas aparte de la suya
 		// Probablemente sea mejor cambiar el nombre a "Bancas"
         // { label: 'Administradores', path: '/administradores'},
         { label: 'Bancas', path: '/banca/bancas', roles: ['banking'] },
-		// Esta funcionalidad se debio de unir con la de "Sorteos"
-        // { label: 'Sorteos Base', path: '/sorteos-base'},
 		// TODO : Esta funcionalidad es para cuando el admin quiera alquilar el software
         // { label: 'Usuarios', path: '/usuarios'},
         { label: 'Puestos', path: '/banca/puestos', roles: ['banking'] },
         { label: 'Sorteos', path: '/banca/sorteos', roles: ['banking'] },
         { label: 'Ganadores', path: '/banca/ganadores', roles: ['banking'] },
         { label: 'Ganadores', path: '/puesto/ganadores', roles: ['branch'] },
+        { label: 'Reportes', path: '/banca/reportes', roles: ['banking'] },
         { label: 'Reportes', path: '/puesto/reportes', roles: ['branch'] },
         { label: 'Cajas', path: '/puesto/cajas', roles: ['branch'] },
-		{ label: 'Carga Excel', path: '/puesto/carga-excel', roles: ['branch'] }
+        { label: 'Carga Excel', path: '/puesto/carga-excel', roles: ['branch'] },
 	];
 
 	let visibleNavItems = $derived(
-		navItems.filter((item) => !item.roles || item.roles.includes(role))
+		navItems.filter((item) =>
+			!item.roles ||
+			item.roles.includes(role)
+		)
 	);
 </script>
 
-<aside class="sidebar" class:collapsed={!isExpanded}>
-	<button class="collapse-toggle" onclick={toggleSidebar} aria-label="Toggle sidebar">
-		<span class="icon" aria-hidden="true"></span>
-	</button>
-
-    <nav>
+{#snippet navigation()}
+<nav>
         <ul>
 			{#each visibleNavItems as item (item.path)}
                 <li aria-current={currentPath === item.path ? 'page' : undefined}>
@@ -80,10 +93,19 @@
                     </a>
                 </li>
             {/each}
-			<div class="sidebar-header">
-				<h2>{$auth.user?.username}</h2>
-				<h2>{$auth.user?.branchName}</h2>
-			</div>
+			<li class="sidebar-header-container">
+				{#if role === 'branch'}
+					<a class="sidebar-header" href="/puesto/usuario" title="Mi información">
+						<h2>{$auth.user?.username}</h2>
+						<h2>{$auth.user?.branchName}</h2>
+					</a>
+				{:else}
+					<div class="sidebar-header">
+						<h2>{$auth.user?.username}</h2>
+						<h2>{$auth.user?.branchName}</h2>
+					</div>
+				{/if}
+			</li>
 			<div
 				class="logout"
 				onclick={handleLogout}
@@ -95,9 +117,39 @@
 			</div>
         </ul>
     </nav>
+{/snippet}
+
+<svelte:window onresize={closeOnDesktop} />
+
+{#if responsive}
+    <button bind:this={mobileMenuButton} class="mobile-menu-toggle" type="button" onclick={() => mobileDialog?.showModal()} aria-haspopup="dialog">☰ Menú</button>
+    <dialog bind:this={mobileDialog} class="mobile-navigation" aria-label="Navegación principal" onclose={() => mobileMenuButton?.focus()}>
+        <button type="button" class="mobile-menu-close" onclick={() => mobileDialog?.close()}>Cerrar menú</button>
+        {@render navigation()}
+    </dialog>
+{/if}
+
+<aside class="sidebar" class:collapsed={!isExpanded}>
+	<button class="collapse-toggle" onclick={toggleSidebar} aria-label="Toggle sidebar">
+		<span class="icon" aria-hidden="true"></span>
+	</button>
+
+	{@render navigation()}
 </aside>
 
 <style>
+    .mobile-menu-toggle { display: none; }
+    .mobile-navigation { margin: 0; height: 100dvh; max-height: 100dvh; width: min(20rem, 90vw); max-width: 90vw; padding: 0; border: 0; color: var(--color-text); background: white; box-sizing: border-box; }
+    .mobile-navigation::backdrop { background: rgb(15 23 42 / 55%); }
+    .mobile-navigation[open] { display: flex; flex-direction: column; }
+    .mobile-menu-close { min-height: 44px; margin: 0.75rem; }
+    .mobile-navigation .sidebar-header-container, .mobile-navigation .logout { position: static; }
+    .mobile-navigation nav { overflow-y: auto; }
+    .mobile-navigation .sidebar-header { overflow-wrap: anywhere; }
+    @media (max-width: 1279px) {
+        .mobile-menu-toggle { display: flex; align-self: flex-start; min-height: 44px; margin: 0.75rem; }
+    }
+
 	.sidebar {
 		position: relative;
 		background: rgba(255, 255, 255, 0.95);
@@ -179,6 +231,13 @@
 		margin: 0;
 	}
 
+	.sidebar-header-container {
+		position: absolute;
+		bottom: 4rem;
+		left: 0;
+		right: 0;
+	}
+
 	.sidebar-header {
 		flex-direction: column;
 	    gap: 1rem;
@@ -186,10 +245,6 @@
 		text-align: left;
 		border-bottom: 1px solid var(--color-border);
 		border-top: 1px solid var(--color-border);
-		position: absolute;
-		bottom: 4rem;
-		left: 0;
-		right: 0;
 	}
 
 	a, .logout, .sidebar-header {
@@ -219,12 +274,14 @@
 		transition: opacity 0.3s ease;
 	}
 
-	.sidebar.collapsed a, .sidebar.collapsed .logout , .sidebar.collapsed .sidebar-header {
+	.sidebar.collapsed a, .sidebar.collapsed .logout, .sidebar.collapsed .sidebar-header {
 		display: none;
 	}
 
 
 	.logout {
+		justify-content: center;
+		text-align: center;
 		position: absolute;
 		bottom: 0;
 		left: 0;

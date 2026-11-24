@@ -1,13 +1,15 @@
 <script lang="ts">
     import { total } from "../../stores/UpdateSellMatrix";
     import SellFooter from "./SellFooter.svelte";
+    import { formatAmount } from '../../printing/printing';
 
     let {
         selectedDate = $bindable(),
         message = $bindable(),
         availableBets = $bindable(),
         selectedBet = $bindable(),
-        prohibitedPercentage = $bindable()
+        prohibitedPercentage = $bindable(),
+        isPrintConfirmationOpen = false
     } = $props();
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
 
@@ -122,6 +124,10 @@
     }
 
     function selectBet(index: number) {
+        if (isPrintConfirmationOpen) {
+            return;
+        }
+
         const nextBet = sortedBets[index];
         if (!nextBet) {
             return;
@@ -136,14 +142,9 @@
     }
 
     function handleBetKeydown(event: KeyboardEvent) {
-        if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
-            return;
-        }
-
+        if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+        if (isPrintConfirmationOpen) return;
         const target = event.target;
-        //if ((target instanceof HTMLInputElement) && target.type !== "radio") {
-        //    return;
-        //}
 
         if (sortedBets.length < 2) {
             return;
@@ -163,22 +164,6 @@
         const nextIndex = (currentIndex + offset + sortedBets.length) % sortedBets.length;
         selectBet(nextIndex);
     }
-
-    // TODO Globalize this function to a utility file since it's used in multiple places
-    function formatAmount(value: number) {
-        if (!Number.isFinite(value)) {
-            return "0";
-        }
-
-        const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
-        const [integerPart, decimalPart] = Math.abs(rounded).toFixed(2).split(".");
-        const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-        const sign = rounded < 0 ? "-" : "";
-
-        return decimalPart === "00"
-            ? `${sign}${groupedInteger}`
-            : `${sign}${groupedInteger},${decimalPart}`;
-    }
 </script>
 
 <svelte:window onkeydown={handleBetKeydown} />
@@ -187,7 +172,17 @@
         <div class="header-content left">
             <div class="spans">
                 <span>Día:</span>
-                <input type="date" id="date" bind:value={selectedDate} min={today} />
+                <input
+                    type="date"
+                    id="date"
+                    bind:value={selectedDate}
+                    min={today}
+                    onchange={() => {
+                        if (selectedDate < today) {
+                            selectedDate = today;
+                        }
+                    }}
+                />
             </div>
             <div class="spans">
                 <span class="label">Total:</span>
@@ -207,17 +202,22 @@
                                 name={"sorteo"}
                                 value={bet.schedule_id}
                                 checked={selectedBet?.schedule_id === bet.schedule_id}
-                                onchange={() => selectedBet = bet}
+                                onchange={() => {
+                                    if (!isPrintConfirmationOpen) {
+                                        selectedBet = bet;
+                                    }
+                                }}
+                                disabled={isPrintConfirmationOpen}
                                 class="sorteo-input"
                             />
                             <span class="sorteo-pill">
-                                {#if index === previousBetIndex}
-                                    <span class="sorteo-direction sorteo-direction-left" aria-hidden="true">←</span>
-                                {/if}
+                                <span class="sorteo-direction" aria-hidden="true">
+                                    {#if index === previousBetIndex}{"<"}{/if}
+                                </span>
                                 <span class="sorteo-pill-text">{bet.draw_name} {bet.schedule_name}</span>
-                                {#if index === nextBetIndex}
-                                    <span class="sorteo-direction sorteo-direction-right" aria-hidden="true">→</span>
-                                {/if}
+                                <span class="sorteo-direction" aria-hidden="true">
+                                    {#if index === nextBetIndex}{">"}{/if}
+                                </span>
                             </span>
                         </label>
                     {/each}
@@ -264,10 +264,9 @@
         display: inline-flex;
         align-items: center;
         gap: 0.35rem;
-        padding: 0.35rem 0.75rem;
+        padding: 0.25rem;
         border: 1px solid var(--color-border);
         transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-        font-size: 1rem;
         user-select: none;
     }
     .sorteo-pill-text {
@@ -281,10 +280,11 @@
         border-color: var(--color-theme-2);
     }
     .sorteo-direction {
-        font-size: 0.85em;
-        line-height: 1;
-        opacity: 0.85;
+        width: 1vw;
+        display: flex;
+        align-items: center;
     }
+
     .header-top {
         display: flex;
         gap: 1rem;
@@ -300,7 +300,7 @@
     }
 
     span{
-        font-size: 1.25rem;
+        font-size:1.2rem;
     }
 
     .spans {

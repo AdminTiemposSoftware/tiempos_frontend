@@ -4,6 +4,7 @@ import type { RequestHandler } from './$types';
 export const POST: RequestHandler = async ({ request, fetch, locals, cookies }) => {
     const baseUrl = env.API_URL;
     const bankingId = locals.user?.bankingId;
+    const userId = locals.user?.id;
     const token = cookies.get('session_banca') ?? null;
 
     if (!baseUrl || !bankingId) {

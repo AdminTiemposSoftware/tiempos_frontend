@@ -20,7 +20,7 @@
 		is_megareventado: boolean;
 	};
 
-	import { acts, Notifications } from '@tadashi/svelte-notification'
+	import { acts } from '@tadashi/svelte-notification'
 
 	function onClose() {
 		showModal = false;
@@ -69,7 +69,6 @@
 </script>
 
 {#if showModal}
-<Notifications/>
 	<div
 		class="modal-backdrop"
 		role="button"

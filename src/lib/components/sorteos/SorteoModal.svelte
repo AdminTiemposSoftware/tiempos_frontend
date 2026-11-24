@@ -6,7 +6,7 @@
 		updateSorteo
 	} = $props();
 
-	import {acts, Notifications} from '@tadashi/svelte-notification';
+	import { acts } from '@tadashi/svelte-notification';
 
 	const dayOptions = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 	let name = $derived<string>(sorteo.name);
@@ -40,7 +40,6 @@
 		}
 
 		hasConfirmed = true;
-		console.log('Submitting sorteo:', sorteo, 'with payload:', payload);
 		if (sorteo?.id !== -1) {
 			await updateSorteo(payload);
 		} else {
@@ -114,39 +113,6 @@
 		border-radius: 0.5rem;
 		background: #f5f5f5;
 		font-weight: 500;
-	}
-	.switch-input {
-		appearance: none;
-		width: 44px;
-		height: 24px;
-		border-radius: 999px;
-		background: #d1d5db;
-		position: relative;
-		cursor: pointer;
-		transition: background 160ms ease;
-		border: 1px solid #cbd5f5;
-	}
-	.switch-input::after {
-		content: '';
-		position: absolute;
-		width: 18px;
-		height: 18px;
-		border-radius: 50%;
-		background: #fff;
-		top: 2px;
-		left: 2px;
-		transition: transform 160ms ease;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-	}
-	.switch-input:checked {
-		background: var(--color-theme-1);
-	}
-	.switch-input:checked::after {
-		transform: translateX(20px);
-	}
-	.switch-input:focus-visible {
-		outline: 2px solid var(--color-theme-1);
-		outline-offset: 2px;
 	}
 	.days-grid {
 		display: grid;

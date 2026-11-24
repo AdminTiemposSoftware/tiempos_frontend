@@ -3,13 +3,16 @@
 	import ProhibitedNumberModal from '../ProhibitedNumberModal.svelte';
     import ConfirmModal from '../ConfirmModal.svelte';
     import Matrix from '../venta/Matrix.svelte';
-	import ReportModal from './ReportModal.svelte';
+	import ReportSummary from './ReportSummary.svelte';
+	import DevolutionBreakdown from './DevolutionBreakdown.svelte';
 	import ExportModal from './ExportModal.svelte';
-	import {Notifications, acts} from '@tadashi/svelte-notification'
+	import {acts} from '@tadashi/svelte-notification'
 	import SelectModal from '../SelectModal.svelte';
-	import { GROUPING_OPTIONS, type GroupingMode, type ReportItem } from '../venta/grouping';
+	import { formatAmount } from '../../printing/printing';
+	import type { ReportItem } from '../venta/grouping';
+	import { getBancaFilterData } from '../../stores/bancaFilterCache';
 
-    const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
+	const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
 	let prohibitedNumberToDelete = $state<prohibitedNumber | null>(null);
 	let prohibitedNumbers = $state<prohibitedNumber[]>([]);
 	let showDeleteProhibitedModal = $state(false);
@@ -20,22 +23,26 @@
 	let drawScheduleNames = $state<{ value: number; label: string }[]>([]);
 	let selectedBranch = $state<number[]>([]);
 	let selectedDrawSchedule = $state<number[]>([]);
-	let groupingModes = $state<GroupingMode[]>(['branch']);
+	let { data, user, responsive = false }: ReportProps = $props();
+	// Inicio uses fresh route data instead of a module cache shared with other reports.
+	let bancaFilterData = $derived(responsive ? (data ?? {}) : getBancaFilterData(data ?? {}));
 	let matrixMode = $state<'20x5' | '5x20' | '10x10'>('10x10');
 	let from =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let to =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let report = $state<ReportItem[]>([]);
 	let isLoading = $state<boolean>(false);
-	let showReportModal = $state<boolean>(false);
+	let numberTotals = $state<Record<number, number>>({});
+	let breakdown = $state<Record<number, { draw: string; draw_schedule: string; branch: string; total: number }[]>>({});
+	let devolutionBreakdown = $state<any[]>([]);
+	let summary = $state<Record<string, number>>({});
 	let showExportModal = $state<boolean>(false);
 	let reportQrData = $state<Record<number, number>>({});
 	let totalQr = $state<number>(0);
 	let puestosQr = $state<string[]>([]);
 	let sorteosQr = $state<string[]>([]);
-    let { data, user } = $props();
     let winnersFiltered = $state<WinnerItem[]>([]);
     let prohibitedFiltered = $state<prohibitedItem[]>([]);
-    let totalAmountReport = $derived(report.reduce((acc, item) => acc + item.amount, 0));
+    let totalAmountReport = $derived(Object.values(numberTotals).reduce((acc, amount) => acc + amount, 0));
 
     type WinnerItem = {
         position_number: number;
@@ -51,11 +58,13 @@
         banking_id: number;
         number: number;
         starter: string;
+        percentage?: number | string;
         can_sell_after_amount: boolean;
         by_amount: boolean;
         by_percentage: boolean;
         amount: string;
         date: string;
+        branch_id?: number;
     };
 
 	type prohibitedNumber = {
@@ -68,8 +77,15 @@
 		by_percentage: boolean;
 	};
 
+	type ReportProps = {
+	    data: any;
+	    user?: string;
+	    responsive?: boolean;
+	};
+
     async function handleConfirmDeleteProhibitedNumber() {
 		if (prohibitedNumberToDelete == null) {
+		    console.log('No hay número restringido para eliminar');
 			return;
 		}
 		try {
@@ -88,7 +104,8 @@
     		}
 
     		showUpdateProhibitedModal = false;
-    		prohibitedNumbers = prohibitedNumbers.filter((item) => item.number !== prohibitedNumberToDelete?.number);
+            selectedProhibitedNumber = {id: -1, number: 0, amount: 0, starter: 0, can_sell_after_amount: false, by_amount: false, by_percentage: true};
+    		prohibitedNumbers = prohibitedNumbers.filter((item) => item.id !== prohibitedNumberToDelete?.id);
     		prohibitedNumberToDelete = null;
             acts.add({
     			message: "Numero restringido eliminado.",
@@ -126,6 +143,7 @@
 		const by_amount = payload.by_amount;
 		const by_percentage = payload.by_percentage;
 		if (!Number.isFinite(amount)) {
+		    console.error('Error: el monto es requerido');
 			return;
 		}
 		try {
@@ -212,7 +230,7 @@
 		} catch (error) {
 		    console.error(error)
 			acts.add ({
-                message: 'Error al agregar el numero prohibido',
+                message: 'Error al modificar el numero prohibido',
 			    mode: 'error',
 				lifetime: 3
 			});
@@ -239,9 +257,8 @@
     });
 
 	$effect(() => {
-		const branchNamesItems = Array.isArray(data?.branchNames)
-			? (data.branchNames as any[])
-			: [];
+		const filterData = bancaFilterData;
+		const branchNamesItems = Array.isArray(filterData.branchNames) ? filterData.branchNames : [];
 		branchNames = [
 			...branchNamesItems.map((item) => ({
 				value: Number(item.id),
@@ -251,9 +268,8 @@
 	});
 
 	$effect(() => {
-		const scheduleNamesItems = Array.isArray(data?.scheduleNames)
-			? (data.scheduleNames as any[])
-			: [];
+		const filterData = bancaFilterData;
+		const scheduleNamesItems = Array.isArray(filterData.scheduleNames) ? filterData.scheduleNames : [];
 		drawScheduleNames = [
 			...scheduleNamesItems.map((item) => ({
 				value: Number(item.draw_schedule_id),
@@ -263,72 +279,32 @@
 	});
 
 	$effect(() => {
-		const reportTodayItems = Array.isArray(data?.reportTodayItems)
-			? (data.reportTodayItems as any[])
+		const winnersFilteredItems = Array.isArray(data?.winnersFilteredItems)
+			? (data.winnersFilteredItems as WinnerItem[])
 			: [];
-
-		report = reportTodayItems.map((item) => ({
-			branch_id: Number(item.branch_id),
-			branch_name: String(item.branch_name),
-			branch_comission: Number(item.branch_comission),
-			draw_schedule_id: Number(item.draw_schedule_id),
-			draw_schedule_name: String(item.draw_schedule_name),
-			draw_id: Number(item.draw_id),
-			draw_name: String(item.draw_name),
-			number: Number(item.number),
-			amount: Number(item.amount),
-			is_reventado: Boolean(item.is_reventado),
-			is_megareventado: Boolean(item.is_megareventado),
-			date: String(item.date)
-		})).filter((item) => Number.isFinite(item.number) && Number.isFinite(item.amount))
-		.sort((a, b) => a.number - b.number);
+		winnersFiltered = winnersFilteredItems;
 	});
 
-	function validFilters() {
-        if (from > to) {
-                acts.add({
-                    message: "La fecha 'Desde' no puede ser mayor que la fecha 'Hasta'.",
-                    mode: 'error',
-                    lifetime: 3
-                });
-       	return false;
-        }
-
-        if (selectedBranch.length === 0 && user === 'banking') {
-            acts.add({
-                    message: "Seleccione al menos un puesto",
-                    mode: 'error',
-                    lifetime: 3
-                });
-       	return false;
-        }
-
-        if (selectedDrawSchedule.length === 0) {
-            acts.add({
-                    message: "Seleccione al menos un horario",
-                    mode: 'error',
-                    lifetime: 3
-                });
-       	return false;
-        }
-
-        return true;
-	}
+	$effect(() => {
+		const prohibitedFilteredItems = Array.isArray(data?.prohibitedFilteredItems)
+			? (data.prohibitedFilteredItems as prohibitedItem[])
+			: [];
+		prohibitedFiltered = prohibitedFilteredItems;
+	});
 
 	async function applyFilters() {
-	    if (!validFilters()) return;
 		try {
 		    isLoading = true;
 			let response;
 			if (user === 'banking') {
-				response = await fetch(`/banca/report?date_from=${from}&date_to=${to}&branches=${encodeURIComponent(selectedBranch.join(','))}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
+				response = await fetch(`/banca/report-base?date_from=${from}&date_to=${to}&branches=${encodeURIComponent(selectedBranch.join(','))}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
 					method: 'GET',
 					headers: {
 						'Content-Type': 'application/json'
 					}
 				});
 			} else {
-				response = await fetch(`/puesto/report?date_from=${from}&date_to=${to}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
+				response = await fetch(`/puesto/reportes-base?date_from=${from}&date_to=${to}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
 					method: 'GET',
 					headers: {
 						'Content-Type': 'application/json'
@@ -346,108 +322,44 @@
     		}
 
     		const data = await response.json();
-    		const dataItems = Array.isArray(data?.items)
-    			? (data.items as any[])
-    			: [];
+			numberTotals = Object.fromEntries(
+				(Array.isArray(data?.numbers) ? data.numbers : []).map((item: { number: number; total: number }) => [
+					Number(item.number), Number(item.total)
+				])
+			);
+			breakdown = data?.breakdown ?? {};
+			devolutionBreakdown = Array.isArray(data?.devolutionBreakdown) ? data.devolutionBreakdown : [];
+			summary = data?.summary ?? {};
+			report = [];
 
-    		report = dataItems.map((item) => ({
-    			branch_id: Number(item.branch_id),
-    			branch_name: String(item.branch_name),
-                branch_comission: Number(item.branch_comission),
-    			draw_schedule_id: Number(item.draw_schedule_id),
-    			draw_schedule_name: String(item.draw_schedule_name),
-    			draw_id: Number(item.draw_id),
-    			draw_name: String(item.draw_name),
-    			number: Number(item.number),
-    			amount: Number(item.amount),
-    			is_reventado: Boolean(item.is_reventado),
-    			is_megareventado: Boolean(item.is_megareventado),
-    			date: String(item.date)
-    		})).filter(
-    			(item) => Number.isFinite(item.number) && Number.isFinite(item.amount))
-    		.sort((a, b) => a.number - b.number);
+			const winnerItems = Array.isArray(data?.winnersFilteredItems)
+				? data.winnersFilteredItems as WinnerItem[]
+				: [];
+			const prohibitedItems = Array.isArray(data?.prohibitedFilteredItems)
+				? data.prohibitedFilteredItems as prohibitedItem[]
+				: [];
 
-    		totalAmountReport = report.reduce((acc, item) => acc + item.amount, 0);
-    		isLoading = false;
-		} catch (error) {
-			acts.add({
-				message: "Error al aplicar filtros.",
-				mode: 'error',
-				lifetime: 3
-			});
-			isLoading = false;
-			console.error(error);
-		}
-	}
-
-	async function fetchWinnersFiltered() {
-	    if (!validFilters()) return;
-		try {
-		    isLoading = true;
-			let response;
-			if (user === 'banking') {
-				response = await fetch(`/banca/ganadores/filtered?date_from=${from}&date_to=${to}&branches=${encodeURIComponent(selectedBranch.join(','))}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
-					method: 'GET',
-					headers: { 'Content-Type': 'application/json' }
-				});
-			} else {
-				response = await fetch(`/puesto/ganadores/filtered?date_from=${from}&date_to=${to}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
-					method: 'GET',
-					headers: { 'Content-Type': 'application/json' }
-				});
-			}
-			const data = await response.json();
-			const winnerItems = Array.isArray(data.items) ? data.items as WinnerItem[] : [];
-			if (winnerItems.find(item => item.winner_number === null)) {
+			if (winnerItems.find((item) => item.winner_number === null)) {
 				acts.add({
 					message: "No se han asignado algunos ganadores para los filtros seleccionados.",
 					mode: 'warning',
 					lifetime: 3
 				});
 			}
-			winnersFiltered = winnerItems;
 
-			showReportModal = true;
+			winnersFiltered = winnerItems;
+			prohibitedFiltered = prohibitedItems;
+			console.log(winnerItems);
+
+			isLoading = false;
 		} catch (error) {
 			acts.add({
 				message: "Error al aplicar filtros.",
 				mode: 'error',
 				lifetime: 3
 			});
-			console.error(error);
-		} finally {
 			isLoading = false;
-		}
-	}
-
-	async function fetchProhibitedNumbers() {
-		if (!validFilters()) return;
-		try {
-		    isLoading = true;
-			let response;
-			if (user === 'banking') {
-				response = await fetch(`/number/prohibited?date_from=${from}&date_to=${to}&branches=${encodeURIComponent(selectedBranch.join(','))}`, {
-					method: 'GET',
-					headers: { 'Content-Type': 'application/json' }
-				});
-			} else {
-				response = await fetch(`/puesto/number/prohibited?date_from=${from}&date_to=${to}`, {
-					method: 'GET',
-					headers: { 'Content-Type': 'application/json' }
-				});
-			}
-			const data = await response.json();
-			const prohibitedItems = Array.isArray(data.items) ? data.items as prohibitedItem[] : [];
-			prohibitedFiltered = prohibitedItems;
-		} catch (error) {
-			acts.add({
-				message: "Error al obtener números prohibidos.",
-				mode: 'error',
-				lifetime: 3
-			});
 			console.error(error);
-		} finally {
-			isLoading = false;
 		}
 	}
 
@@ -461,51 +373,13 @@
 		showUpdateProhibitedModal = true;
 	}
 
-	function toggleGroupingMode(mode: GroupingMode) {
-		if (groupingModes.includes(mode)) {
-			if (groupingModes.length === 1) {
-				return;
-			}
-
-			groupingModes = groupingModes.filter((item) => item !== mode);
-			return;
-		}
-
-		groupingModes = [...groupingModes, mode];
-	}
-
-	function moveGroupingMode(mode: GroupingMode, direction: -1 | 1) {
-		const currentIndex = groupingModes.indexOf(mode);
-
-		if (currentIndex === -1) {
-			return;
-		}
-
-		const targetIndex = currentIndex + direction;
-
-		if (targetIndex < 0 || targetIndex >= groupingModes.length) {
-			return;
-		}
-
-		const nextModes = [...groupingModes];
-		[nextModes[currentIndex], nextModes[targetIndex]] = [nextModes[targetIndex], nextModes[currentIndex]];
-		groupingModes = nextModes;
-	}
-
-	function getGroupingModeLabel(mode: GroupingMode) {
-		return GROUPING_OPTIONS.find((option: { value: GroupingMode; label: string }) => option.value === mode)?.label ?? mode;
-	}
-
 	async function handleShowExportModal() {
-		if (report.length === 0) {
+		if (Object.keys(numberTotals).length === 0) {
 			reportQrData = Object.fromEntries(
 				Array.from({ length: 100 }, (_, i) => [i, 0])
 			);
 		} else {
-			reportQrData = report.reduce((acc: Record<number, number>, item: ReportItem) => {
-				acc[item.number] = (acc[item.number] || 0) + item.amount;
-				return acc;
-			}, {});
+			reportQrData = numberTotals;
 		}
 		totalQr = Object.values(reportQrData).reduce((acc, amount) => acc + amount, 0);
 		puestosQr = selectedBranch.length === 0 || selectedBranch.includes(0)
@@ -517,26 +391,6 @@
 		showExportModal = true;
 	}
 
-	async function showReport() {
-		await applyFilters();
-		await fetchWinnersFiltered();
-		await fetchProhibitedNumbers();
-	}
-
- function formatAmount(value: number) {
-        if (!Number.isFinite(value)) {
-            return "0";
-        }
-
-        const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
-        const [integerPart, decimalPart] = Math.abs(rounded).toFixed(2).split(".");
-        const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-        const sign = rounded < 0 ? "-" : "";
-
-        return decimalPart === "00"
-            ? `${sign}${groupedInteger}`
-            : `${sign}${groupedInteger},${decimalPart}`;
-    }
 </script>
 
 <svelte:head>
@@ -551,7 +405,6 @@
 			: `Eliminar el numero ${prohibitedNumberToDelete.number}?`
 	}
 	confirmText="Eliminar"
-	cancelText="Cancelar"
 	confirm={handleConfirmDeleteProhibitedNumber}
 />
 
@@ -560,17 +413,14 @@
 	bind:prohibited={selectedProhibitedNumber}
 	title="Actualizar numero restringido"
 	confirmText="Guardar"
-	cancelText="Cancelar"
 	handleUpdateProhibitedNumber={handleUpdateProhibitedNumber}
 	handleDeleteProhibitedNumber={showDeleteProhibitedNumber}
 />
 
 <ProhibitedNumberModal
 	bind:showModal={showAddProhibitedModal}
-	bind:prohibited={selectedProhibitedNumber}
 	title="Agregar numero restringido"
 	confirmText="Guardar"
-	cancelText="Cancelar"
 	handleAddProhibitedNumber={handleAddProhibitedNumber}
 />
 
@@ -582,110 +432,100 @@
 	sorteos={sorteosQr}
 	dateTo={to}
 	total={totalQr}
-/>
-
-<ReportModal
-    bind:showModal={showReportModal}
-    report={report}
-    winners={winnersFiltered}
-    prohibitedNumbers={prohibitedFiltered}
+	branchNames={branchNames}
+	drawScheduleNames={drawScheduleNames}
+	scheduleBranch={bancaFilterData.scheduleBranch ?? []}
 />
 
 <section class="inicio">
     <div class="content">
         <div class="left">
             <div class="filters">
-                <div class="total">
-                    <label for="from">Desde</label>
-                    <input id="from" type="date" bind:value={from}/>
-                </div>
+            <div class="total">
+                <label for="from">Desde</label>
+                <input id="from" type="date" bind:value={from}/>
+            </div>
+            <div class="field">
+                <label for="to">Hasta</label>
+                <input id="to" type="date" bind:value={to}/>
+            </div>
+            {#if user !== 'branch'}
                 <div class="field">
-                    <label for="to">Hasta</label>
-                    <input id="to" type="date" bind:value={to}/>
-                </div>
-                {#if user !== 'branch'}
-                    <div class="field">
-                        <label for="puesto">Puesto</label>
-    					<SelectModal
-    						options={branchNames}
-    						bind:selected={selectedBranch}
-    						placeholder="Seleccione un puesto"
-    					/>
-    				</div>
-                {/if}
-	            <div class="field">
-	                <label for="sorteo">Sorteo</label>
-					<SelectModal
-						options={drawScheduleNames}
-						bind:selected={selectedDrawSchedule}
-						placeholder="Seleccione un sorteo"
-					/>
-	            </div>
-	            <div class="total-amount">
-	                <p class="total-label">Total en esta lista</p>
-	                <p class="total-amount-label">₡{formatAmount(totalAmountReport)} </p>
-	            </div>
-            </div>
-	        <Matrix bind:report={report} bind:isLoading={isLoading} bind:groupingModes={groupingModes} mode={matrixMode} />
-        </div>
-        <div class="right">
-            <div class="column">
-			    <button type="button" class="option-button" onclick={applyFilters}>
-   					Filtrar
-                </button>
-				<button type="button" class="option-button" onclick={handleShowExportModal}>
-				    Exportar lista
-				</button>
-				<button type="button" class="option-button" onclick={showReport}>
-				    Obtener reporte
- 			    </button>
-			</div>
-			<div class="row view">
-                <button
-                    type="button"
-                    class={`option-button ${matrixMode === '20x5' ? 'selected-mode' : ''}`}
-                    onclick={() => { matrixMode = '20x5'; }}
-                >
-                20x5
-                </button>
-                <button
-                    type="button"
-                    class={`option-button ${matrixMode === '10x10' ? 'selected-mode' : ''}`}
-                    onclick={() => { matrixMode = '10x10'; }}
-                >
-                10x10
-                </button>
-            </div>
-			<div class="field grouping-field">
-				<label for="agrupacion">Agrupación</label>
-					<div class="grouping-options">
-						{#each GROUPING_OPTIONS as option}
-							<button
-								type="button"
-								class={`grouping-option ${groupingModes.includes(option.value) ? 'selected' : ''}`}
-								onclick={() => toggleGroupingMode(option.value)}
-							>
-								<input type="checkbox" checked={groupingModes.includes(option.value)} readonly />
-								<span>{option.label}</span>
-							</button>
-						{/each}
-					</div>
-				<div class="grouping-order">
-					<label for="orden">Orden</label>
-					<div class="grouping-chip-list">
-						{#each groupingModes as mode, index}
-							<div class="chip">
-								<span>{index + 1}. {getGroupingModeLabel(mode)}</span>
-								<div class="grouping-chip-actions">
-									<button type="button" onclick={() => moveGroupingMode(mode, -1)} disabled={index === 0}>↑</button>
-									<button type="button" onclick={() => moveGroupingMode(mode, 1)} disabled={index === groupingModes.length - 1}>↓</button>
-								</div>
-							</div>
-						{/each}
-					</div>
+                    <label for="puesto">Puesto</label>
+    				<SelectModal
+        				options={branchNames}
+        				bind:selected={selectedBranch}
+        				placeholder="Seleccione un puesto"
+    				/>
 				</div>
-			</div>
+            {/if}
+            <div class="field">
+                <label for="sorteo">Sorteo</label>
+				<SelectModal
+    				options={drawScheduleNames}
+    				bind:selected={selectedDrawSchedule}
+    				placeholder="Seleccione un sorteo"
+				/>
+            </div>
+            <div class="total-amount">
+                <p class="total-label">Total en esta lista</p>
+                <p class="total-amount-label">₡{formatAmount(totalAmountReport)} </p>
+            </div>
         </div>
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard access to the horizontal scroll region) -->
+        <div class="report-matrix-scroll" style:--report-amount-width={`${Math.max(4, String(Math.round(totalAmountReport)).length + 2, ...Object.values(numberTotals).map(value => String(Math.round(value)).length + 2))}ch`} role={responsive ? "region" : undefined} aria-label={responsive ? "Matriz de números" : undefined} tabindex={responsive ? 0 : undefined}>
+        <Matrix
+			bind:report={report}
+			bind:isLoading={isLoading}
+			numberTotals={numberTotals}
+			breakdown={breakdown}
+			mode={matrixMode}
+			useSellingMatrixFallback={false}
+			winnerNumbers={winnersFiltered
+    			.filter((item) => item.winner_number != null)
+    			.map((item) => Number(item.winner_number))
+    			.filter((number) => Number.isFinite(number))}
+			reportProhibitedNumbers={prohibitedFiltered
+    			.map((item) => Number(item.number))
+    			.filter((number) => Number.isFinite(number))}
+			/>
+        </div>
+    </div>
+    <div class="right">
+        <div class="column">
+            <button type="button" class="option-button" onclick={applyFilters}>
+				Filtrar
+            </button>
+			<button type="button" class="option-button" onclick={handleShowExportModal}>
+			    Exportar lista
+			</button>
+        </div>
+        <div class="row view">
+            <button
+                type="button"
+                class={`option-button ${matrixMode === '20x5' ? 'selected-mode' : ''}`}
+                onclick={() => { matrixMode = '20x5'; }}
+            >
+                20x5
+            </button>
+            <button
+                type="button"
+                class={`option-button ${matrixMode === '10x10' ? 'selected-mode' : ''}`}
+                onclick={() => { matrixMode = '10x10'; }}
+            >
+                10x10
+            </button>
+        </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <ReportSummary
+    		summary={summary}
+        />
+        <DevolutionBreakdown
+        	rows={devolutionBreakdown}
+        />
     </div>
     {#if user === 'banking'}
     <header>
@@ -731,10 +571,9 @@
     </header>
     {/if}
 </section>
-<Notifications />
-
 
 <style>
+	.report-matrix-scroll { display: contents; }
     .inicio {
         flex: 1;
 		justify-content: space-between;
@@ -764,6 +603,7 @@
         flex: 5;
 		gap: 1rem;
     }
+
     .right {
         flex: 1;
 		border: 1px solid var(--color-border);
@@ -777,11 +617,25 @@
 		width: 100%;
 	}
 
+    .grouping-toggle {
+    	display: flex;
+    	align-items: center;
+    	gap: 0.35rem;
+    	width: fit-content;
+    	padding: 0;
+    	border: 0;
+    	background: transparent;
+    	color: var(--color-text);
+    	font-weight: 600;
+    	cursor: pointer;
+    }
+
     .content {
-		padding: 1rem;
+    	padding: 1rem;
 		background-color: var(--color-box-background);
 		border: 1px solid var(--color-border);
         display: flex;
+        flex-direction: row;
         gap: 1rem;
     }
 
@@ -890,6 +744,4 @@
 	.total-label {
 		font-weight: 600;
 	}
-
-
 </style>

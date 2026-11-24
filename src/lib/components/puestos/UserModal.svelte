@@ -35,10 +35,18 @@
 			return;
 		}
 
-		if (user.id && user.id > 0) 
-			await updateUser(payload);
-		else 
+		if (user.id && user.id > 0) {
+			const editableUser = {
+				...payload,
+				password: payload.password || undefined
+			};
+			await updateUser(editableUser);
+		} else {
+			if (!payload.password) {
+				return;
+			}
 			await addUser(payload);
+		}
 	}
 </script>
 
@@ -93,7 +101,7 @@
 				id="password" 
 				type="password" 
 				bind:value={user.password} 
-				required 
+				required={!user?.id || user.id <= 0}
 				name="password"
 			/>
 

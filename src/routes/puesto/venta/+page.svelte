@@ -21,7 +21,11 @@
         draw_is_reventado: boolean;
         draw_is_megareventado: boolean;
         draw_day_id: number;
-        days: string[];
+        day_name: string;
+        positions: Position[];
+    };
+
+    type Position = {
         position_number: number;
         multiplier: number;
     };
@@ -61,6 +65,14 @@
         ticket_header_serial: string;
         number: number;
         amount: string | number;
+        amount_name?: string | null;
+        is_reventado: boolean;
+        is_megareventado: boolean;
+    };
+    type TicketEntry = {
+        number: string;
+        amount: number;
+        amount_name: string | null;
         is_reventado: boolean;
         is_megareventado: boolean;
     };
@@ -76,14 +88,23 @@
         time?: string;
     };
 
+    type AmountNameItem = {
+        id: number;
+        amount: string | number;
+        name: string;
+        key: string;
+    };
+
     const utcMinus6Date = new Date(Date.now() - 6 * 60 * 60 * 1000);
     let selectedDate = $state(utcMinus6Date.toISOString().split('T')[0]);
     let selectedBet = $state<AvailableBet | null>(null);
     let prohibitedPercentage = $state();
     let availableBets = $state<AvailableBet[]>([]);
     let isMatrixLoading = $state(false);
+    let isPrintConfirmationOpen = $state(false);
     let tickets = $state<TicketRow[]>([]);
     let ticketNumbers = $state<Numbers[]>([]);
+    let amountNameItems = $state<AmountNameItem[]>([]);
     let now = $state(new Date());
 
     function formatCloseTime(scheduleTime: string) {
@@ -92,7 +113,21 @@
 
     $effect(() => {
         now;
-        const items = Array.isArray(data?.drawItems) ? (data.drawItems as { schedule_id: number, day_name: string, draw_schedule_branch_id: number, comission: string | number, schedule_name: string, schedule_time: string, draw_id: number, draw_name: string, draw_is_reventado: boolean, draw_is_megareventado: boolean, position_number: number, multiplier: number }[]) : [];
+        const items = Array.isArray(data?.drawItems) ? (data.drawItems as {
+            draw_schedule_branch_id: number;
+            comission: string | number;
+            schedule_id: number;
+            schedule_name: string;
+            schedule_time: string;
+            draw_id: number;
+            draw_name: string;
+            draw_is_reventado: boolean;
+            draw_is_megareventado: boolean;
+            draw_day_id: number;
+            day_name: string;
+            position_number: number;
+            multiplier: number;
+        }[]) : [];
 
         const mappedBets = Object.values(
             items.reduce((acc, item) => {
@@ -107,21 +142,24 @@
                         draw_name: item.draw_name,
                         draw_is_reventado: item.draw_is_reventado,
                         draw_is_megareventado: item.draw_is_megareventado,
-                        days: [],
-                        position_number: item.position_number,
-                        multiplier: item.multiplier
+                        draw_day_id: item.draw_day_id,
+                        day_name: item.day_name,
+                        positions: [],
                     };
                 }
+                acc[item.schedule_id].positions.push({
+                    position_number: item.position_number,
+                    multiplier: item.multiplier,
+                });
 
-                acc[item.schedule_id].days.push(item.day_name);
-
-                return acc;
-            }, {} as Record<number, any>)
-        );
+            return acc;
+        }, {} as Record<number, AvailableBet>));
 
         availableBets = mappedBets;
         const selectedScheduleId = selectedBet?.schedule_id;
-        const nextSelectedBet = mappedBets.find((bet) => bet.schedule_id === selectedScheduleId) ?? getFirstAvailableScheduleId(mappedBets) ?? null;
+        const nextSelectedBet = mappedBets.find((bet) => bet.schedule_id === selectedScheduleId)
+            ?? getFirstAvailableScheduleId(mappedBets, selectedDate)
+            ?? null;
 
         if (selectedBet?.schedule_id !== nextSelectedBet?.schedule_id) {
             selectedBet = nextSelectedBet;
@@ -132,8 +170,6 @@
 
     $effect(() => {
         const items = Array.isArray(data?.numbers) ? (data.numbers as NumberTotal[]) : [];
-        console.log(items);
-
         const matrix = Object.fromEntries(
             Array.from({ length: 100 }, (_, i) => [i, 0])
         ) as Record<number, number>;
@@ -151,14 +187,23 @@
     $effect(() => {
         const scheduleId = selectedBet?.schedule_id ?? null;
         const activeScheduleId = Number(data?.selectedScheduleId ?? null);
+        const activeDate = new URLSearchParams(window.location.search).get('date');
+        const dateIsActive = selectedDate === activeDate;
+        const scheduleIsActive = scheduleId === activeScheduleId;
 
-        if (!scheduleId || scheduleId === activeScheduleId) {
+        if (scheduleIsActive && dateIsActive) {
             return;
         }
 
         isMatrixLoading = true;
 
-        void goto(`?scheduleId=${scheduleId}&date=${selectedDate}`, {
+        const params = new URLSearchParams();
+        if (scheduleId) {
+            params.set('scheduleId', String(scheduleId));
+        }
+        params.set('date', selectedDate);
+
+        void goto(`?${params.toString()}`, {
             replaceState: true,
             noScroll: true,
             keepFocus: true
@@ -178,6 +223,16 @@
                 by_percentage: Boolean(item.by_percentage)
             }))
         );
+    });
+
+    $effect(() => {
+        const items = Array.isArray(data?.amountNameItems) ? (data.amountNameItems as AmountNameItem[]) : [];
+        amountNameItems = items.map((item) => ({
+            id: item.id,
+            amount: item.amount,
+            name: item.name,
+            key: item.key
+        }));
     });
 
     $effect(() => {
@@ -215,8 +270,10 @@
         return scheduleMinutes > currentMinutes;
     }
 
-    function getFirstAvailableScheduleId(bets: AvailableBet[]) {
-        const filteredBets = bets.filter((bet) => isBetOpen(bet.schedule_time, now));
+    function getFirstAvailableScheduleId(bets: AvailableBet[], date: string) {
+        const filteredBets = date === utcMinus6Date.toISOString().split('T')[0]
+            ? bets.filter((bet) => isBetOpen(bet.schedule_time, now))
+            : bets;
         return filteredBets[0];
     }
 
@@ -242,40 +299,73 @@
         const payload = await response.json().catch(() => null);
         const items = Array.isArray(payload?.items) ? (payload.items as TicketHeader[]) : [];
         const numbers = Array.isArray(payload?.numbers) ? (payload.numbers as Numbers[]) : [];
+        const firstPosition = selectedBet?.positions.filter((position: {position_number: number, multiplier: number}) => position.position_number === 1)
 
-        tickets = items.map((item) => ({
-            id: item.id,
-            relative_id: item.relative_id,
-            username: item.username,
-            scheduleName: selectedBet?.schedule_name ?? '',
-            scheduleTime: selectedBet?.schedule_time ?? '',
-            drawName: selectedBet?.draw_name ?? '',
-            branchName: $auth.user?.branchName,
-            serial: item.serial,
-            total: Number(item.amount) || 0,
-            details: item.detail ?? '',
-            time: item.time ?? '',
-            date: item.date ?? '',
-            printed_at: item.printed_at ?? '',
-            multiplier: selectedBet?.multiplier ?? '',
-            status: item.enabled
-        }));
+        tickets = items
+            .map((item, index) => ({ item, index }))
+            .sort((a, b) => {
+                const relativeIdDifference = b.item.relative_id - a.item.relative_id;
+                return relativeIdDifference || a.index - b.index;
+            })
+            .map(({ item }) => ({
+                id: item.id,
+                relative_id: item.relative_id,
+                username: item.username,
+                scheduleName: selectedBet?.schedule_name ?? '',
+                scheduleTime: selectedBet?.schedule_time ?? '',
+                drawName: selectedBet?.draw_name ?? '',
+                branchName: $auth.user?.branchName,
+                serial: item.serial,
+                total: Number(item.amount) || 0,
+                details: item.detail ?? '',
+                time: item.time ?? '',
+                date: item.date ?? '',
+                printed_at: item.printed_at ?? '',
+                multiplier: firstPosition?.[0]?.multiplier ?? '',
+                status: item.enabled
+            }));
         ticketNumbers = numbers;
 
         return tickets;
     }
 
-    function getSoldNumbersForTicket(ticketId: number) {
+    function getSoldNumbersForTicket(ticketId: number): Record<string, number> {
         const ticket = tickets.find((item) => item.id === ticketId);
-        if (!ticket) {
-            return [];
-        }
+        if (!ticket) return {};
 
+        return ticketNumbers
+            .filter((number) => number.ticket_header_serial === ticket.serial)
+            .reduce<Record<string, number>>((sold, number) => {
+                const key = String(number.number).padStart(2, '0');
+                const price = Number(number.amount) || 0;
+                sold[key] = (sold[key] ?? 0) + price;
+                return sold;
+            }, {});
+    }
+
+    function getSoldAmountNamesForTicket(ticketId: number): Record<string, string | null> {
+        const ticket = tickets.find((item) => item.id === ticketId);
+        if (!ticket) return {};
+
+        return ticketNumbers
+            .filter((number) => number.ticket_header_serial === ticket.serial)
+            .reduce<Record<string, string | null>>((names, number) => {
+                names[String(number.number).padStart(2, '0')] = number.amount_name ?? null;
+                return names;
+            }, {});
+    }
+
+    function getSoldEntriesForTicket(ticketId: number): TicketEntry[] {
+        const ticket = tickets.find((item) => item.id === ticketId);
+        if (!ticket) return [];
         return ticketNumbers
             .filter((number) => number.ticket_header_serial === ticket.serial)
             .map((number) => ({
                 number: String(number.number).padStart(2, '0'),
-                price: Number(number.amount) || 0
+                amount: Number(number.amount) || 0,
+                amount_name: number.amount_name ?? null,
+                is_reventado: number.is_reventado,
+                is_megareventado: number.is_megareventado
             }));
     }
 </script>
@@ -291,14 +381,19 @@
             bind:availableBets={availableBets}
             bind:selectedBet={selectedBet}
             bind:prohibitedPercentage={prohibitedPercentage}
+            isPrintConfirmationOpen={isPrintConfirmationOpen}
         />
     <section class="set-section">
         <Sell
             getTickets={getTickets}
             selectedDate={selectedDate}
             getSoldNumbersForTicket={getSoldNumbersForTicket}
+            getSoldAmountNamesForTicket={getSoldAmountNamesForTicket}
+            getSoldEntriesForTicket={getSoldEntriesForTicket}
             selectedBet={selectedBet}
             prohibitedPercentage={prohibitedPercentage}
+            bind:isPrintConfirmationOpen={isPrintConfirmationOpen}
+            amountNameItems={amountNameItems}
         />
         <Matrix
             mode={'20x5'}
