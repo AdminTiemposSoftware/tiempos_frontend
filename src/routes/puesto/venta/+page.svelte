@@ -412,7 +412,6 @@
         flex-direction: column;
         gap: 0.5rem;
         flex: 1;
-        align-items: start;
     }
 
     .set-section {
@@ -420,5 +419,33 @@
         width: 100%;
         display: flex;
         flex-direction: row;
+        align-items: stretch;
+        min-width: 0;
+    }
+
+    .set-section :global(.matrix-container) {
+        min-width: 0;
+        overflow: auto;
+        padding-bottom: 0.5rem;
+        flex: 1;
+    }
+
+    @media (max-width: 900px) {
+        .set-section {
+            flex-direction: column;
+        }
+
+        .set-section :global(.sell) {
+            width: 100%;
+            min-width: 0;
+            flex: none;
+        }
+    }
+
+    @media (max-width: 520px) {
+        .sell-container,
+        .set-section {
+            gap: 0.5rem;
+        }
     }
 </style>

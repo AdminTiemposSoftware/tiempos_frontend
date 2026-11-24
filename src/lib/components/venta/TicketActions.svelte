@@ -8,31 +8,42 @@
         viewTickets
     } = $props();
 
-    import { PrinterSolid, EyeSolid, ReceiptSolid, CameraPhotoSolid } from "flowbite-svelte-icons";
+    import { PrinterSolid, ReceiptSolid, CameraPhotoSolid } from "flowbite-svelte-icons";
 </script>
 
-<form onsubmit={handlePrint}>
+<div class="buttons-group">
     <button
-        type="submit"
         disabled={Object.keys(sold).length === 0 || isSubmitting}
+        onclick={handlePrint}
     >
         <PrinterSolid class="shrink-0 h-4 w-4" />
         <div class="button-name">Imp<p>r</p>imir</div>
     </button>
-</form>
-<div class="buttons-group">
-    <button
-        onclick={() => showQrModal = true} disabled={Object.keys(sold).length === 0}
-    >
-        <EyeSolid class="shrink-0 h-4 w-4" />
-        <div class="button-name"><p>V</p>er QR</div>
-    </button>
-    <button onclick={() => showJalarModal = true}>
-        <CameraPhotoSolid class="shrink-0 h-4 w-4" />
-        <div class="button-name"><p>J</p>alar tiquete</div>
-    </button>
-    <button onclick={viewTickets}>
-        <ReceiptSolid class="shrink-0 h-4 w-4" />
-        <div class="button-name"><p>T</p>iquetes</div>
-    </button>
+
+    <div class="row">
+        <button onclick={() => showJalarModal = true}>
+            <CameraPhotoSolid class="shrink-0 h-4 w-4" />
+            <div class="button-name"><p>J</p>alar tiquete</div>
+        </button>
+        <button onclick={viewTickets}>
+            <ReceiptSolid class="shrink-0 h-4 w-4" />
+            <div class="button-name"><p>T</p>iquetes</div>
+        </button>
+    </div>
 </div>
+
+<style>
+    .buttons-group {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .buttons-group button {
+        width: 100%;
+    }
+
+    .row {
+        width: 100%;
+
+    }
+</style>

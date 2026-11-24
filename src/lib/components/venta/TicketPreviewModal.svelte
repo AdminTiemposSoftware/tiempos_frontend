@@ -1,7 +1,6 @@
 <script lang="ts">
     import { auth } from '../../stores/auth';
     import ReceiptPreview from '../../printing/ReceiptPreview.svelte';
-    import { serializeData } from '../../printing/printing';
     import type { Receipt } from '../../printing/types';
 
     let {
@@ -19,11 +18,13 @@
 
     const previewSold = $derived(winnerTicket?.numbersSold ?? sold);
     const previewAmountNames = $derived(winnerTicket?.amountNames ?? amountNames);
-    const previewSerial = $derived(winnerTicket?.serial ?? createdTicket?.ticket_serial ?? '');
+    const previewSerial = $derived(
+        winnerTicket?.serial
+        ?? createdTicket?.ticket_serial
+        ?? createdTicket?.serial
+        ?? ''
+    );
     const previewDetails = $derived(winnerTicket?.details ?? details);
-    const receipt = $derived.by<Receipt>(() => {
-        const soldEntries = Object.entries(sold) as Array<[string, number]>;
-
     const receipt = $derived.by<Receipt>(() => {
         const soldEntries = [
             ...Object.entries(previewSold).map(([number, amount]) => ({
@@ -38,8 +39,8 @@
             .sort((left, right) => Number(left.number) - Number(right.number))
             .map(({ number, amount, amount_name }) => ({
                 number: String(number).padStart(2, '0'),
-                amount_name
-                amount: Number(item) || 0
+                amount_name,
+                amount: Number(amount) || 0
             }));
 
         const total = numbers.reduce((sum, item) => sum + item.amount, 0);
@@ -70,7 +71,7 @@
             serial: `${previewSerial}`,
             ticket_number: winnerTicket
                 ? winnerTicket.relative_id.toString().padStart(3, '0')
-                : createdTicket?.ticket_number?.toString().padStart(3, '0') || '',
+                : (createdTicket?.ticket_number ?? createdTicket?.relative_id)?.toString().padStart(3, '0') || '',
             upperLines,
             numbers,
             total,
@@ -78,9 +79,9 @@
         };
     });
 
-    function serializeData(data: Record<string, number>): string {
-        const serialHex = createdTicket?.ticket_serial
-            ? BigInt(createdTicket.ticket_serial).toString(16).toUpperCase()
+    function serializeData(data: Record<string, number>, serial = ''): string {
+        const serialHex = serial
+            ? BigInt(serial).toString(16).toUpperCase()
             : '';
 
         return Object.entries(data)
@@ -181,14 +182,28 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 400px;
+    width: min(400px, calc(100vw - 2rem));
+    max-height: calc(100dvh - 2rem);
+    box-sizing: border-box;
+    overflow: auto;
+}
+
+.receipt-container {
+    width: 100%;
+    max-height: calc(100dvh - 10rem);
+    overflow: auto;
 }
 
 .actions {
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
-    margin-top: 15px;
+    gap: 0.75rem;
+    width: 100%;
+    margin-top: 0.75rem;
+}
+
+.actions button {
+    width: 100%;
 }
 
 </style>

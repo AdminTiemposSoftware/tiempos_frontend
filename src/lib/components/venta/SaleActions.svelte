@@ -135,7 +135,7 @@
         border-radius: 0.25rem;
         background-color: var(--color-theme-1);
         padding: 0.5rem 1rem;
-        flex:1;
+        flex: 1;
     }
 
     .random-controls button {

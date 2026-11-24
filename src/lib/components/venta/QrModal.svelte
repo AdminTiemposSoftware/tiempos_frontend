@@ -44,7 +44,23 @@
 {/if}
 
 <style>
+    .modal {
+        width: min(430px, calc(100vw - 2rem));
+        box-sizing: border-box;
+        text-align: center;
+    }
+
     .qr-container {
         margin: 1rem 0;
+        display: flex;
+        justify-content: center;
+        max-width: 100%;
+        overflow: hidden;
+    }
+
+    .qr-container :global(svg),
+    .qr-container :global(canvas) {
+        max-width: 100%;
+        height: auto;
     }
 </style>

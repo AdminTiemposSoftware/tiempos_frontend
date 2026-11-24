@@ -243,6 +243,10 @@
 	.modal-backdrop {
 		z-index: 10;
 	}
+	.modal {
+		width: min(430px, calc(100vw - 2rem));
+		box-sizing: border-box;
+	}
 	.modal-input {
 		width: 100%;
 		padding: 0.5rem;

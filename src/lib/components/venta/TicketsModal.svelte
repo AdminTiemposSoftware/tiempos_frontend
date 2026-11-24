@@ -141,7 +141,7 @@
                 return;
             }
 
-            tickets = tickets.map(item =>
+            tickets = tickets.map((item: Ticket) =>
                 item.id === ticketToDelete?.id
                     ? { ...item, status: false }
                     : item
@@ -241,9 +241,6 @@
         numbersSold = Object.entries(soldNumbersForSelectedTicket).reduce<Record<string, number>>(
             (accumulator, [number, price]) => {
                 accumulator[number] = price;
-        numbersSold = soldNumbersForSelectedTicket.reduce<Record<string, number>>(
-            (accumulator, sold) => {
-                accumulator[sold.number] = sold.price;
                 return accumulator;
             },
             {}
@@ -403,6 +400,7 @@
     .tickets-table {
         margin: 1rem 0 3rem 0;
         background-color: white;
+        padding: 4px 8px;
     }
 
     .no-tickets {
@@ -421,9 +419,11 @@
     .modal {
         display: flex;
         flex-direction: row;
-        max-width: 800px;
-        max-height: 490vh;
+        max-width: min(800px, calc(100vw - 2rem));
+        max-height: calc(100dvh - 2rem);
         width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
     }
 
     .ticket-sold-numbers {
@@ -449,6 +449,7 @@
 
     .tickets-list {
         flex: 2;
+        min-width: 0;
         position: relative;
     }
 
@@ -469,6 +470,26 @@
     .options-buttons button{
 
         width: 100%;
+    }
+
+    @media (max-width: 720px) {
+        .modal {
+            flex-direction: column;
+            overflow: auto;
+        }
+
+        .ticket-sold-numbers {
+            margin-left: 0;
+            margin-top: 1rem;
+        }
+
+        .ticket-scroll {
+            max-height: 40vh;
+        }
+
+        .tickets-table {
+            min-width: 32rem;
+        }
     }
 
 </style>
