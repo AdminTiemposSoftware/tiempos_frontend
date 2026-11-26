@@ -2,16 +2,14 @@
 	import SelectModal from '$lib/components/SelectModal.svelte';
 
 	let {
-		from = $bindable(''),
-		to = $bindable(''),
+		selectedDate = $bindable(''),
 		selectedBranches = $bindable<number[]>([]),
 		selectedDrawSchedules = $bindable<number[]>([]),
 		branchOptions = [],
 		scheduleOptions = [],
 		onApply
 	}: {
-		from?: string;
-		to?: string;
+		selectedDate?: string;
 		selectedBranches?: number[];
 		selectedDrawSchedules?: number[];
 		branchOptions: { value: number; label: string }[];
@@ -22,12 +20,8 @@
 
 <form class="filters" onsubmit={(event) => { event.preventDefault(); onApply(); }}>
 	<div class="field date-field">
-		<label for="tickets-from">Desde</label>
-		<input id="tickets-from" type="date" bind:value={from} required />
-	</div>
-	<div class="field date-field">
-		<label for="tickets-to">Hasta</label>
-		<input id="tickets-to" type="date" bind:value={to} required />
+		<label for="tickets-date">Fecha</label>
+		<input id="tickets-date" type="date" bind:value={selectedDate} required />
 	</div>
 	<div class="field selection-field">
 		<label for="tickets-branch">Puesto</label>
@@ -51,7 +45,7 @@
 <style>
 	.filters {
 		display: grid;
-		grid-template-columns: minmax(8rem, 0.65fr) minmax(8rem, 0.65fr) minmax(14rem, 1.5fr) minmax(14rem, 1.5fr) auto;
+		grid-template-columns: minmax(8rem, 0.65fr) minmax(14rem, 1.5fr) minmax(14rem, 1.5fr) auto;
 		align-items: end;
 		gap: 1rem;
 		margin-top: 1.5rem;

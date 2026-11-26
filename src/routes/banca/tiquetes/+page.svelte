@@ -28,8 +28,7 @@
 	let { data } = $props();
 	let branchNames = $state<{ value: number; label: string }[]>([]);
 	let drawScheduleNames = $state<{ value: number; label: string }[]>([]);
-	let from = $state('');
-	let to = $state('');
+	let selectedDate = $state('');
 	let selectedBranches = $state<number[]>([]);
 	let selectedDrawSchedules = $state<number[]>([]);
 	let tickets = $state<Ticket[]>([]);
@@ -79,8 +78,7 @@
 		if (!hasLoadedDefaults && branchNames.length > 0 && drawScheduleNames.length > 0) {
 			hasLoadedDefaults = true;
 			const currentDate = today();
-			from = currentDate;
-			to = currentDate;
+			selectedDate = currentDate;
 			selectedBranches = branchNames.map((branch) => branch.value);
 			selectedDrawSchedules = drawScheduleNames.map((schedule) => schedule.value);
 			void fetchTickets();
@@ -95,8 +93,8 @@
 
 	async function fetchTickets() {
 		errorMessage = '';
-		if (!from || !to || selectedBranches.length === 0 || selectedDrawSchedules.length === 0) {
-			errorMessage = 'Seleccione un rango de fechas, puestos y sorteos.';
+		if (!selectedDate || selectedBranches.length === 0 || selectedDrawSchedules.length === 0) {
+			errorMessage = 'Seleccione una fecha, puestos y sorteos.';
 			acts.add({
 				message: errorMessage,
 				mode: 'error',
@@ -108,8 +106,7 @@
 		isLoading = true;
 		try {
 			const params = new URLSearchParams({
-				date_from: from,
-				date_to: to,
+				date: selectedDate,
 				branches: selectedBranches.join(','),
 				draw_schedules: selectedDrawSchedules.join(',')
 			});
@@ -150,8 +147,7 @@
 	<section class="tickets-page">
 		<TicketAuditHeader />
 		<TicketFilters
-			bind:from
-			bind:to
+			bind:selectedDate
 			bind:selectedBranches
 			bind:selectedDrawSchedules
 			branchOptions={branchNames}
@@ -181,7 +177,7 @@
 		{:else if tickets.length === 0}
 			<div class="state-message" role="status">
 				<strong>No hay tiquetes para los filtros seleccionados.</strong>
-				<p>Prueba con otro periodo, puesto u horario.</p>
+				<p>Prueba con otra fecha, puesto u horario.</p>
 			</div>
 		{:else}
 			<TicketResultsTable

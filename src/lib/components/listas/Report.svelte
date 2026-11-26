@@ -23,12 +23,13 @@
 	let drawScheduleNames = $state<{ value: number; label: string }[]>([]);
 	let selectedBranch = $state<number[]>([]);
 	let selectedDrawSchedule = $state<number[]>([]);
-	let { data, user, responsive = false }: ReportProps = $props();
+	let { data, user, responsive = false, singleDate = false }: ReportProps = $props();
 	// Inicio uses fresh route data instead of a module cache shared with other reports.
 	let bancaFilterData = $derived(responsive ? (data ?? {}) : getBancaFilterData(data ?? {}));
 	let matrixMode = $state<'20x5' | '5x20' | '10x10'>('10x10');
 	let from =  $state(utcMinus6Date.toISOString().split('T')[0]);
 	let to =  $state(utcMinus6Date.toISOString().split('T')[0]);
+	let dateTo = $derived(singleDate ? from : to);
 	let report = $state<ReportItem[]>([]);
 	let isLoading = $state<boolean>(false);
 	let numberTotals = $state<Record<number, number>>({});
@@ -81,6 +82,7 @@
 	    data: any;
 	    user?: string;
 	    responsive?: boolean;
+	    singleDate?: boolean;
 	};
 
     async function handleConfirmDeleteProhibitedNumber() {
@@ -297,14 +299,14 @@
 		    isLoading = true;
 			let response;
 			if (user === 'banking') {
-				response = await fetch(`/banca/report-base?date_from=${from}&date_to=${to}&branches=${encodeURIComponent(selectedBranch.join(','))}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
+				response = await fetch(`/banca/report-base?date_from=${from}&date_to=${dateTo}&branches=${encodeURIComponent(selectedBranch.join(','))}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
 					method: 'GET',
 					headers: {
 						'Content-Type': 'application/json'
 					}
 				});
 			} else {
-				response = await fetch(`/puesto/reportes-base?date_from=${from}&date_to=${to}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
+				response = await fetch(`/puesto/reportes-base?date_from=${from}&date_to=${dateTo}&draw_schedules=${encodeURIComponent(selectedDrawSchedule.join(','))}`, {
 					method: 'GET',
 					headers: {
 						'Content-Type': 'application/json'
@@ -430,7 +432,7 @@
 	dateFrom={from}
 	puestos={puestosQr}
 	sorteos={sorteosQr}
-	dateTo={to}
+	dateTo={dateTo}
 	total={totalQr}
 	branchNames={branchNames}
 	drawScheduleNames={drawScheduleNames}
@@ -442,13 +444,15 @@
         <div class="left">
             <div class="filters">
             <div class="total">
-                <label for="from">Desde</label>
+                <label for="from">{singleDate ? 'Fecha' : 'Desde'}</label>
                 <input id="from" type="date" bind:value={from}/>
             </div>
+            {#if !singleDate}
             <div class="field">
                 <label for="to">Hasta</label>
                 <input id="to" type="date" bind:value={to}/>
             </div>
+            {/if}
             {#if user !== 'branch'}
                 <div class="field">
                     <label for="puesto">Puesto</label>

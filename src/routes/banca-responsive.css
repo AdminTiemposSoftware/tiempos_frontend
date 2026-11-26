@@ -17,6 +17,7 @@
 .app.banca-responsive .filters > * { min-width: 0; max-width: 100%; }
 .app.banca-responsive .filters .multi-select { width: 100%; max-width: 23rem; min-width: 0; box-sizing: border-box; }
 .app.banca-responsive .filters .field { flex: 1 1 12rem; }
+.app.banca-responsive .inicio .filters .field { flex: 0 1 12rem; }
 .app.banca-responsive .filters .trigger { min-width: 0; min-height: 44px; color: var(--color-text); }
 .app.banca-responsive .filters .chips { min-width: 0; }
 .app.banca-responsive .filters .chip { overflow: hidden; text-overflow: ellipsis; }

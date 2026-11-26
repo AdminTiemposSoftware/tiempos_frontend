@@ -9,4 +9,4 @@
     <title>Inicio</title>
 </svelte:head>
 
-<Report user={$auth.user?.role} data={data} responsive />
+<Report user={$auth.user?.role} data={data} responsive singleDate />

@@ -5,8 +5,7 @@ export const GET: RequestHandler = async ({ fetch, locals, url, cookies }) => {
 	const baseUrl = env.API_URL;
 	const bankingId = locals.user?.bankingId;
 	const token = cookies.get('session_banca') ?? '';
-	const dateFrom = url.searchParams.get('date_from');
-	const dateTo = url.searchParams.get('date_to');
+	const date = url.searchParams.get('date');
 	const branches = url.searchParams.get('branches');
 	const drawSchedules = url.searchParams.get('draw_schedules');
 
@@ -17,18 +16,17 @@ export const GET: RequestHandler = async ({ fetch, locals, url, cookies }) => {
 		});
 	}
 
-	if (!dateFrom || !dateTo || !branches || !drawSchedules) {
+	if (!date || !branches || !drawSchedules) {
 		return new Response(
 			JSON.stringify({
-				error: 'Payload must include date_from, date_to, branches, and draw_schedules.'
+				error: 'Payload must include date, branches, and draw_schedules.'
 			}),
 			{ status: 400, headers: { 'Content-Type': 'application/json' } }
 		);
 	}
 
 	const query = new URLSearchParams({
-		date_from: dateFrom,
-		date_to: dateTo,
+		date,
 		branches,
 		draw_schedules: drawSchedules
 	});
