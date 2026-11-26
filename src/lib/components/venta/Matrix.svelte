@@ -20,6 +20,7 @@
 
     let groupedNumbers = $state<Record<number, ReportItem[]>>({});
     let hoveredIndex = $state<number | null>(null);
+    let tooltipAnchor: DOMRect | null = null;
     type BreakdownRow = { draw: string; draw_schedule: string; branch: string; total: number };
     const numberTotalsByNumber = $derived(numberTotals as Record<number, number>);
     const breakdownByNumber = $derived(breakdown as Record<number, BreakdownRow[]>);
@@ -29,7 +30,11 @@
     const reportProhibitedNumberSet = $derived(new Set(reportProhibitedNumbers));
     const winnerNumberSet = $derived(new Set(winnerNumbers));
     const amountsByNumber = $derived(numberTotalsByNumber);
-    let hoveredBreakdown = $derived(hoveredIndex === null ? [] : (breakdownByNumber[hoveredIndex] ?? []));
+    let hoveredBreakdown = $derived(
+        hoveredIndex === null
+            ? []
+            : (breakdownByNumber[hoveredIndex] ?? []).filter((item) => Number(item.total) !== 0)
+    );
 
     $effect(() => {
         if (mode === '20x5') {
@@ -50,8 +55,33 @@
         );
     });
 
-    function showTooltip(index: number) {
+    function showTooltip(index: number, event: MouseEvent) {
+        tooltipAnchor = (event.currentTarget as HTMLElement).getBoundingClientRect();
         hoveredIndex = index;
+    }
+
+    function floatTooltip(node: HTMLDivElement) {
+        document.body.appendChild(node);
+        const anchor = tooltipAnchor;
+        if (anchor) {
+            const margin = 8;
+            const below = window.innerHeight - anchor.bottom - margin * 2;
+            const above = anchor.top - margin * 2;
+            const placeBelow = node.offsetHeight <= below || below >= above;
+            node.style.maxHeight = `${Math.max(0, placeBelow ? below : above)}px`;
+            const left = anchor.left + anchor.width / 2 - node.offsetWidth / 2;
+            node.style.left = `${Math.max(margin, Math.min(left, window.innerWidth - node.offsetWidth - margin))}px`;
+            node.style.top = `${placeBelow ? anchor.bottom + margin : Math.max(margin, anchor.top - node.offsetHeight - margin)}px`;
+        }
+        window.addEventListener('scroll', clearTooltip, true);
+        window.addEventListener('resize', clearTooltip);
+        return {
+            destroy() {
+                window.removeEventListener('scroll', clearTooltip, true);
+                window.removeEventListener('resize', clearTooltip);
+                node.remove();
+            }
+        };
     }
 
     function clearTooltip() {
@@ -90,11 +120,11 @@
                                 ${groupedNumbers[index]?.length > 0 ? "has-report" : ""
                             }`}
                             role="group"
-                            onmouseenter={() => showTooltip(index)}
+                            onmouseenter={(event) => showTooltip(index, event)}
                             onmouseleave={clearTooltip}
                         >
                             {#if hoveredIndex === index && hoveredBreakdown.length > 0}
-                                <div class="report-tooltip" role="tooltip">
+                                <div class="report-tooltip" role="tooltip" use:floatTooltip>
                                     <ul class="tooltip-groups">
                                         {#each hoveredBreakdown as item}
                                             <li class="tooltip-node">
@@ -152,32 +182,19 @@
 
 <style>
     .report-tooltip {
-        position: absolute;
-        bottom: calc(100% + 0.5rem);
-        left: 50%;
-        transform: translateX(-50%);
-        min-width: 12rem;
-        max-width: 14rem;
+        position: fixed;
+        width: min(14rem, calc(100vw - 1rem));
+        box-sizing: border-box;
+        overflow-y: auto;
         padding: 0.55rem 0.7rem;
         border-radius: 0.5rem;
         background: rgba(15, 23, 42, 0.95);
         color: #f8fafc;
         box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
-        z-index: 3;
+        z-index: 1000;
         pointer-events: none;
         font-size: 0.8rem;
         line-height: 1.3;
-    }
-
-    .report-tooltip::after {
-        content: "";
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        border-width: 0.4rem;
-        border-style: solid;
-        border-color: rgba(15, 23, 42, 0.95) transparent transparent transparent;
     }
 
     .tooltip-title {
